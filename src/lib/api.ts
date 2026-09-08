@@ -51,9 +51,9 @@ import { resultFor, type GameConfig, type GameKind } from '@/lib/game-config'
 const DB = hasSupabase
 
 /** ترويسة الجلسة — مسارات /api الحساسة بتتحقق من التوكن ده مش من أي id جاي من العميل */
-async function authHeaders(): Promise<Record<string, string>> {
+async function authHeaders(explicit?: string): Promise<Record<string, string>> {
   const { data } = await supabase().auth.getSession()
-  const t = data.session?.access_token
+  const t = explicit ?? data.session?.access_token
   return {
     'content-type': 'application/json',
     ...(t ? { authorization: `Bearer ${t}` } : {}),
@@ -239,7 +239,7 @@ export async function signInOrSignUp(email: string, password: string) {
 
   const auth = supabase().auth
   const signIn = await auth.signInWithPassword({ email, password })
-  if (!signIn.error) return { ok: true as const, created: false }
+  if (!signIn.error) return { ok: true as const, created: false, token: signIn.data.session?.access_token }
 
   const m = signIn.error.message.toLowerCase()
   const fail = (code: AuthFail, detail?: string) => ({ ok: false as const, code, detail })
@@ -260,8 +260,7 @@ export async function signInOrSignUp(email: string, password: string) {
         ? fail('wrongPassword')
         : fail('notConfirmed', 'signup ok, no session — confirm email is on?')
     }
-    // سوبابيس بترجّع «نجاح» صامت لإيميل موجود لما منع تعداد الإيميلات شغال — وقتها مفيش جلسة كمان
-    return { ok: true as const, created: true }
+    return { ok: true as const, created: true, token: signUp.data.session.access_token }
   }
   const u = signUp.error.message.toLowerCase()
   if (u.includes('already') || u.includes('registered')) return { ok: false as const, code: 'wrongPassword' as AuthFail }
@@ -320,11 +319,16 @@ export async function signOut() {
 }
 
 /** بعد الدخول — نضمن إن للحساب ملف في profiles (بيتعمل على الخادم بمفتاح الخدمة) */
-export async function ensureAccount(phone: string) {
+export async function ensureAccount(phone: string, token?: string) {
   if (!DB) return { ok: true as const }
+  const headers = await authHeaders(token)
+  if (!headers.authorization) {
+    // الدخول نجح بس الجلسة ما اتخزّنتش في المتصفح — غالبًا كوكيز مقفولة
+    return { ok: false as const, error: 'الجلسة ما اتفتحتش في المتصفح — اتأكد إن الكوكيز مسموحة وجرب تاني' }
+  }
   const res = await fetch('/api/account/ensure', {
     method: 'POST',
-    headers: await authHeaders(),
+    headers,
     body: JSON.stringify({ phone }),
   })
   const json = await res.json().catch(() => ({}))

@@ -158,7 +158,7 @@ function JoinForm() {
       return
     }
     // الملف في profiles — بيتعمل على الخادم لو مش موجود
-    const ens = await ensureAccount(digits)
+    const ens = await ensureAccount(digits, auth.token)
     if (!ens.ok) {
       setSubmitting(false)
       setErrors((prev) => ({ ...prev, phone: ens.error }))

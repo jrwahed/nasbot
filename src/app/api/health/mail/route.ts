@@ -25,6 +25,8 @@ export async function GET(req: Request) {
     from: mailSender(),
     whatsapp: Boolean(process.env.WHATSAPP_TOKEN && process.env.WHATSAPP_PHONE_ID),
     env: process.env.VERCEL_ENV ?? process.env.NODE_ENV,
+    // أنهي كوميت شغال فعلًا — Vercel بتحطه لوحدها. بيحسم «التصليح نزل ولا لأ».
+    build: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ?? 'local',
   }
 
   if (url.searchParams.get('send') !== '1') return NextResponse.json(status)

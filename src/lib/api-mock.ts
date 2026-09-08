@@ -111,7 +111,7 @@ export async function signIn(_email: string, password: string) {
 export async function signInOrSignUp(_email: string, password: string) {
   await delay(400)
   return password.length >= 6
-    ? { ok: true as const, created: true }
+    ? { ok: true as const, created: true, token: undefined as string | undefined }
     : { ok: false as const, code: 'weakPassword' as const }
 }
 

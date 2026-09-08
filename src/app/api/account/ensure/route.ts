@@ -23,9 +23,15 @@ export async function POST(req: Request) {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     { global: { headers: { authorization: `Bearer ${token}` } } }
   )
-  const { data: auth } = await asUser.auth.getUser(token)
+  const { data: auth, error: authErr } = await asUser.auth.getUser(token)
   const user = auth.user
-  if (!user) return NextResponse.json({ error: 'لازم تسجل دخول' }, { status: 401 })
+  if (!user) {
+    // السبب بيرجع مع الرسالة — من غيره 401 ما بيقولش حاجة
+    return NextResponse.json(
+      { error: `لازم تسجل دخول (${authErr?.message ?? 'no user for token'})` },
+      { status: 401 }
+    )
+  }
 
   let phone: string | null = null
   try {
