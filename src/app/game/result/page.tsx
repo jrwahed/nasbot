@@ -70,7 +70,7 @@ export default function ResultPage() {
   const book = () => {
     if (!next) return
     track('click_ana_gai', { slug: next.slug, from: 'game' })
-    router.push(isLoggedIn() ? `/s/${next.slug}/pay` : `/join?next=/s/${next.slug}/pay`)
+    router.push(isLoggedIn() ? `/s/${next.slug}/pay` : `/login?next=/s/${next.slug}/pay`)
   }
 
   if (!persona || !next) {

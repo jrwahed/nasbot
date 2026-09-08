@@ -41,7 +41,7 @@ export default function OnePage() {
     if (!sbota) return
     track('click_ana_gai', { slug: sbota.slug, from: 'one' })
     router.push(
-      isLoggedIn() ? `/s/${sbota.slug}/pay` : `/join?next=/s/${sbota.slug}/pay`
+      isLoggedIn() ? `/s/${sbota.slug}/pay` : `/login?next=/s/${sbota.slug}/pay`
     )
   }
 

@@ -2005,7 +2005,7 @@
   },
   {
     "key": "login.signupLink",
-    "value_ar": "سجّل من هنا",
+    "value_ar": "عمل حساب جديد",
     "screen": "تسجيل الدخول",
     "context_ar": "page.tsx"
   },

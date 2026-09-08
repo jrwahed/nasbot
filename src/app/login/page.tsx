@@ -1,11 +1,10 @@
 'use client'
 
 import { Suspense, useState } from 'react'
-import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { InnerHeader } from '@/components/Header'
 import { Field } from '@/components/Field'
-import { PrimaryButton } from '@/components/Buttons'
+import { PrimaryButton, SecondaryButton } from '@/components/Buttons'
 import { signIn, loadSessionFromProfile, type AuthFail } from '@/lib/api'
 import { useT } from '@/components/CopyProvider'
 
@@ -103,15 +102,18 @@ function LoginForm() {
         </div>
       </form>
 
-      <div className="mt-6 text-center font-body text-15" style={{ color: 'var(--muted)' }}>
-        {t('login.new')}{' '}
-        <Link
-          href={`/join?next=${encodeURIComponent(next)}`}
-          className="font-semibold underline"
-          style={{ color: 'var(--fg)' }}
+      {/* جديد؟ — زرار كامل مش لينك صغير، علشان الطريقين واضحين من أول نظرة */}
+      <div className="mt-8 flex flex-col gap-3">
+        <div className="text-center font-body text-15" style={{ color: 'var(--muted)' }}>
+          {t('login.new')}
+        </div>
+        <SecondaryButton
+          type="button"
+          className="w-full"
+          onClick={() => router.push(`/join?next=${encodeURIComponent(next)}`)}
         >
           {t('login.signupLink')}
-        </Link>
+        </SecondaryButton>
       </div>
     </main>
   )

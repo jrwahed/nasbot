@@ -93,7 +93,7 @@ export default function MysteryPage() {
                   onClick={() => {
                     track('click_ana_gai', { slug: 'mystery' })
                     router.push(
-                      isLoggedIn() ? '/s/mystery/pay' : '/join?next=/s/mystery/pay'
+                      isLoggedIn() ? '/s/mystery/pay' : '/login?next=/s/mystery/pay'
                     )
                   }}
                   className="w-full cursor-pointer rounded-16 border-0 font-display text-22 font-black"

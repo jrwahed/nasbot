@@ -40,7 +40,7 @@ export function SbotaCard({
       router.push(`${link}?wait=1`)
       return
     }
-    router.push(isLoggedIn() ? `${link}/pay` : `/join?next=/s/${sbota.slug}/pay`)
+    router.push(isLoggedIn() ? `${link}/pay` : `/login?next=/s/${sbota.slug}/pay`)
   }
 
   return (

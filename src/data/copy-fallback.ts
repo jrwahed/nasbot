@@ -55,7 +55,7 @@ export const copyFallback: Record<string, string> = {
   "login.password": "الباسورد",
   "login.submit": "دخول",
   "login.new": "أول مرة هنا؟",
-  "login.signupLink": "سجّل من هنا",
+  "login.signupLink": "عمل حساب جديد",
   "login.err.wrong": "الإيميل أو الباسورد مش مظبوط",
   "login.err.auth": "مقدرناش ندخّلك دلوقتي. جرب تاني.",
   "join.haveAccount": "عندك حساب؟",

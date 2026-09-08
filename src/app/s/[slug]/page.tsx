@@ -62,7 +62,7 @@ export default function SbotaPage() {
     if (!sbota) return
     track('click_ana_gai', { slug: sbota.slug })
     router.push(
-      isLoggedIn() ? `/s/${sbota.slug}/pay` : `/join?next=/s/${sbota.slug}/pay`
+      isLoggedIn() ? `/s/${sbota.slug}/pay` : `/login?next=/s/${sbota.slug}/pay`
     )
   }
 
