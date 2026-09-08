@@ -90,6 +90,7 @@ Project ← **Settings ← Environment Variables**. لكل متغير اختار
 | `SUPABASE_SERVICE_ROLE_KEY` | Production + Preview | نفس الصفحة ← `service_role` — **الجديد بعد التدوير** |
 | `NEXT_PUBLIC_SITE_URL` | Production | الدومين النهائي، مثال `https://nasbot.app` (من غير سلاش في الآخر) |
 | `CRON_SECRET` | Production + Preview | ولّده: `openssl rand -hex 32` |
+| `ADMIN_AUTH_PEPPER` | Production + Preview | ولّده: `openssl rand -hex 32` — **غير** الـ CRON_SECRET |
 | `WHATSAPP_PROVIDER` | Production | `meta` |
 | `WHATSAPP_TOKEN` | Production | Meta for Developers ← WhatsApp ← API Setup |
 | `WHATSAPP_PHONE_ID` | Production | نفس الصفحة ← Phone number ID |
