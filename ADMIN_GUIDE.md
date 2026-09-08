@@ -65,13 +65,23 @@
 
 ### تزويد حد للفريق
 
+من اللوحة: **`/admin/team`** (قسم «الفريق» — للمالك بس). اكتب رقم موبايله،
+اختار الدور، «ضيفه». من نفس الصفحة: تغيير الدور، وقف/رجّع، تصفير تطبيق
+المصادقة لو غيّر موبايله، وشيل من الفريق.
+
+الشخص لازم يكون عامل حساب في الموقع الأول (سجّل من صفحة الانضمام برقمه).
+بعد الإضافة بيدخل من `/admin/login` بإيميله وباسورده وبيفعّل تطبيق
+المصادقة أول مرة.
+
+حمايتين: ما تقدرش توقف نفسك أو تنزّل دورك، وآخر مالك نشط ما يتشالش.
+
+لو اللوحة نفسها مقفولة (مثلًا أول مالك خالص)، البديل من Supabase ← SQL Editor:
+
 ```sql
 insert into admin_users (profile_id, role_key, is_active)
-select id, 'ops', true from profiles where phone = '+201XXXXXXXXX'
+select id, 'owner', true from profiles where phone = '+201XXXXXXXXX'
 on conflict (profile_id) do update set role_key = excluded.role_key, is_active = true;
 ```
-
-الشخص لازم يكون عامل حساب في الموقع الأول (يعني دخل برقمه مرة).
 
 ---
 
