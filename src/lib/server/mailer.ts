@@ -19,19 +19,40 @@ export interface MailResult {
   error?: string
 }
 
-const RESEND_KEY = process.env.RESEND_API_KEY
-const SMTP_HOST = process.env.SMTP_HOST
-const SMTP_USER = process.env.SMTP_USER
-const SMTP_PASS = process.env.SMTP_PASS
+const RESEND_KEY = clean(process.env.RESEND_API_KEY)
+const SMTP_HOST = clean(process.env.SMTP_HOST)
+const SMTP_USER = clean(process.env.SMTP_USER)
+// جوجل بتعرض كلمة مرور التطبيق بمسافات (abcd efgh ijkl mnop) والناس بتنسخها كده —
+// SMTP بيرفضها بالمسافات. بنشيلها لجيميل بس؛ مزوّدين تانيين ممكن يكون عندهم مسافة حقيقية.
+const SMTP_PASS = (() => {
+  const raw = clean(process.env.SMTP_PASS)
+  return raw && /gmail|google/i.test(SMTP_HOST ?? '') ? raw.replace(/\s+/g, '') : raw
+})()
+
+/** بيشيل المسافات وعلامات التنصيص اللي بتيجي من النسخ واللزق */
+function clean(v: string | undefined): string | undefined {
+  const t = v?.trim().replace(/^["']|["']$/g, '')
+  return t || undefined
+}
 
 export function mailConfigured(): boolean {
   return Boolean(RESEND_KEY || (SMTP_HOST && SMTP_USER && SMTP_PASS))
 }
 
+/** أنهي مزوّد شغال — للفحص */
+export function mailProvider(): 'resend' | 'smtp' | 'none' {
+  if (RESEND_KEY) return 'resend'
+  if (SMTP_HOST && SMTP_USER && SMTP_PASS) return 'smtp'
+  return 'none'
+}
+
 /** عنوان المرسِل — لو مش محدد بنستخدم حساب SMTP نفسه */
 function from(): string {
-  return process.env.MAIL_FROM || (SMTP_USER ? `نسبوط <${SMTP_USER}>` : 'نسبوط <onboarding@resend.dev>')
+  return clean(process.env.MAIL_FROM) || (SMTP_USER ? `نسبوط <${SMTP_USER}>` : 'نسبوط <onboarding@resend.dev>')
 }
+
+/** نفس العنوان — للفحص */
+export const mailSender = from
 
 function authHtml(code: string): string {
   return `<!doctype html>
@@ -76,6 +97,9 @@ export async function sendAuthCodeEmail(to: string, code: string): Promise<MailR
         port,
         secure: port === 465,
         auth: { user: SMTP_USER, pass: SMTP_PASS },
+        connectionTimeout: 8_000,
+        greetingTimeout: 8_000,
+        socketTimeout: 12_000,
       })
       const info = await transport.sendMail({ from: from(), to, subject, text, html })
       return { ok: true, ref: info.messageId }

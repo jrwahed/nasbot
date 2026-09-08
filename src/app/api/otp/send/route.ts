@@ -4,6 +4,8 @@ import { admin, normalizePhone } from '@/lib/server/supabase-admin'
 import { codeHash, deliverCode, resolveEmail, OTP_TTL_MS } from '@/lib/server/otp'
 
 export const runtime = 'nodejs'
+// إرسال SMTP بياخد ثواني — الافتراضي على Vercel Hobby 10 ثواني وده على الحافة
+export const maxDuration = 30
 
 /** أرقام الاختبار — بتقبل 1234، وفي غير الإنتاج بس */
 function isTestPhone(phone: string) {
