@@ -36,6 +36,8 @@ const AUTH_ERR: Record<AuthFail, string> = {
   weakPassword: 'join.err.weakPassword',
   invalidEmail: 'join.err.invalidEmail',
   rateLimited: 'join.err.rateLimited',
+  notConfirmed: 'join.err.notConfirmed',
+  disabled: 'join.err.disabled',
   unknown: 'join.err.auth',
 }
 
@@ -148,7 +150,9 @@ function JoinForm() {
     const auth = await signInOrSignUp(email.trim().toLowerCase(), password)
     if (!auth.ok) {
       setSubmitting(false)
-      setErrors((prev) => ({ ...prev, password: t(AUTH_ERR[auth.code]) }))
+      // رسالة سوبابيس الأصلية بتظهر جنب العربي — من غيرها بنفضل نخمّن
+      const detail = 'detail' in auth && auth.detail ? ` (${auth.detail})` : ''
+      setErrors((prev) => ({ ...prev, password: t(AUTH_ERR[auth.code]) + detail }))
       document.querySelector('[data-err="1"]')?.scrollIntoView({ block: 'center', behavior: 'smooth' })
       return
     }

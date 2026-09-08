@@ -58,6 +58,8 @@ export const copyFallback: Record<string, string> = {
   "join.err.invalidEmail": "الإيميل ده مش شكله صح",
   "join.err.rateLimited": "جربت كتير. استنى دقيقة وحاول تاني.",
   "join.err.auth": "مقدرناش نسجّلك دلوقتي. جرب تاني.",
+  "join.err.notConfirmed": "الحساب ده محتاج تأكيد من الإدارة — كلّمنا",
+  "join.err.disabled": "التسجيل موقوف دلوقتي",
   "join.label.3": "صورتك",
   "join.text.7": "الأيام الفاضية",
   "join.text.8": "الميزانية المريحة",

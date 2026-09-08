@@ -1960,5 +1960,17 @@
     "value_ar": "مقدرناش نسجّلك دلوقتي. جرب تاني.",
     "screen": "إنشاء الحساب",
     "context_ar": "page.tsx"
+  },
+  {
+    "key": "join.err.notConfirmed",
+    "value_ar": "الحساب ده محتاج تأكيد من الإدارة — كلّمنا",
+    "screen": "إنشاء الحساب",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "join.err.disabled",
+    "value_ar": "التسجيل موقوف دلوقتي",
+    "screen": "إنشاء الحساب",
+    "context_ar": "page.tsx"
   }
 ]

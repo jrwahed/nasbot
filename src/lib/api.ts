@@ -224,7 +224,14 @@ export async function applyAsCaptain(payload: {
  * بنحاول ندخل الأول؛ لو الإيميل مش موجود بنعمله حساب. بترجّع كود خطأ
  * ثابت علشان الصفحة تعرضه من نصوص القاعدة بدل رسايل سوبابيس الإنجليزي.
  */
-export type AuthFail = 'wrongPassword' | 'weakPassword' | 'invalidEmail' | 'rateLimited' | 'unknown'
+export type AuthFail =
+  | 'wrongPassword'
+  | 'weakPassword'
+  | 'invalidEmail'
+  | 'rateLimited'
+  | 'notConfirmed'
+  | 'disabled'
+  | 'unknown'
 
 export async function signInOrSignUp(email: string, password: string) {
   if (!DB) return mock.signInOrSignUp(email, password)
@@ -234,15 +241,24 @@ export async function signInOrSignUp(email: string, password: string) {
   if (!signIn.error) return { ok: true as const, created: false }
 
   const m = signIn.error.message.toLowerCase()
-  if (m.includes('rate') || signIn.error.status === 429) return { ok: false as const, code: 'rateLimited' as AuthFail }
-  if (m.includes('email not confirmed')) return { ok: false as const, code: 'unknown' as AuthFail, detail: signIn.error.message }
-  if (!m.includes('invalid login')) return { ok: false as const, code: 'unknown' as AuthFail, detail: signIn.error.message }
+  const fail = (code: AuthFail, detail?: string) => ({ ok: false as const, code, detail })
+  if (m.includes('rate') || signIn.error.status === 429) return fail('rateLimited')
+  // حساب اتعمل وقت ما كان «تأكيد الإيميل» شغال — لازم يتأكد أو يتمسح من لوحة سوبابيس
+  if (m.includes('not confirmed')) return fail('notConfirmed', signIn.error.message)
+  if (m.includes('disabled') || m.includes('not allowed')) return fail('disabled', signIn.error.message)
+  if (!m.includes('invalid login')) return fail('unknown', signIn.error.message)
 
   // الإيميل مش مسجّل، أو الباسورد غلط — نجرّب نسجّل: لو الإيميل موجود سوبابيس هتقول
   const signUp = await auth.signUp({ email, password })
   if (!signUp.error) {
     // من غير جلسة = «تأكيد الإيميل» شغال في إعدادات سوبابيس — لازم يتقفل (DEPLOY_CHECKLIST §5.3)
-    if (!signUp.data.session) return { ok: false as const, code: 'unknown' as AuthFail, detail: 'email confirmation is on' }
+    // مفيش جلسة رغم نجاح التسجيل: يا «تأكيد الإيميل» شغال، يا الإيميل موجود أصلًا
+    // وسوبابيس بترجّع نجاح صامت (منع تعداد الإيميلات) — وساعتها الباسورد هو الغلط
+    if (!signUp.data.session) {
+      return signUp.data.user?.identities?.length === 0
+        ? fail('wrongPassword')
+        : fail('notConfirmed', 'signup ok, no session — confirm email is on?')
+    }
     // سوبابيس بترجّع «نجاح» صامت لإيميل موجود لما منع تعداد الإيميلات شغال — وقتها مفيش جلسة كمان
     return { ok: true as const, created: true }
   }
@@ -250,8 +266,9 @@ export async function signInOrSignUp(email: string, password: string) {
   if (u.includes('already') || u.includes('registered')) return { ok: false as const, code: 'wrongPassword' as AuthFail }
   if (u.includes('password')) return { ok: false as const, code: 'weakPassword' as AuthFail }
   if (u.includes('email')) return { ok: false as const, code: 'invalidEmail' as AuthFail }
-  if (u.includes('rate') || signUp.error.status === 429) return { ok: false as const, code: 'rateLimited' as AuthFail }
-  return { ok: false as const, code: 'unknown' as AuthFail, detail: signUp.error.message }
+  if (u.includes('rate') || signUp.error.status === 429) return fail('rateLimited')
+  if (u.includes('disabled') || u.includes('not allowed')) return fail('disabled', signUp.error.message)
+  return fail('unknown', signUp.error.message)
 }
 
 /** بعد الدخول — نضمن إن للحساب ملف في profiles (بيتعمل على الخادم بمفتاح الخدمة) */
