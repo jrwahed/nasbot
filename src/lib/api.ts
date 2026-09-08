@@ -20,6 +20,9 @@ import type {
   Profile,
   Sbota,
   Captain,
+  Gender,
+  GirlsOnlyPref,
+  SkillLevel,
 } from '@/types'
 import { supabase, hasSupabase } from '@/lib/supabase'
 import * as mock from '@/lib/api-mock'
@@ -41,6 +44,12 @@ import {
   slotsToDb,
   toPiastres,
   toPounds,
+  slotsFromDb,
+  girlsPrefFromDb,
+  skillFromDb,
+  activityFromDb,
+  budgetFromDb,
+  areaFromDb,
 } from '@/lib/map-db'
 import { setSession, clearSession } from '@/lib/session'
 import { personas } from '@/data/personas'
@@ -377,6 +386,82 @@ export async function verifyOtp(phone: string, code: string, email?: string) {
   return { ok: true as const, phone }
 }
 
+/** رابط موقّع لصورة في دلو avatars الخاص — ساعة صلاحية */
+export async function avatarUrl(path?: string | null): Promise<string | null> {
+  if (!DB || !path) return null
+  const { data } = await supabase().storage.from('avatars').createSignedUrl(path, 3600)
+  return data?.signedUrl ?? null
+}
+
+/** الملف بشكل الفورم — لصفحة التعديل. null لو مفيش جلسة أو مفيش ملف. */
+export interface ProfileForm {
+  phone: string
+  email: string
+  firstName: string
+  birthYear: string
+  gender?: Gender
+  area: string
+  areaOther: string
+  girlsOnly?: GirlsOnlyPref
+  interests: string[]
+  levels: Partial<Record<string, SkillLevel>>
+  budget: string
+  days: string[]
+  avatarUrl: string | null
+  agreedRules: boolean
+  agreedData: boolean
+}
+
+export async function getProfileForm(): Promise<ProfileForm | null> {
+  if (!DB) return null
+  const { data: auth } = await supabase().auth.getUser()
+  const uid = auth.user?.id
+  if (!uid) return null
+
+  const base =
+    'phone, email, first_name, birth_year, gender, area, girls_only_pref, budget_max, free_slots, avatar_path, rules_accepted_at, data_consent_at'
+  // area_other عمود جديد — لو الهجرة لسه ما اتطبّقتش نقرا من غيره بدل ما الصفحة تقع
+  let row: Record<string, unknown> | null = null
+  const withOther = await supabase().from('profiles').select(`${base}, area_other`).eq('id', uid).maybeSingle()
+  if (!withOther.error) row = withOther.data as Record<string, unknown> | null
+  else {
+    const plain = await supabase().from('profiles').select(base).eq('id', uid).maybeSingle()
+    row = plain.data as Record<string, unknown> | null
+  }
+  if (!row) return null
+
+  const [{ data: ints }, { data: skills }] = await Promise.all([
+    supabase().from('profile_interests').select('interests(label_ar)').eq('profile_id', uid),
+    supabase().from('skill_levels').select('activity, level').eq('profile_id', uid),
+  ])
+
+  const levels: Partial<Record<string, SkillLevel>> = {}
+  for (const sk of (skills ?? []) as { activity: string; level: string }[]) {
+    const lvl = skillFromDb(sk.level)
+    if (lvl) levels[activityFromDb(sk.activity)] = lvl
+  }
+
+  return {
+    phone: String(row.phone ?? '').replace(/^\+20/, '0'),
+    email: String(row.email ?? ''),
+    firstName: String(row.first_name ?? ''),
+    birthYear: row.birth_year ? String(row.birth_year) : '',
+    gender: genderFromDb(row.gender as string | null),
+    area: areaFromDb(row.area as string | null),
+    areaOther: String(row.area_other ?? ''),
+    girlsOnly: girlsPrefFromDb(row.girls_only_pref as string | null),
+    interests: ((ints ?? []) as unknown as { interests: { label_ar: string } | null }[])
+      .map((r) => r.interests?.label_ar)
+      .filter((x): x is string => Boolean(x)),
+    levels,
+    budget: budgetFromDb(row.budget_max as number | null),
+    days: slotsFromDb(row.free_slots as string[] | null),
+    avatarUrl: await avatarUrl(row.avatar_path as string | null),
+    agreedRules: Boolean(row.rules_accepted_at),
+    agreedData: Boolean(row.data_consent_at),
+  }
+}
+
 export async function createAccount(profile: Partial<Profile>) {
   if (!DB) return mock.createAccount(profile)
 
@@ -464,7 +549,8 @@ export async function getMe(): Promise<Me> {
 
   return {
     firstName: r.first_name ?? '',
-    photo: r.avatar_path ?? '[صورة]',
+    photo: '[صورة]',
+    photoUrl: await avatarUrl(r.avatar_path),
     persona,
     count: r.sbota_count ?? 0,
     credit: toPounds(r.wallet_balance ?? 0),

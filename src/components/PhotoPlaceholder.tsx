@@ -16,6 +16,7 @@ export function PhotoPlaceholder({
   style,
   children,
   fontSize,
+  src,
 }: {
   /** وصف الصورة الحقيقية المطلوبة، بين قوسين مربعين */
   label: string
@@ -27,6 +28,8 @@ export function PhotoPlaceholder({
   style?: CSSProperties
   children?: ReactNode
   fontSize?: number
+  /** صورة حقيقية (رابط موقّع) — لو موجودة بتحل مكان النص */
+  src?: string | null
 }) {
   const bg = variant === 'sandDeep' ? '#E2D2B4' : '#EFE3CF'
   const fs = fontSize ?? (circle ? 11 : 13)
@@ -41,7 +44,8 @@ export function PhotoPlaceholder({
         color: '#6B6455',
         fontSize: fs,
         lineHeight: 1.5,
-        padding: circle ? 4 : 16,
+        padding: src ? 0 : circle ? 4 : 16,
+        overflow: 'hidden',
         borderRadius: circle ? '50%' : undefined,
         width: size,
         height: size,
@@ -49,7 +53,12 @@ export function PhotoPlaceholder({
         ...style,
       }}
     >
-      <span aria-hidden="true">{label}</span>
+      {src ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={src} alt="" className="h-full w-full object-cover" />
+      ) : (
+        <span aria-hidden="true">{label}</span>
+      )}
       {children}
     </div>
   )

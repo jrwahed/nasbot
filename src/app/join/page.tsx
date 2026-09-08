@@ -19,8 +19,16 @@ import {
   days,
   girlsOnlyOptions,
 } from '@/data/lists'
-import { signInOrSignUp, ensureAccount, createAccount, uploadAvatar, type AuthFail } from '@/lib/api'
+import {
+  signInOrSignUp,
+  ensureAccount,
+  createAccount,
+  uploadAvatar,
+  getProfileForm,
+  type AuthFail,
+} from '@/lib/api'
 import { setSession } from '@/lib/session'
+import { hasSupabase } from '@/lib/supabase'
 import type { Gender, SkillLevel } from '@/types'
 import { useT } from '@/components/CopyProvider'
 
@@ -70,6 +78,11 @@ function JoinForm() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
 
+  // تعديل الملف: لو داخل فعلًا وعنده ملف — الفورم بيتملى ببياناته وبيحفظ فوقها
+  const [editMode, setEditMode] = useState(false)
+  const [existingAvatar, setExistingAvatar] = useState<string | null>(null)
+  const [ready, setReady] = useState(false)
+
   // 2 — عنك
   const [firstName, setFirstName] = useState('')
   const [birthYear, setBirthYear] = useState('')
@@ -102,6 +115,34 @@ function JoinForm() {
     return () => URL.revokeObjectURL(url)
   }, [photoFile])
 
+  useEffect(() => {
+    let alive = true
+    getProfileForm()
+      .then((p) => {
+        if (!alive || !p) return
+        setEditMode(true)
+        setPhone(p.phone)
+        setEmail(p.email)
+        setFirstName(p.firstName)
+        setBirthYear(p.birthYear)
+        setGender(p.gender ?? null)
+        setArea(p.area || null)
+        setAreaOther(p.areaOther)
+        if (p.girlsOnly) setGirlsOnly(p.girlsOnly)
+        if (p.interests.length) setPicked(p.interests)
+        setLevels((cur) => ({ ...cur, ...(p.levels as Record<string, SkillLevel>) }))
+        if (p.budget) setBudget(p.budget)
+        if (p.days.length) setPickedDays(p.days)
+        setExistingAvatar(p.avatarUrl)
+        setAgreeRules(p.agreedRules)
+        setAgreeData(p.agreedData)
+      })
+      .finally(() => alive && setReady(true))
+    return () => {
+      alive = false
+    }
+  }, [])
+
   // 5 — موافقتك
   const [agreeRules, setAgreeRules] = useState(true)
   const [agreeData, setAgreeData] = useState(false)
@@ -128,7 +169,7 @@ function JoinForm() {
 
     if (digits.length < 11) e.phone = t('join.label.25')
     if (!email.includes('@')) e.email = t('join.label.22')
-    if (password.length < 6) e.password = t('join.err.passwordShort')
+    if (!editMode && password.length < 6) e.password = t('join.err.passwordShort')
     if (!firstName.trim()) e.firstName = t('join.label.21')
     const y = Number(birthYear)
     if (!y || y < 1950 || y > MAX_BIRTH_YEAR) e.birthYear = t('join.label.20')
@@ -136,7 +177,7 @@ function JoinForm() {
     if (!area) e.area = t('join.label.18')
     else if (area === 'غير كده' && !areaOther.trim()) e.areaOther = t('join.err.areaOther')
     // الصورة إجبارية — الكابتن بيعرف الناس بيها عند البوابة
-    if (!photoFile) e.photo = t('join.err.photoRequired')
+    if (!photoFile && !existingAvatar) e.photo = t('join.err.photoRequired')
     if (picked.length !== MAX_INTERESTS) e.interests = t('join.label.17')
     if (!pickedDays.length) e.days = t('join.label.16')
     if (!agreeRules || !agreeData) e.agree = t('join.label.15')
@@ -151,23 +192,25 @@ function JoinForm() {
 
     setSubmitting(true)
 
-    // الدخول عند سوبابيس: يدخل لو الحساب موجود، ويسجّل لو جديد
-    const auth = await signInOrSignUp(email.trim().toLowerCase(), password)
-    if (!auth.ok) {
-      setSubmitting(false)
-      // رسالة سوبابيس الأصلية بتظهر جنب العربي — من غيرها بنفضل نخمّن
-      const detail = 'detail' in auth && auth.detail ? ` (${auth.detail})` : ''
-      setErrors((prev) => ({ ...prev, password: t(AUTH_ERR[auth.code]) + detail }))
-      document.querySelector('[data-err="1"]')?.scrollIntoView({ block: 'center', behavior: 'smooth' })
-      return
-    }
-    // الملف في profiles — بيتعمل على الخادم لو مش موجود
-    const ens = await ensureAccount(digits, auth.token)
-    if (!ens.ok) {
-      setSubmitting(false)
-      setErrors((prev) => ({ ...prev, phone: ens.error }))
-      document.querySelector('[data-err="1"]')?.scrollIntoView({ block: 'center', behavior: 'smooth' })
-      return
+    if (!editMode) {
+      // الدخول عند سوبابيس: يدخل لو الحساب موجود، ويسجّل لو جديد
+      const auth = await signInOrSignUp(email.trim().toLowerCase(), password)
+      if (!auth.ok) {
+        setSubmitting(false)
+        // رسالة سوبابيس الأصلية بتظهر جنب العربي — من غيرها بنفضل نخمّن
+        const detail = 'detail' in auth && auth.detail ? ` (${auth.detail})` : ''
+        setErrors((prev) => ({ ...prev, password: t(AUTH_ERR[auth.code]) + detail }))
+        document.querySelector('[data-err="1"]')?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+        return
+      }
+      // الملف في profiles — بيتعمل على الخادم لو مش موجود
+      const ens = await ensureAccount(digits, auth.token)
+      if (!ens.ok) {
+        setSubmitting(false)
+        setErrors((prev) => ({ ...prev, phone: ens.error }))
+        document.querySelector('[data-err="1"]')?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+        return
+      }
     }
 
     await createAccount({
@@ -178,9 +221,13 @@ function JoinForm() {
       gender: gender!,
       area: area as never,
       areaOther: area === 'غير كده' ? areaOther.trim() : undefined,
+      girlsOnly: gender === 'بنت' ? (girlsOnly as never) : undefined,
       interests: picked,
+      levels: levels as never,
       budget: budget as never,
       days: pickedDays,
+      agreedRules: agreeRules,
+      agreedData: agreeData,
     })
     if (photoFile) {
       const up = await uploadAvatar(photoFile)
@@ -193,19 +240,25 @@ function JoinForm() {
       }
     }
     setSession({ phone: digits, firstName, gender: gender!, role: 'member' })
-    router.push(next)
+    router.push(editMode ? '/me' : next)
   }
 
   return (
     <main className="mx-auto w-full max-w-page px-5 pb-6">
       <InnerHeader back={t('join.label.14')} padded={false} />
 
-      <h1 className="mb-0 mt-[10px] font-display text-30 font-black leading-[1.15]">{t('join.text.17')}</h1>
-      <div className="mt-1" style={{ color: 'var(--muted)' }}>
-        {t('join.bookingFor')}{' '}
-        <b style={{ color: 'var(--fg)' }}>{t('join.text.16')}</b>
-      </div>
-      <div className="mt-2 font-body text-15" style={{ color: 'var(--muted)' }}>
+      <h1 className="mb-0 mt-[10px] font-display text-30 font-black leading-[1.15]">
+        {editMode ? t('profile.edit.title') : t('join.text.17')}
+      </h1>
+      {editMode ? (
+        <div className="mt-1" style={{ color: 'var(--muted)' }}>{t('profile.edit.subtitle')}</div>
+      ) : (
+        <div className="mt-1" style={{ color: 'var(--muted)' }}>
+          {t('join.bookingFor')}{' '}
+          <b style={{ color: 'var(--fg)' }}>{t('join.text.16')}</b>
+        </div>
+      )}
+      <div className="mt-2 font-body text-15" style={{ color: 'var(--muted)' }} hidden={editMode}>
         {t('join.haveAccount')}{' '}
         <Link
           href={`/login?next=${encodeURIComponent(next)}`}
@@ -228,6 +281,8 @@ function JoinForm() {
             placeholder="01x xxxx xxxx"
             aria-label={t('join.label.12')}
             error={errors.phone}
+            hint={editMode ? t('profile.edit.phoneLocked') : undefined}
+            readOnly={editMode}
             className="text-end"
           />
         </div>
@@ -241,7 +296,7 @@ function JoinForm() {
             error={errors.email}
           />
         </div>
-        <div data-err={errors.password ? '1' : undefined}>
+        <div data-err={errors.password ? '1' : undefined} hidden={editMode}>
           <Field
             type="password"
             autoComplete="current-password"
@@ -470,12 +525,12 @@ function JoinForm() {
           onClick={() => fileInput.current?.click()}
           aria-label={t('join.label.2')}
           className="relative grid h-[140px] w-[140px] cursor-pointer place-items-center overflow-hidden rounded-full bg-transparent font-display text-18 font-black"
-          style={{ border: photoUrl ? '3px solid var(--fg)' : '3px dashed var(--fg)', color: 'var(--fg)' }}
+          style={{ border: photoUrl || existingAvatar ? '3px solid var(--fg)' : '3px dashed var(--fg)', color: 'var(--fg)' }}
         >
-          {photoUrl ? (
-            // معاينة محلية — object URL، مش صورة من الشبكة
+          {photoUrl || existingAvatar ? (
+            // معاينة محلية (object URL) أو الصورة المحفوظة (رابط موقّع)
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={photoUrl} alt="" className="absolute inset-0 h-full w-full object-cover" />
+            <img src={photoUrl ?? existingAvatar ?? ''} alt="" className="absolute inset-0 h-full w-full object-cover" />
           ) : (
             t('join.label.2')
           )}
@@ -514,7 +569,9 @@ function JoinForm() {
       {/* ===== الزر اللاصق ===== */}
       <div className="mt-6">
         <StickyCTA>
-          <PrimaryButton size="lg" className="w-full" onClick={submit} loading={submitting}>{t('join.text.2')}</PrimaryButton>
+          <PrimaryButton size="lg" className="w-full" onClick={submit} loading={submitting} disabled={!ready && hasSupabase}>
+            {editMode ? t('profile.edit.save') : t('join.text.2')}
+          </PrimaryButton>
           <div
             className="mt-[6px] text-center font-body text-13"
             style={{ color: 'var(--muted)' }}

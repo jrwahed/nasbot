@@ -61,7 +61,7 @@ export default function MePage() {
 
         {/* ===== الرأس ===== */}
         <div className="mt-4 flex items-center gap-4">
-          <PhotoPlaceholder label={me.photo} circle size={84} />
+          <PhotoPlaceholder label={me.photo} src={me.photoUrl} circle size={84} />
           <div className="min-w-0">
             <div className="font-display text-26 font-black">{me.firstName}</div>
             <div className="mt-1">

@@ -66,9 +66,37 @@ const SLOT_TO_DB: Record<string, string> = {
   'جمعة الصبح': 'fri_morning',
   'جمعة بالليل': 'fri_night',
   'وسط الأسبوع': 'midweek',
+  // أيام الأسبوع من صفحة الانضمام — كانت بتضيع لأنها مش في الخريطة
+  سبت: 'sat',
+  حد: 'sun',
+  اتنين: 'mon',
+  تلات: 'tue',
+  أربع: 'wed',
+  خميس: 'thu',
+  جمعة: 'fri',
 }
+const SLOT_FROM_DB: Record<string, string> = Object.fromEntries(
+  Object.entries(SLOT_TO_DB).map(([k, v]) => [v, k])
+)
 export const slotsToDb = (days: string[]) =>
   days.map((d) => SLOT_TO_DB[d]).filter(Boolean)
+export const slotsFromDb = (slots?: string[] | null) =>
+  (slots ?? []).map((s) => SLOT_FROM_DB[s]).filter(Boolean)
+
+export const girlsPrefFromDb = (p?: string | null): GirlsOnlyPref | undefined =>
+  p === 'always' ? 'دايمًا' : p === 'sometimes' ? 'أحيانًا' : p === 'no' ? 'مش مهم' : undefined
+
+const SKILL_FROM_DB: Record<string, SkillLevel> = Object.fromEntries(
+  Object.entries(SKILL_TO_DB).map(([k, v]) => [v, k as SkillLevel])
+)
+export const skillFromDb = (s?: string | null): SkillLevel | undefined =>
+  s ? SKILL_FROM_DB[s] : undefined
+export const activityFromDb = (a: string) =>
+  a === 'padel' ? 'بادل' : a === 'running' ? 'جري' : 'سباحة'
+
+/** 500 → «لحد 500». null في القاعدة = «مفيش مشكلة» (القيد بيسمح بـ 250/500/1000 بس) */
+export const budgetFromDb = (n?: number | null): string =>
+  n === 250 ? 'لحد 250' : n === 500 ? 'لحد 500' : n === 1000 ? 'لحد 1000' : 'مفيش مشكلة'
 
 /* ---------------------------------------------------------- الفلوس */
 

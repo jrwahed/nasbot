@@ -2050,5 +2050,29 @@
     "value_ar": "لازم تحط صورتك — الكابتن بيعرفك بيها عند البوابة",
     "screen": "إنشاء الحساب",
     "context_ar": "page.tsx"
+  },
+  {
+    "key": "profile.edit.title",
+    "value_ar": "عدّل ملفك",
+    "screen": "تعديل الملف",
+    "context_ar": "join/page.tsx"
+  },
+  {
+    "key": "profile.edit.subtitle",
+    "value_ar": "كل حاجة محفوظة زي ما هي — غيّر اللي عايزه واحفظ.",
+    "screen": "تعديل الملف",
+    "context_ar": "join/page.tsx"
+  },
+  {
+    "key": "profile.edit.save",
+    "value_ar": "احفظ التعديلات",
+    "screen": "تعديل الملف",
+    "context_ar": "join/page.tsx"
+  },
+  {
+    "key": "profile.edit.phoneLocked",
+    "value_ar": "الرقم مش بيتغيّر من هنا — كلّمنا لو محتاج.",
+    "screen": "تعديل الملف",
+    "context_ar": "join/page.tsx"
   }
 ]

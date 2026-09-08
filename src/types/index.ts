@@ -205,6 +205,8 @@ export interface Profile {
 export interface Me {
   firstName: string
   photo: string
+  /** رابط موقّع لصورة العضو — لو رفع واحدة */
+  photoUrl?: string | null
   persona: Persona
   /** «مسبوط 4 مرات» */
   count: number
