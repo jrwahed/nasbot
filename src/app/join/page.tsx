@@ -1,10 +1,10 @@
 'use client'
 
-import { Suspense, useState } from 'react'
+import { Suspense, useEffect, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { InnerHeader } from '@/components/Header'
 import { Sticker } from '@/components/Sticker'
-import { Field, ChoicePill, Checkbox } from '@/components/Field'
+import { Field, Select, ChoicePill, Checkbox } from '@/components/Field'
 import { PrimaryButton, InkButton } from '@/components/Buttons'
 import { StickyCTA } from '@/components/StickyCTA'
 import {
@@ -18,10 +18,17 @@ import {
   days,
   girlsOnlyOptions,
 } from '@/data/lists'
-import { sendOtp, verifyOtp, createAccount } from '@/lib/api'
+import { sendOtp, verifyOtp, createAccount, uploadAvatar } from '@/lib/api'
 import { setSession } from '@/lib/session'
 import type { Gender, SkillLevel } from '@/types'
 import { useT } from '@/components/CopyProvider'
+
+/** سنوات الميلاد — من 18 سنة لحد 1950، الأحدث الأول. نفس حد القاعدة (≥ 18) */
+const MAX_BIRTH_YEAR = new Date().getFullYear() - 18
+const BIRTH_YEARS = Array.from({ length: MAX_BIRTH_YEAR - 1950 + 1 }, (_, i) => {
+  const y = String(MAX_BIRTH_YEAR - i)
+  return { value: y, label: y }
+})
 
 /** رقم الخطوة — ستيكر برتقالي مايل، من الملف */
 function Step({ n, title, rotate, extra }: { n: number; title: string; rotate: number; extra?: React.ReactNode }) {
@@ -70,8 +77,19 @@ function JoinForm() {
   const [budget, setBudget] = useState<string>('لحد 500')
   const [pickedDays, setPickedDays] = useState<string[]>(['تلات', 'خميس', 'جمعة'])
 
-  // 4 — صورتك
-  const [photo, setPhoto] = useState(false)
+  // 4 — صورتك: الملف من الجهاز + معاينة، والرفع بيحصل بعد إنشاء الحساب
+  const [photoFile, setPhotoFile] = useState<File | null>(null)
+  const [photoUrl, setPhotoUrl] = useState<string | null>(null)
+  const fileInput = useRef<HTMLInputElement>(null)
+  useEffect(() => {
+    if (!photoFile) {
+      setPhotoUrl(null)
+      return
+    }
+    const url = URL.createObjectURL(photoFile)
+    setPhotoUrl(url)
+    return () => URL.revokeObjectURL(url)
+  }, [photoFile])
 
   // 5 — موافقتك
   const [agreeRules, setAgreeRules] = useState(true)
@@ -126,8 +144,7 @@ function JoinForm() {
     if (!email.includes('@')) e.email = t('join.label.22')
     if (!firstName.trim()) e.firstName = t('join.label.21')
     const y = Number(birthYear)
-    if (!y || y < 1950 || y > new Date().getFullYear() - 15)
-      e.birthYear = t('join.label.20')
+    if (!y || y < 1950 || y > MAX_BIRTH_YEAR) e.birthYear = t('join.label.20')
     if (!gender) e.gender = t('join.label.19')
     if (!area) e.area = t('join.label.18')
     if (picked.length !== MAX_INTERESTS) e.interests = t('join.label.17')
@@ -153,6 +170,16 @@ function JoinForm() {
       budget: budget as never,
       days: pickedDays,
     })
+    if (photoFile) {
+      const up = await uploadAvatar(photoFile)
+      if (!up.ok) {
+        // الحساب اتعمل — الصورة بس اللي وقعت. نوقف هنا علشان يجرب تاني بدل ما تضيع بصمت.
+        setSubmitting(false)
+        setErrors((prev) => ({ ...prev, photo: up.error }))
+        document.querySelector('[data-err="1"]')?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+        return
+      }
+    }
     setSession({ phone: digits, firstName, gender: gender!, role: 'member' })
     router.push(next)
   }
@@ -226,12 +253,12 @@ function JoinForm() {
           />
         </div>
         <div data-err={errors.birthYear ? '1' : undefined} className="min-w-0">
-          <Field
-            inputMode="numeric"
+          <Select
             value={birthYear}
             onChange={(e) => setBirthYear(e.target.value)}
             placeholder={t('join.label.5')}
             aria-label={t('join.label.5')}
+            options={BIRTH_YEARS}
             error={errors.birthYear}
           />
         </div>
@@ -397,15 +424,45 @@ function JoinForm() {
 
       {/* ===== 4 · صورتك ===== */}
       <Step n={4} title={t('join.label.3')} rotate={3} />
-      <div className="mt-[14px] flex flex-col items-center gap-3">
+      <div className="mt-[14px] flex flex-col items-center gap-3" data-err={errors.photo ? '1' : undefined}>
+        <input
+          ref={fileInput}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={(e) => {
+            const f = e.target.files?.[0] ?? null
+            setPhotoFile(f)
+            setErrors((prev) => ({ ...prev, photo: '' }))
+            // علشان اختيار نفس الملف تاني يشغّل onChange
+            e.target.value = ''
+          }}
+        />
         <button
           type="button"
-          onClick={() => setPhoto((p) => !p)}
-          className="grid h-[140px] w-[140px] cursor-pointer place-items-center rounded-full bg-transparent font-display text-18 font-black"
-          style={{ border: '3px dashed var(--fg)', color: 'var(--fg)' }}
+          onClick={() => fileInput.current?.click()}
+          aria-label={t('join.label.2')}
+          className="relative grid h-[140px] w-[140px] cursor-pointer place-items-center overflow-hidden rounded-full bg-transparent font-display text-18 font-black"
+          style={{ border: photoUrl ? '3px solid var(--fg)' : '3px dashed var(--fg)', color: 'var(--fg)' }}
         >
-          {photo ? t('join.photoDone') : t('join.label.2')}
+          {photoUrl ? (
+            // معاينة محلية — object URL، مش صورة من الشبكة
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={photoUrl} alt="" className="absolute inset-0 h-full w-full object-cover" />
+          ) : (
+            t('join.label.2')
+          )}
         </button>
+        {photoUrl && (
+          <div className="font-body text-13 font-semibold" style={{ color: 'var(--muted)' }}>
+            {t('join.photoDone')}
+          </div>
+        )}
+        {errors.photo && (
+          <div role="alert" className="text-13 font-semibold" style={{ color: 'var(--err-text)' }}>
+            {errors.photo}
+          </div>
+        )}
         <div
           className="rounded-16 px-4 py-[14px] text-15 font-semibold"
           style={{ background: '#EFE3CF', color: '#14161A' }}

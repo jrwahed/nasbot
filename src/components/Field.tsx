@@ -1,6 +1,11 @@
 'use client'
 
-import type { InputHTMLAttributes, ReactNode, TextareaHTMLAttributes } from 'react'
+import type {
+  InputHTMLAttributes,
+  ReactNode,
+  SelectHTMLAttributes,
+  TextareaHTMLAttributes,
+} from 'react'
 import { useId } from 'react'
 
 /**
@@ -56,6 +61,77 @@ export function Field({
           {hint}
         </span>
       )}
+      {error && (
+        <span
+          id={`${id}-err`}
+          role="alert"
+          className="font-body text-13 font-semibold"
+          style={{ color: 'var(--err-text)' }}
+        >
+          {error}
+        </span>
+      )}
+    </div>
+  )
+}
+
+/**
+ * قائمة اختيار بنفس شكل الحقل — للسنة وأمثالها.
+ * أول عنصر (placeholder) بيتعطّل بعد الاختيار علشان ما يرجعش فاضي.
+ */
+export function Select({
+  label,
+  error,
+  placeholder,
+  options,
+  className = '',
+  containerClassName = '',
+  ...rest
+}: SelectHTMLAttributes<HTMLSelectElement> & {
+  label?: string
+  error?: string
+  placeholder?: string
+  options: Array<{ value: string; label: string }>
+  containerClassName?: string
+}) {
+  const id = useId()
+  const empty = rest.value === '' || rest.value === undefined
+  return (
+    <div className={`flex w-full min-w-0 flex-col gap-1 ${containerClassName}`}>
+      {label && (
+        <label htmlFor={id} className="font-body text-14 font-semibold">
+          {label}
+        </label>
+      )}
+      <select
+        {...rest}
+        id={id}
+        aria-invalid={error ? true : undefined}
+        aria-describedby={error ? `${id}-err` : undefined}
+        className={`min-h-[52px] w-full min-w-0 appearance-none px-[14px] font-body text-16 font-semibold outline-none ${className}`}
+        style={{
+          ...boxStyle,
+          borderColor: error ? '#8E2F1F' : '#14161A',
+          color: empty ? '#8B8578' : '#14161A',
+          // سهم صغير على الشمال (الصفحة RTL)
+          backgroundImage:
+            "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'><path d='M3 6l5 5 5-5' fill='none' stroke='%2314161A' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'/></svg>\")",
+          backgroundRepeat: 'no-repeat',
+          backgroundPosition: 'left 14px center',
+          paddingLeft: 40,
+        }}
+      >
+        {placeholder !== undefined && (
+          <option value="" disabled={!empty}>
+            {placeholder}
+          </option>
+        )}
+        {options.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
+      </select>
       {error && (
         <span
           id={`${id}-err`}

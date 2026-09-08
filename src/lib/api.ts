@@ -426,6 +426,63 @@ export async function startBooking(input: {
   }
 }
 
+/**
+ * صورة العضو — بتتضغط في المتصفح لأقصى ضلع 1024 وبتترفع JPEG على
+ * avatars/<uid>/avatar.jpg (الدلو خاص، وسياسته: كل واحد مجلده هو بس).
+ * المسار بيتخزّن في profiles.avatar_path.
+ */
+export async function uploadAvatar(file: File) {
+  if (!DB) return { ok: true as const, path: null }
+
+  const { data: auth } = await supabase().auth.getUser()
+  const uid = auth.user?.id
+  if (!uid) return { ok: false as const, error: 'لازم تسجل دخول الأول' }
+
+  let blob: Blob
+  try {
+    blob = await shrinkImage(file, 1024)
+  } catch {
+    return { ok: false as const, error: 'الصورة دي مش مقروءة. جرب صورة تانية.' }
+  }
+
+  const path = `${uid}/avatar.jpg`
+  const { error: upErr } = await supabase()
+    .storage.from('avatars')
+    .upload(path, blob, { contentType: 'image/jpeg', upsert: true })
+  if (upErr) return { ok: false as const, error: 'الصورة مترفعتش. جرب تاني.' }
+
+  const { error } = await supabase().from('profiles').update({ avatar_path: path }).eq('id', uid)
+  if (error) return { ok: false as const, error: error.message }
+  return { ok: true as const, path }
+}
+
+/** تصغير الصورة على canvas — بيحل كمان مشكلة صور الموبايل الكبيرة (حد الدلو 5MB) */
+async function shrinkImage(file: File, maxSide: number): Promise<Blob> {
+  const url = URL.createObjectURL(file)
+  try {
+    const img = await new Promise<HTMLImageElement>((res, rej) => {
+      const i = new Image()
+      i.onload = () => res(i)
+      i.onerror = () => rej(new Error('decode'))
+      i.src = url
+    })
+    const scale = Math.min(1, maxSide / Math.max(img.width, img.height))
+    const w = Math.max(1, Math.round(img.width * scale))
+    const h = Math.max(1, Math.round(img.height * scale))
+    const canvas = document.createElement('canvas')
+    canvas.width = w
+    canvas.height = h
+    const ctx = canvas.getContext('2d')
+    if (!ctx) throw new Error('canvas')
+    ctx.drawImage(img, 0, 0, w, h)
+    return await new Promise<Blob>((res, rej) =>
+      canvas.toBlob((b) => (b ? res(b) : rej(new Error('encode'))), 'image/jpeg', 0.85)
+    )
+  } finally {
+    URL.revokeObjectURL(url)
+  }
+}
+
 /** الخطوة 2: رفع صورة التحويل — الحجز بيروح لمراجعة الإدارة */
 export async function submitTransfer(bookingId: string, file: File) {
   if (!DB) return { ok: true as const, bookingId }
