@@ -1,6 +1,7 @@
 'use client'
 
 import { Suspense, useEffect, useRef, useState } from 'react'
+import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { InnerHeader } from '@/components/Header'
 import { Sticker } from '@/components/Sticker'
@@ -197,6 +198,16 @@ function JoinForm() {
       <div className="mt-1" style={{ color: 'var(--muted)' }}>
         {t('join.bookingFor')}{' '}
         <b style={{ color: 'var(--fg)' }}>{t('join.text.16')}</b>
+      </div>
+      <div className="mt-2 font-body text-15" style={{ color: 'var(--muted)' }}>
+        {t('join.haveAccount')}{' '}
+        <Link
+          href={`/login?next=${encodeURIComponent(next)}`}
+          className="font-semibold underline"
+          style={{ color: 'var(--fg)' }}
+        >
+          {t('join.loginLink')}
+        </Link>
       </div>
 
       {/* ===== 1 · رقمك ===== */}

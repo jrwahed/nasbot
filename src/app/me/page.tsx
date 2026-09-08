@@ -7,8 +7,7 @@ import { InnerHeader } from '@/components/Header'
 import { PhotoPlaceholder } from '@/components/PhotoPlaceholder'
 import { Sticker } from '@/components/Sticker'
 import { Footer } from '@/components/Footer'
-import { getMe, getBookings, getMetBefore } from '@/lib/api'
-import { clearSession } from '@/lib/session'
+import { getMe, getBookings, getMetBefore, signOut } from '@/lib/api'
 import { useTheme } from '@/lib/use-theme'
 import type { Booking, Me, Person } from '@/types'
 import { useT } from '@/components/CopyProvider'
@@ -264,8 +263,8 @@ export default function MePage() {
           >{t('me.text.3')}</Link>
           <button
             type="button"
-            onClick={() => {
-              clearSession()
+            onClick={async () => {
+              await signOut()
               router.push('/')
             }}
             className="flex min-h-[52px] cursor-pointer items-center rounded-16 px-4 text-start font-body text-16 font-semibold"
@@ -273,8 +272,8 @@ export default function MePage() {
           >{t('me.text.2')}</button>
           <button
             type="button"
-            onClick={() => {
-              clearSession()
+            onClick={async () => {
+              await signOut()
               router.push('/')
             }}
             className="flex min-h-[52px] cursor-pointer items-center rounded-16 px-4 text-start font-body text-16 font-semibold"

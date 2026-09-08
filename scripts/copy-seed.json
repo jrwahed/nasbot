@@ -1972,5 +1972,65 @@
     "value_ar": "التسجيل موقوف دلوقتي",
     "screen": "إنشاء الحساب",
     "context_ar": "page.tsx"
+  },
+  {
+    "key": "login.title",
+    "value_ar": "ادخل",
+    "screen": "تسجيل الدخول",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "login.subtitle",
+    "value_ar": "بالإيميل والباسورد اللي سجّلت بيهم.",
+    "screen": "تسجيل الدخول",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "login.password",
+    "value_ar": "الباسورد",
+    "screen": "تسجيل الدخول",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "login.submit",
+    "value_ar": "دخول",
+    "screen": "تسجيل الدخول",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "login.new",
+    "value_ar": "أول مرة هنا؟",
+    "screen": "تسجيل الدخول",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "login.signupLink",
+    "value_ar": "سجّل من هنا",
+    "screen": "تسجيل الدخول",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "login.err.wrong",
+    "value_ar": "الإيميل أو الباسورد مش مظبوط",
+    "screen": "تسجيل الدخول",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "login.err.auth",
+    "value_ar": "مقدرناش ندخّلك دلوقتي. جرب تاني.",
+    "screen": "تسجيل الدخول",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "join.haveAccount",
+    "value_ar": "عندك حساب؟",
+    "screen": "إنشاء الحساب",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "join.loginLink",
+    "value_ar": "ادخل من هنا",
+    "screen": "إنشاء الحساب",
+    "context_ar": "page.tsx"
   }
 ]

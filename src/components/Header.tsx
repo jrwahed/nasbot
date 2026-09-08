@@ -33,7 +33,7 @@ export function Header() {
       <div className="flex items-center gap-1">
         <ThemeToggle />
         <Link
-          href={loggedIn ? '/me' : '/join'}
+          href={loggedIn ? '/me' : '/login'}
           className="grid min-h-[44px] place-items-center px-2 font-body text-16 font-semibold"
           style={{ color: 'var(--fg)' }}
         >

@@ -101,6 +101,13 @@ export async function applyAsCaptain(payload: {
 
 /* ---------------------------------------------------------- الحساب */
 
+export async function signIn(_email: string, password: string) {
+  await delay(400)
+  return password.length >= 6
+    ? { ok: true as const }
+    : { ok: false as const, code: 'wrongPassword' as const }
+}
+
 export async function signInOrSignUp(_email: string, password: string) {
   await delay(400)
   return password.length >= 6

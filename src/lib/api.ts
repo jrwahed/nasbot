@@ -42,6 +42,7 @@ import {
   toPiastres,
   toPounds,
 } from '@/lib/map-db'
+import { setSession, clearSession } from '@/lib/session'
 import { personas } from '@/data/personas'
 import { gameFallback } from '@/data/game'
 import { resultFor, type GameConfig, type GameKind } from '@/lib/game-config'
@@ -269,6 +270,53 @@ export async function signInOrSignUp(email: string, password: string) {
   if (u.includes('rate') || signUp.error.status === 429) return fail('rateLimited')
   if (u.includes('disabled') || u.includes('not allowed')) return fail('disabled', signUp.error.message)
   return fail('unknown', signUp.error.message)
+}
+
+/**
+ * دخول بس — للي عنده حساب. ما بيعملش حساب جديد أبدًا؛ التسجيل من صفحة الانضمام.
+ * الرسالة عامة عن قصد: ما بتفرّقش بين «إيميل مش موجود» و«باسورد غلط».
+ */
+export async function signIn(email: string, password: string) {
+  if (!DB) return mock.signIn(email, password)
+  const { error } = await supabase().auth.signInWithPassword({ email, password })
+  if (!error) return { ok: true as const }
+  const m = error.message.toLowerCase()
+  if (m.includes('rate') || error.status === 429) return { ok: false as const, code: 'rateLimited' as AuthFail }
+  if (m.includes('invalid login')) return { ok: false as const, code: 'wrongPassword' as AuthFail }
+  if (m.includes('not confirmed')) return { ok: false as const, code: 'notConfirmed' as AuthFail, detail: error.message }
+  return { ok: false as const, code: 'unknown' as AuthFail, detail: error.message }
+}
+
+/**
+ * بعد أي دخول ناجح: نقرا الملف ونكتب كوكي الجلسة اللي باقي الموقع بيعتمد عليه
+ * (isLoggedIn والاسم والنوع). بيرجّع false لو الحساب من غير ملف.
+ */
+export async function loadSessionFromProfile(): Promise<boolean> {
+  if (!DB) return true
+  const { data: auth } = await supabase().auth.getUser()
+  const uid = auth.user?.id
+  if (!uid) return false
+  const { data } = await supabase()
+    .from('profiles')
+    .select('phone, first_name, gender, role')
+    .eq('id', uid)
+    .maybeSingle()
+  if (!data) return false
+  const r = data as { phone: string; first_name: string | null; gender: string | null; role: string }
+  setSession({
+    // القاعدة بتخزّن +2010… والموقع بيستخدم الشكل المحلي 010…
+    phone: r.phone.replace(/^\+20/, '0'),
+    firstName: r.first_name ?? '',
+    gender: genderFromDb(r.gender),
+    role: r.role === 'captain' ? 'captain' : 'member',
+  })
+  return true
+}
+
+/** خروج كامل — كوكي الموقع وجلسة سوبابيس مع بعض (قبل كده كان الكوكي بس) */
+export async function signOut() {
+  clearSession()
+  if (DB) await supabase().auth.signOut()
 }
 
 /** بعد الدخول — نضمن إن للحساب ملف في profiles (بيتعمل على الخادم بمفتاح الخدمة) */
