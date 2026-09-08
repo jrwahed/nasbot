@@ -729,11 +729,17 @@ export async function getBookingStatus(bookingId: string) {
 
 export async function getBookings(): Promise<Booking[]> {
   if (!DB) return mock.getBookings()
+  // حجوزاتي أنا بس. RLS بتسمح كمان بقراءة حجوزات باقي المجموعة بعد الكشف،
+  // وكل الحجوزات للمدير — فمن غير الفلتر ده صفحة /me كانت بتعرض حجوزات غيري.
+  const { data: auth } = await supabase().auth.getUser()
+  const uid = auth.user?.id
+  if (!uid) return []
   const { data } = await supabase()
     .from('bookings')
     .select(
       'id, status, sbotat(id, starts_at, reveal_at, chat_closes_at, area, area_label_ar, sbota_templates(slug, name_ar))'
     )
+    .eq('profile_id', uid)
     .order('created_at', { ascending: false })
   return (data ?? []).map(bookingFromDb)
 }
