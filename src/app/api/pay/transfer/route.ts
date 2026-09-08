@@ -17,7 +17,7 @@ export async function POST(req: Request) {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     { global: { headers: { authorization: `Bearer ${token}` } } }
   )
-  const { data: auth } = await asUser.auth.getUser()
+  const { data: auth } = await asUser.auth.getUser(token)
   const uid = auth.user?.id
   if (!uid) return NextResponse.json({ error: 'لازم تسجل دخول' }, { status: 401 })
 
