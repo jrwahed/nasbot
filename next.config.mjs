@@ -95,8 +95,10 @@ const securityHeaders = [
 
 const nextConfig = {
   reactStrictMode: true,
-  // البناء بيستخدم مجلد تاني علشان ما يضربش سيرفر التطوير وهو شغال
-  distDir: process.env.NEXT_DIST_DIR || '.next',
+  // البناء بيستخدم مجلد تاني علشان ما يضربش سيرفر التطوير وهو شغال.
+  // على Vercel بنتجاهل المتغير خالص: Vercel بتدوّر على `.next` بس، ولو
+  // NEXT_DIST_DIR اتلزق في متغيرات المشروع بالغلط البناء يعدّي والنشر يقع.
+  distDir: process.env.VERCEL ? '.next' : process.env.NEXT_DIST_DIR || '.next',
 
   images: {
     remotePatterns: [
