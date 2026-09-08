@@ -1912,5 +1912,53 @@
     "value_ar": "{{name}} اتشال من الغرفة.",
     "screen": "الشات",
     "context_ar": "رسالة بعد شيل عضو"
+  },
+  {
+    "key": "join.label.password",
+    "value_ar": "الباسورد (٦ حروف أو أكتر)",
+    "screen": "إنشاء الحساب",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "join.text.password",
+    "value_ar": "لو سجّلت قبل كده — نفس الإيميل والباسورد بيدخّلوك.",
+    "screen": "إنشاء الحساب",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "join.err.passwordShort",
+    "value_ar": "الباسورد لازم ٦ حروف أو أكتر",
+    "screen": "إنشاء الحساب",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "join.err.wrongPassword",
+    "value_ar": "الإيميل ده مسجّل والباسورد مش مظبوط",
+    "screen": "إنشاء الحساب",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "join.err.weakPassword",
+    "value_ar": "الباسورد ده ضعيف — خليه أطول",
+    "screen": "إنشاء الحساب",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "join.err.invalidEmail",
+    "value_ar": "الإيميل ده مش شكله صح",
+    "screen": "إنشاء الحساب",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "join.err.rateLimited",
+    "value_ar": "جربت كتير. استنى دقيقة وحاول تاني.",
+    "screen": "إنشاء الحساب",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "join.err.auth",
+    "value_ar": "مقدرناش نسجّلك دلوقتي. جرب تاني.",
+    "screen": "إنشاء الحساب",
+    "context_ar": "page.tsx"
   }
 ]

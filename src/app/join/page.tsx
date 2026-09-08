@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { InnerHeader } from '@/components/Header'
 import { Sticker } from '@/components/Sticker'
 import { Field, Select, ChoicePill, Checkbox } from '@/components/Field'
-import { PrimaryButton, InkButton } from '@/components/Buttons'
+import { PrimaryButton } from '@/components/Buttons'
 import { StickyCTA } from '@/components/StickyCTA'
 import {
   interests as ALL_INTERESTS,
@@ -18,7 +18,7 @@ import {
   days,
   girlsOnlyOptions,
 } from '@/data/lists'
-import { sendOtp, verifyOtp, createAccount, uploadAvatar } from '@/lib/api'
+import { signInOrSignUp, ensureAccount, createAccount, uploadAvatar, type AuthFail } from '@/lib/api'
 import { setSession } from '@/lib/session'
 import type { Gender, SkillLevel } from '@/types'
 import { useT } from '@/components/CopyProvider'
@@ -29,6 +29,15 @@ const BIRTH_YEARS = Array.from({ length: MAX_BIRTH_YEAR - 1950 + 1 }, (_, i) => 
   const y = String(MAX_BIRTH_YEAR - i)
   return { value: y, label: y }
 })
+
+/** أخطاء الدخول → مفاتيح النصوص */
+const AUTH_ERR: Record<AuthFail, string> = {
+  wrongPassword: 'join.err.wrongPassword',
+  weakPassword: 'join.err.weakPassword',
+  invalidEmail: 'join.err.invalidEmail',
+  rateLimited: 'join.err.rateLimited',
+  unknown: 'join.err.auth',
+}
 
 /** رقم الخطوة — ستيكر برتقالي مايل، من الملف */
 function Step({ n, title, rotate, extra }: { n: number; title: string; rotate: number; extra?: React.ReactNode }) {
@@ -55,10 +64,8 @@ function JoinForm() {
 
   // 1 — رقمك
   const [phone, setPhone] = useState('')
-  const [code, setCode] = useState('')
   const [email, setEmail] = useState('')
-  const [otpSent, setOtpSent] = useState(false)
-  const [sending, setSending] = useState(false)
+  const [password, setPassword] = useState('')
 
   // 2 — عنك
   const [firstName, setFirstName] = useState('')
@@ -111,37 +118,13 @@ function JoinForm() {
   const toggleDay = (d: string) =>
     setPickedDays((s) => (s.includes(d) ? s.filter((x) => x !== d) : [...s, d]))
 
-  const onSendOtp = async () => {
-    const digits = phone.replace(/\D/g, '')
-    const e: Record<string, string> = { phone: '', email: '', code: '' }
-    if (digits.length < 11) e.phone = t('join.label.25')
-    // الرمز بيروح على الإيميل — فلازم يكون مكتوب قبل الإرسال
-    if (!email.includes('@')) e.email = t('join.label.22')
-    setErrors((prev) => ({ ...prev, ...e }))
-    if (e.phone || e.email) return
-
-    setSending(true)
-    const r = await sendOtp(digits, email.trim())
-    setSending(false)
-    if (!r.ok) {
-      // رسالة الخادم (مثلًا: الإيميل مش متاح، أو الإرسال مش متفعّل)
-      setErrors((prev) => ({ ...prev, code: r.error }))
-      return
-    }
-    setOtpSent(true)
-  }
-
   const submit = async () => {
     const e: Record<string, string> = {}
     const digits = phone.replace(/\D/g, '')
 
     if (digits.length < 11) e.phone = t('join.label.25')
-    if (!code.trim()) e.code = t('join.label.24')
-    else {
-      const ok = await verifyOtp(digits, code, email.trim())
-      if (!ok.ok) e.code = t('join.label.23')
-    }
     if (!email.includes('@')) e.email = t('join.label.22')
+    if (password.length < 6) e.password = t('join.err.passwordShort')
     if (!firstName.trim()) e.firstName = t('join.label.21')
     const y = Number(birthYear)
     if (!y || y < 1950 || y > MAX_BIRTH_YEAR) e.birthYear = t('join.label.20')
@@ -160,6 +143,24 @@ function JoinForm() {
     }
 
     setSubmitting(true)
+
+    // الدخول عند سوبابيس: يدخل لو الحساب موجود، ويسجّل لو جديد
+    const auth = await signInOrSignUp(email.trim().toLowerCase(), password)
+    if (!auth.ok) {
+      setSubmitting(false)
+      setErrors((prev) => ({ ...prev, password: t(AUTH_ERR[auth.code]) }))
+      document.querySelector('[data-err="1"]')?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+      return
+    }
+    // الملف في profiles — بيتعمل على الخادم لو مش موجود
+    const ens = await ensureAccount(digits)
+    if (!ens.ok) {
+      setSubmitting(false)
+      setErrors((prev) => ({ ...prev, phone: ens.error }))
+      document.querySelector('[data-err="1"]')?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+      return
+    }
+
     await createAccount({
       phone: digits,
       email,
@@ -219,23 +220,16 @@ function JoinForm() {
             error={errors.email}
           />
         </div>
-        <InkButton type="button" onClick={onSendOtp} disabled={sending}>
-          {sending ? t('shared.wait') : otpSent ? t('join.resend') : t('join.label.11')}
-        </InkButton>
-        {otpSent && (
-          <div role="status" className="font-body text-13" style={{ color: 'var(--muted)' }}>{t('join.text.15')}</div>
-        )}
-        <div data-err={errors.code ? '1' : undefined}>
+        <div data-err={errors.password ? '1' : undefined}>
           <Field
-            dir="ltr"
-            inputMode="numeric"
-            value={code}
-            onChange={(e) => setCode(e.target.value)}
-            placeholder={t('join.label.10')}
-            aria-label={t('join.label.9')}
-            error={errors.code}
-            big
-            className="text-end"
+            type="password"
+            autoComplete="current-password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder={t('join.label.password')}
+            aria-label={t('join.label.password')}
+            error={errors.password}
+            hint={t('join.text.password')}
           />
         </div>
       </div>

@@ -101,6 +101,13 @@ export async function applyAsCaptain(payload: {
 
 /* ---------------------------------------------------------- الحساب */
 
+export async function signInOrSignUp(_email: string, password: string) {
+  await delay(400)
+  return password.length >= 6
+    ? { ok: true as const, created: true }
+    : { ok: false as const, code: 'weakPassword' as const }
+}
+
 export async function sendOtp(phone: string, _email?: string) {
   await delay(400)
   return { ok: true as const, phone, hint: DEV_OTP }

@@ -116,16 +116,16 @@ function Copyable({ label, value }: { label: string; value: string }) {
 
 /* ------------------------------------------------------------- الصفحة */
 
-type Step = 'phone' | 'code' | 'totp' | 'enrol'
+type Step = 'password' | 'totp' | 'enrol'
 
 function LoginForm() {
   const router = useRouter()
   const search = useSearchParams()
   const next = search.get('next') ?? '/admin'
 
-  const [step, setStep] = useState<Step>('phone')
-  const [phone, setPhone] = useState('')
-  const [otp, setOtp] = useState('')
+  const [step, setStep] = useState<Step>('password')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
   const [totp, setTotp] = useState('')
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
@@ -149,58 +149,31 @@ function LoginForm() {
     return { res, json }
   }
 
-  /* ---------------------------------------------- ١أ — ابعت الرمز */
+  /* --------------------------------------- ١ — إيميل وباسورد */
 
-  const sendCode = async () => {
+  const signIn = async () => {
     setErr('')
-    if (phone.replace(/\D/g, '').length < 10) {
-      setErr('الرقم ده مش شكله صح.')
+    if (!email.includes('@') || password.length < 6) {
+      setErr('اكتب الإيميل والباسورد.')
       return
     }
-    setBusy(true)
-    const { res, json } = await post({ action: 'start', phone })
-    setBusy(false)
-    if (!res.ok) {
-      setErr(String(json.error ?? 'مقدرناش نبعت الرمز دلوقتي.'))
-      return
-    }
-    setStep('code')
-  }
-
-  /* ---------------------------------------------- ١ب — أكّد الرمز */
-
-  const checkCode = async () => {
-    setErr('')
-    if (!otp.trim()) {
-      setErr('اكتب الرمز اللي جالك.')
-      return
-    }
-    setBusy(true)
-
-    const { res, json } = await post({ action: 'otp', phone, code: otp })
-    if (!res.ok) {
-      setBusy(false)
-      setErr(String(json.error ?? 'الدخول مظبطش.'))
-      return
-    }
-
-    // الجلسة بتتفتح في المتصفح من التوكن اللي السيرفر رجّعه —
-    // الكوكيز دي هي اللي الميدل وير والسيرفر بيقروا منها بعد كده.
     if (!hasSupabase) {
-      setBusy(false)
       setErr('الخدمة مش متظبطة.')
       return
     }
-    const { error } = await supabase().auth.verifyOtp({
-      token_hash: String(json.token_hash ?? ''),
-      type: 'magiclink',
+    setBusy(true)
+    // الدخول عند سوبابيس مباشرة — الكوكيز اللي بتتكتب هي اللي الميدل وير والسيرفر بيقروا منها.
+    // الرسالة عامة عن قصد: ما بتقولش الإيميل ده بتاع حد من الفريق ولا لأ.
+    const { error } = await supabase().auth.signInWithPassword({
+      email: email.trim().toLowerCase(),
+      password,
     })
     setBusy(false)
     if (error) {
-      setErr('مقدرناش نفتح الجلسة. جرب تاني.')
+      setErr(error.status === 429 ? 'جربت كتير. استنى دقيقة.' : 'الدخول مظبطش.')
       return
     }
-    setOtp('')
+    setPassword('')
     setStep('totp')
   }
 
@@ -269,66 +242,42 @@ function LoginForm() {
 
       <h1 className="mb-1 mt-2 font-display text-30 font-black">دخول اللوحة</h1>
       <p className="mb-5 font-body text-15" style={{ color: 'var(--muted)' }}>
-        اللوحة للفريق بس. الدخول بخطوتين: رقمك، وبعدين كود من تطبيق المصادقة.
+        اللوحة للفريق بس. الدخول بخطوتين: إيميلك وباسوردك، وبعدين كود من تطبيق المصادقة.
       </p>
 
-      {step === 'phone' && (
+      {step === 'password' && (
         <section className={CARD} style={cardStyle}>
-          <div className="font-display text-18 font-black">١ — رقمك</div>
+          <div className="font-display text-18 font-black">١ — إيميلك وباسوردك</div>
           <p className="mt-1 font-body text-14" style={{ color: 'var(--muted)' }}>
-            هنبعتلك رمز على الواتساب.
+            نفس حسابك في الموقع.
           </p>
           <input
             dir="ltr"
-            inputMode="tel"
-            autoComplete="tel"
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && sendCode()}
-            placeholder="01xxxxxxxxx"
+            type="email"
+            inputMode="email"
+            autoComplete="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && signIn()}
+            placeholder="you@example.com"
             className={`${INPUT} mt-3`}
+            style={inputStyle}
+          />
+          <input
+            dir="ltr"
+            type="password"
+            autoComplete="current-password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && signIn()}
+            placeholder="••••••••"
+            className={`${INPUT} mt-2`}
             style={inputStyle}
           />
           <Err>{err}</Err>
           <div className="mt-4">
-            <Btn onClick={sendCode} busy={busy}>
-              ابعتلي الرمز
-            </Btn>
-          </div>
-        </section>
-      )}
-
-      {step === 'code' && (
-        <section className={CARD} style={cardStyle}>
-          <div className="font-display text-18 font-black">١ — الرمز اللي جالك</div>
-          <p className="mt-1 font-body text-14" style={{ color: 'var(--muted)' }}>
-            بصّ على الواتساب. الرمز بيقعد ١٠ دقايق.
-          </p>
-          <input
-            dir="ltr"
-            inputMode="numeric"
-            autoComplete="one-time-code"
-            value={otp}
-            onChange={(e) => setOtp(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && checkCode()}
-            placeholder="••••••"
-            className={`${INPUT} mt-3`}
-            style={inputStyle}
-          />
-          <Err>{err}</Err>
-          <div className="mt-4 flex flex-col gap-2">
-            <Btn onClick={checkCode} busy={busy}>
+            <Btn onClick={signIn} busy={busy}>
               كمّل
-            </Btn>
-            <Btn
-              kind="ghost"
-              onClick={() => {
-                setErr('')
-                setOtp('')
-                setStep('phone')
-              }}
-            >
-              غيّر الرقم
             </Btn>
           </div>
         </section>

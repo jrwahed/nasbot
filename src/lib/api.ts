@@ -220,6 +220,57 @@ export async function applyAsCaptain(payload: {
 /* ============================================================ الدخول */
 
 /**
+ * الدخول بإيميل وباسورد — عند سوبابيس مباشرة، مفيش رمز ولا إرسال.
+ * بنحاول ندخل الأول؛ لو الإيميل مش موجود بنعمله حساب. بترجّع كود خطأ
+ * ثابت علشان الصفحة تعرضه من نصوص القاعدة بدل رسايل سوبابيس الإنجليزي.
+ */
+export type AuthFail = 'wrongPassword' | 'weakPassword' | 'invalidEmail' | 'rateLimited' | 'unknown'
+
+export async function signInOrSignUp(email: string, password: string) {
+  if (!DB) return mock.signInOrSignUp(email, password)
+
+  const auth = supabase().auth
+  const signIn = await auth.signInWithPassword({ email, password })
+  if (!signIn.error) return { ok: true as const, created: false }
+
+  const m = signIn.error.message.toLowerCase()
+  if (m.includes('rate') || signIn.error.status === 429) return { ok: false as const, code: 'rateLimited' as AuthFail }
+  if (m.includes('email not confirmed')) return { ok: false as const, code: 'unknown' as AuthFail, detail: signIn.error.message }
+  if (!m.includes('invalid login')) return { ok: false as const, code: 'unknown' as AuthFail, detail: signIn.error.message }
+
+  // الإيميل مش مسجّل، أو الباسورد غلط — نجرّب نسجّل: لو الإيميل موجود سوبابيس هتقول
+  const signUp = await auth.signUp({ email, password })
+  if (!signUp.error) {
+    // من غير جلسة = «تأكيد الإيميل» شغال في إعدادات سوبابيس — لازم يتقفل (DEPLOY_CHECKLIST §5.3)
+    if (!signUp.data.session) return { ok: false as const, code: 'unknown' as AuthFail, detail: 'email confirmation is on' }
+    // سوبابيس بترجّع «نجاح» صامت لإيميل موجود لما منع تعداد الإيميلات شغال — وقتها مفيش جلسة كمان
+    return { ok: true as const, created: true }
+  }
+  const u = signUp.error.message.toLowerCase()
+  if (u.includes('already') || u.includes('registered')) return { ok: false as const, code: 'wrongPassword' as AuthFail }
+  if (u.includes('password')) return { ok: false as const, code: 'weakPassword' as AuthFail }
+  if (u.includes('email')) return { ok: false as const, code: 'invalidEmail' as AuthFail }
+  if (u.includes('rate') || signUp.error.status === 429) return { ok: false as const, code: 'rateLimited' as AuthFail }
+  return { ok: false as const, code: 'unknown' as AuthFail, detail: signUp.error.message }
+}
+
+/** بعد الدخول — نضمن إن للحساب ملف في profiles (بيتعمل على الخادم بمفتاح الخدمة) */
+export async function ensureAccount(phone: string) {
+  if (!DB) return { ok: true as const }
+  const res = await fetch('/api/account/ensure', {
+    method: 'POST',
+    headers: await authHeaders(),
+    body: JSON.stringify({ phone }),
+  })
+  const json = await res.json().catch(() => ({}))
+  return res.ok
+    ? { ok: true as const }
+    : { ok: false as const, error: (json.error as string | undefined) ?? 'مقدرناش نكمّل الحساب' }
+}
+
+/* ---------- الرمز — مؤجّل. المسارات شغالة لو رجعنا له (واتساب/إيميل) ---------- */
+
+/**
  * الرمز بيروح على الإيميل المرتبط بالرقم. الإيميل لازم يتبعت لرقم جديد؛
  * لرقم مسجّل الخادم بيتجاهله وبيستخدم المتخزّن (راجع src/lib/server/otp.ts).
  */
