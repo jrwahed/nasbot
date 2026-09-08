@@ -402,6 +402,17 @@ export async function createAccount(profile: Partial<Profile>) {
 
   if (error) return { ok: false as const, error: error.message }
 
+  // المنطقة بالنص — تحديث منفصل عن قصد: لو العمود لسه ما اتضافش (الهجرة
+  // 20260908230000) الملف بيتحفظ عادي والنص بس اللي بيضيع، مش الحساب كله.
+  if (profile.area === 'غير كده' && profile.areaOther?.trim()) {
+    const { error: aErr } = await supabase()
+      .from('profiles')
+      .update({ area_other: profile.areaOther.trim() })
+      .eq('id', uid)
+    // eslint-disable-next-line no-console
+    if (aErr) console.warn('area_other لم يُحفظ — شغّل هجرة profiles_area_other:', aErr.message)
+  }
+
   // الاهتمامات — 5 بالظبط
   if (profile.interests?.length) {
     const { data: rows } = await supabase()

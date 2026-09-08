@@ -42,6 +42,7 @@ interface PRow {
   first_name: string | null
   phone: string
   area: string | null
+  area_other: string | null
   gender: string | null
   birth_year: number | null
   girls_only_pref: string | null
@@ -123,7 +124,8 @@ const AREAS = [
   { value: 'downtown_zamalek', label: 'وسط-زمالك' },
   { value: 'other', label: 'غير كده' },
 ]
-const areaLabel = (a: string | null) => AREAS.find((x) => x.value === a)?.label ?? '—'
+const areaLabel = (a: string | null, other?: string | null) =>
+  a === 'other' && other ? other : (AREAS.find((x) => x.value === a)?.label ?? '—')
 
 const GENDERS = [
   { value: 'female', label: 'بنت' },
@@ -235,7 +237,7 @@ function People({ me }: { me: AdminMe }) {
       db
         .from('profiles')
         .select(
-          'id, first_name, phone, area, gender, birth_year, girls_only_pref, social_energy, group_pref, budget_max, wish_text, type, role, sbota_count, no_show_count, wallet_balance, avatar_path, banned_at, ban_reason, deleted_at, created_at'
+          'id, first_name, phone, area, area_other, gender, birth_year, girls_only_pref, social_energy, group_pref, budget_max, wish_text, type, role, sbota_count, no_show_count, wallet_balance, avatar_path, banned_at, ban_reason, deleted_at, created_at'
         )
         .order('created_at', { ascending: false })
         .limit(2000),
@@ -380,7 +382,7 @@ function People({ me }: { me: AdminMe }) {
                         {r.type && <Tag>{typeNames[r.type] ?? r.type}</Tag>}
                       </div>
                     </td>
-                    <td className="p-2">{areaLabel(r.area)}</td>
+                    <td className="p-2">{areaLabel(r.area, r.area_other)}</td>
                     <td className="p-2" onClick={(e) => e.stopPropagation()}>
                       {canSeePhone ? (
                         <button

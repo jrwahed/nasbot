@@ -2032,5 +2032,23 @@
     "value_ar": "ادخل من هنا",
     "screen": "إنشاء الحساب",
     "context_ar": "page.tsx"
+  },
+  {
+    "key": "join.label.areaOther",
+    "value_ar": "اكتب منطقتك (مثلًا: الشيخ زايد، حدايق الأهرام…)",
+    "screen": "إنشاء الحساب",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "join.err.areaOther",
+    "value_ar": "اكتب منطقتك",
+    "screen": "إنشاء الحساب",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "join.err.photoRequired",
+    "value_ar": "لازم تحط صورتك — الكابتن بيعرفك بيها عند البوابة",
+    "screen": "إنشاء الحساب",
+    "context_ar": "page.tsx"
   }
 ]

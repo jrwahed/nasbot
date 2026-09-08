@@ -75,6 +75,7 @@ function JoinForm() {
   const [birthYear, setBirthYear] = useState('')
   const [gender, setGender] = useState<Gender | null>(null)
   const [area, setArea] = useState<string | null>(null)
+  const [areaOther, setAreaOther] = useState('')
   const [girlsOnly, setGirlsOnly] = useState<string>('أحيانًا')
 
   // 3 — بتحب إيه
@@ -133,6 +134,9 @@ function JoinForm() {
     if (!y || y < 1950 || y > MAX_BIRTH_YEAR) e.birthYear = t('join.label.20')
     if (!gender) e.gender = t('join.label.19')
     if (!area) e.area = t('join.label.18')
+    else if (area === 'غير كده' && !areaOther.trim()) e.areaOther = t('join.err.areaOther')
+    // الصورة إجبارية — الكابتن بيعرف الناس بيها عند البوابة
+    if (!photoFile) e.photo = t('join.err.photoRequired')
     if (picked.length !== MAX_INTERESTS) e.interests = t('join.label.17')
     if (!pickedDays.length) e.days = t('join.label.16')
     if (!agreeRules || !agreeData) e.agree = t('join.label.15')
@@ -172,6 +176,8 @@ function JoinForm() {
       firstName,
       birthYear,
       gender: gender!,
+      area: area as never,
+      areaOther: area === 'غير كده' ? areaOther.trim() : undefined,
       interests: picked,
       budget: budget as never,
       days: pickedDays,
@@ -305,6 +311,18 @@ function JoinForm() {
       {errors.area && (
         <div role="alert" className="mt-1 text-13 font-semibold" style={{ color: 'var(--err-text)' }}>
           {errors.area}
+        </div>
+      )}
+      {area === 'غير كده' && (
+        <div className="mt-[10px]" data-err={errors.areaOther ? '1' : undefined}>
+          <Field
+            value={areaOther}
+            onChange={(e) => setAreaOther(e.target.value)}
+            placeholder={t('join.label.areaOther')}
+            aria-label={t('join.label.areaOther')}
+            error={errors.areaOther}
+            autoFocus
+          />
         </div>
       )}
 

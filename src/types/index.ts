@@ -190,6 +190,8 @@ export interface Profile {
   birthYear: string
   gender: Gender
   area: Area
+  /** المنطقة بالنص لما area = «غير كده» */
+  areaOther?: string
   girlsOnly?: GirlsOnlyPref
   interests: string[]
   levels: { بادل: SkillLevel; جري: SkillLevel; سباحة: SkillLevel }
