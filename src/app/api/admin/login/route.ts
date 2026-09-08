@@ -132,6 +132,25 @@ export async function POST(req: Request) {
 
   /* --------------------------------- الخطوة ٢: كود تطبيق المصادقة */
 
+  /* ------------------------------ بعد الإيميل والباسورد: تفعيل ولا كود؟ */
+
+  // المدير اللي لسه ما فعّلش التطبيق ما عندوش كود يكتبه أصلًا — فبدل ما نطلب
+  // منه ٦ أرقام وهمية علشان الخادم يقول «روح فعّل»، الواجهة بتسأل هنا الأول.
+  // نفس حدود المعلومة اللي بيكشفها مسار 'totp': مفيش جلسة أو مش مدير → فشل عام.
+  if (action === 'status') {
+    const ipRate = await checkLoginRate(null, ip)
+    if (!ipRate.ok) return tooMany()
+
+    const found = await adminUserForSession(req)
+    if (!found || !found.row) return fail()
+
+    const needsEnrol = !found.row.totp_secret || !found.row.totp_enabled_at
+    return NextResponse.json(
+      { ok: true, next: needsEnrol ? 'enrol' : 'totp' },
+      { status: 200, headers: noStore }
+    )
+  }
+
   if (action === 'totp') {
     const submitted = String(body.code ?? '')
 

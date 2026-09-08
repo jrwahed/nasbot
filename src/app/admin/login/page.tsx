@@ -168,12 +168,20 @@ function LoginForm() {
       email: email.trim().toLowerCase(),
       password,
     })
-    setBusy(false)
     if (error) {
+      setBusy(false)
       setErr(error.status === 429 ? 'جربت كتير. استنى دقيقة.' : 'الدخول مظبطش.')
       return
     }
     setPassword('')
+
+    // أول مرة؟ نروح للتفعيل على طول بدل ما نطلب كود مش موجود
+    const { res, json } = await post({ action: 'status' })
+    setBusy(false)
+    if (res.ok && json.next === 'enrol') {
+      await beginEnrol()
+      return
+    }
     setStep('totp')
   }
 
@@ -302,9 +310,12 @@ function LoginForm() {
             style={inputStyle}
           />
           <Err>{err}</Err>
-          <div className="mt-4">
+          <div className="mt-4 flex flex-col gap-2">
             <Btn onClick={checkTotp} busy={busy}>
               ادخل
+            </Btn>
+            <Btn kind="ghost" onClick={beginEnrol}>
+              أول مرة؟ فعّل التطبيق
             </Btn>
           </div>
         </section>
