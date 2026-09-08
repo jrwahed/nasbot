@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
 import { admin } from '@/lib/server/supabase-admin'
 
 export const runtime = 'nodejs'
@@ -12,12 +11,7 @@ export async function POST(req: Request) {
   const token = (req.headers.get('authorization') ?? '').replace('Bearer ', '')
   if (!token) return NextResponse.json({ error: 'لازم تسجل دخول' }, { status: 401 })
 
-  const asUser = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { global: { headers: { authorization: `Bearer ${token}` } } }
-  )
-  const { data: auth } = await asUser.auth.getUser(token)
+  const { data: auth } = await admin().auth.getUser(token)
   const uid = auth.user?.id
   if (!uid) return NextResponse.json({ error: 'لازم تسجل دخول' }, { status: 401 })
 

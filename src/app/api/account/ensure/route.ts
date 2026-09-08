@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server'
 import { randomBytes } from 'node:crypto'
-import { createClient } from '@supabase/supabase-js'
 import { admin, normalizePhone } from '@/lib/server/supabase-admin'
 
 export const runtime = 'nodejs'
@@ -18,12 +17,7 @@ export async function POST(req: Request) {
   const token = (req.headers.get('authorization') ?? '').replace('Bearer ', '')
   if (!token) return NextResponse.json({ error: 'لازم تسجل دخول' }, { status: 401 })
 
-  const asUser = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { global: { headers: { authorization: `Bearer ${token}` } } }
-  )
-  const { data: auth, error: authErr } = await asUser.auth.getUser(token)
+  const { data: auth, error: authErr } = await admin().auth.getUser(token)
   const user = auth.user
   if (!user) {
     // السبب بيرجع مع الرسالة — من غيره 401 ما بيقولش حاجة
