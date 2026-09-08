@@ -66,7 +66,7 @@ export const copyFallback: Record<string, string> = {
   "join.label.8": "الإيميل",
   "join.label.9": "رمز التحقق",
   "join.label.10": "الرمز (6 أرقام)",
-  "join.text.15": "بعتنالك الرمز على واتساب.",
+  "join.text.15": "بعتنالك الرمز على إيميلك.",
   "join.label.11": "ابعتلي الرمز على واتساب",
   "join.label.12": "رقم الموبايل",
   "join.label.13": "رقمك",

@@ -219,27 +219,31 @@ export async function applyAsCaptain(payload: {
 
 /* ============================================================ الدخول */
 
-export async function sendOtp(phone: string) {
+/**
+ * الرمز بيروح على الإيميل المرتبط بالرقم. الإيميل لازم يتبعت لرقم جديد؛
+ * لرقم مسجّل الخادم بيتجاهله وبيستخدم المتخزّن (راجع src/lib/server/otp.ts).
+ */
+export async function sendOtp(phone: string, email?: string) {
   if (!DB) return mock.sendOtp(phone)
   const res = await fetch('/api/otp/send', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ phone }),
+    body: JSON.stringify({ phone, email }),
   })
   const json = await res.json()
-  // ملاحظة: مفيش hint بالرمز هنا — الرمز بيروح على واتساب بس
+  // ملاحظة: مفيش hint بالرمز هنا — الرمز بيروح على الإيميل بس
   return res.ok
-    ? { ok: true as const, phone }
+    ? { ok: true as const, phone, to: json.to as string | undefined }
     : { ok: false as const, error: json.error ?? 'مقدرناش نبعت الرمز' }
 }
 
-export async function verifyOtp(phone: string, code: string) {
+export async function verifyOtp(phone: string, code: string, email?: string) {
   if (!DB) return mock.verifyOtp(phone, code)
 
   const res = await fetch('/api/otp/verify', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ phone, code }),
+    body: JSON.stringify({ phone, code, email }),
   })
   const json = await res.json()
   if (!res.ok) return { ok: false as const, error: json.error ?? 'الرمز مش مظبوط' }

@@ -95,14 +95,21 @@ function JoinForm() {
 
   const onSendOtp = async () => {
     const digits = phone.replace(/\D/g, '')
-    if (digits.length < 11) {
-      setErrors((e) => ({ ...e, phone: t('join.label.25') }))
+    const e: Record<string, string> = { phone: '', email: '', code: '' }
+    if (digits.length < 11) e.phone = t('join.label.25')
+    // الرمز بيروح على الإيميل — فلازم يكون مكتوب قبل الإرسال
+    if (!email.includes('@')) e.email = t('join.label.22')
+    setErrors((prev) => ({ ...prev, ...e }))
+    if (e.phone || e.email) return
+
+    setSending(true)
+    const r = await sendOtp(digits, email.trim())
+    setSending(false)
+    if (!r.ok) {
+      // رسالة الخادم (مثلًا: الإيميل مش متاح، أو الإرسال مش متفعّل)
+      setErrors((prev) => ({ ...prev, code: r.error }))
       return
     }
-    setErrors((e) => ({ ...e, phone: '' }))
-    setSending(true)
-    await sendOtp(digits)
-    setSending(false)
     setOtpSent(true)
   }
 
@@ -113,7 +120,7 @@ function JoinForm() {
     if (digits.length < 11) e.phone = t('join.label.25')
     if (!code.trim()) e.code = t('join.label.24')
     else {
-      const ok = await verifyOtp(digits, code)
+      const ok = await verifyOtp(digits, code, email.trim())
       if (!ok.ok) e.code = t('join.label.23')
     }
     if (!email.includes('@')) e.email = t('join.label.22')
@@ -175,6 +182,16 @@ function JoinForm() {
             className="text-end"
           />
         </div>
+        <div data-err={errors.email ? '1' : undefined}>
+          <Field
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder={t('join.label.8')}
+            aria-label={t('join.label.8')}
+            error={errors.email}
+          />
+        </div>
         <InkButton type="button" onClick={onSendOtp} disabled={sending}>
           {sending ? t('shared.wait') : otpSent ? t('join.resend') : t('join.label.11')}
         </InkButton>
@@ -192,16 +209,6 @@ function JoinForm() {
             error={errors.code}
             big
             className="text-end"
-          />
-        </div>
-        <div data-err={errors.email ? '1' : undefined}>
-          <Field
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder={t('join.label.8')}
-            aria-label={t('join.label.8')}
-            error={errors.email}
           />
         </div>
       </div>

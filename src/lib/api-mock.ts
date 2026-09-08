@@ -101,12 +101,12 @@ export async function applyAsCaptain(payload: {
 
 /* ---------------------------------------------------------- الحساب */
 
-export async function sendOtp(phone: string) {
+export async function sendOtp(phone: string, _email?: string) {
   await delay(400)
   return { ok: true as const, phone, hint: DEV_OTP }
 }
 
-export async function verifyOtp(phone: string, code: string) {
+export async function verifyOtp(phone: string, code: string, _email?: string) {
   await delay(300)
   return code.trim() === DEV_OTP
     ? { ok: true as const, phone }

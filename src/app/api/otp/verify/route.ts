@@ -1,11 +1,9 @@
 import { NextResponse } from 'next/server'
-import { createHash, randomBytes } from 'node:crypto'
-import { admin, normalizePhone, phoneEmail } from '@/lib/server/supabase-admin'
+import { randomBytes } from 'node:crypto'
+import { admin, normalizePhone } from '@/lib/server/supabase-admin'
+import { codeHash, resolveEmail } from '@/lib/server/otp'
 
 export const runtime = 'nodejs'
-
-const hash = (code: string, phone: string) =>
-  createHash('sha256').update(`${code}:${phone}:${process.env.CRON_SECRET ?? 'nasbot'}`).digest('hex')
 
 /** كود إحالة فريد من 6 حروف */
 function referralCode() {
@@ -15,17 +13,24 @@ function referralCode() {
 export async function POST(req: Request) {
   let phone: string
   let code: string
+  let submittedEmail: unknown
   try {
     const body = await req.json()
     const norm = normalizePhone(String(body.phone ?? ''))
     if (!norm) return NextResponse.json({ error: 'الرقم ده مش شكله صح' }, { status: 400 })
     phone = norm
     code = String(body.code ?? '').trim()
+    submittedEmail = body.email
   } catch {
     return NextResponse.json({ error: 'طلب مش مفهوم' }, { status: 400 })
   }
 
   const db = admin()
+
+  // نفس قاعدة الإرسال بالظبط — وإلا الهاش ما يطابقش
+  const target = await resolveEmail(db, phone, submittedEmail)
+  if (!target.ok) return NextResponse.json({ error: target.error }, { status: target.status })
+  const email = target.email
 
   const { data: row } = await db
     .from('otp_codes')
@@ -48,7 +53,7 @@ export async function POST(req: Request) {
   if (r.attempts >= 5) {
     return NextResponse.json({ error: 'جربت كتير. اطلب رمز جديد.' }, { status: 429 })
   }
-  if (r.code_hash !== hash(code, phone)) {
+  if (r.code_hash !== codeHash(code, phone, email)) {
     await db.from('otp_codes').update({ attempts: r.attempts + 1 }).eq('id', r.id)
     return NextResponse.json({ error: 'الرمز مش مظبوط' }, { status: 400 })
   }
@@ -56,14 +61,7 @@ export async function POST(req: Request) {
   await db.from('otp_codes').update({ consumed_at: new Date().toISOString() }).eq('id', r.id)
 
   // ===== المستخدم: موجود ولا نعمله؟ =====
-  const email = phoneEmail(phone)
-  const { data: existing } = await db
-    .from('profiles')
-    .select('id')
-    .eq('phone', phone)
-    .maybeSingle()
-
-  let userId = (existing as { id: string } | null)?.id
+  let userId = target.profileId ?? undefined
 
   if (!userId) {
     const { data: created, error: cErr } = await db.auth.admin.createUser({
@@ -89,17 +87,20 @@ export async function POST(req: Request) {
     const { error: pErr } = await db.from('profiles').insert({
       id: userId,
       phone,
+      email,
       referral_code: rc,
-      phone_verified_at: new Date().toISOString(),
+      // الإيميل هو اللي اتأكد — الرقم بقى وسيلة تواصل من غير تحقق
+      phone_verified_at: null,
     })
     if (pErr) return NextResponse.json({ error: 'مقدرناش نعمل الملف' }, { status: 500 })
   } else {
-    await db.from('profiles').update({ phone_verified_at: new Date().toISOString() }).eq('id', userId)
+    // أول تحقق بإيميل حقيقي لحساب قديم — نثبّته على الملف
+    if (!target.existing) await db.from('profiles').update({ email }).eq('id', userId)
 
-    // المستخدمين القدام ممكن يكونوا اتعملوا بالموبايل من غير إيميل.
-    // الرابط السحري بيدوّر بالإيميل بس، فلازم نتأكد إن الإيميل متسجّل على
-    // نفس الحساب. لو ما ينفعش، بنوقف هنا — لأن generateLink ساعتها
-    // هيعمل حساب تاني بنفس الإيميل من غير ملف، والعضو هيدخل ويلاقي كل حاجة مقفولة.
+    // الحسابات القديمة اتعملت بإيميل اصطناعي (+20…@phone.nasbot.app).
+    // الرابط السحري بيدوّر بالإيميل، فلازم إيميل الحساب في auth يبقى هو
+    // الحقيقي. لو ما ينفعش، بنوقف هنا — لأن generateLink ساعتها هيعمل
+    // حساب تاني بنفس الإيميل من غير ملف، والعضو هيدخل ويلاقي كل حاجة مقفولة.
     const { data: u } = await db.auth.admin.getUserById(userId)
     if (u.user && u.user.email !== email) {
       const { error: uErr } = await db.auth.admin.updateUserById(userId, {

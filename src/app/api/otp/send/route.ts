@@ -1,12 +1,9 @@
 import { NextResponse } from 'next/server'
-import { createHash, randomInt } from 'node:crypto'
+import { randomInt } from 'node:crypto'
 import { admin, normalizePhone } from '@/lib/server/supabase-admin'
-import { sendAuthCode, sendSms } from '@/lib/server/whatsapp'
+import { codeHash, deliverCode, resolveEmail, OTP_TTL_MS } from '@/lib/server/otp'
 
 export const runtime = 'nodejs'
-
-const hash = (code: string, phone: string) =>
-  createHash('sha256').update(`${code}:${phone}:${process.env.CRON_SECRET ?? 'nasbot'}`).digest('hex')
 
 /** أرقام الاختبار — بتقبل 1234، وفي غير الإنتاج بس */
 function isTestPhone(phone: string) {
@@ -17,6 +14,7 @@ function isTestPhone(phone: string) {
 
 export async function POST(req: Request) {
   let phone: string
+  let submittedEmail: unknown
   try {
     const body = await req.json()
     const norm = normalizePhone(String(body.phone ?? ''))
@@ -24,11 +22,16 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'الرقم ده مش شكله صح' }, { status: 400 })
     }
     phone = norm
+    submittedEmail = body.email
   } catch {
     return NextResponse.json({ error: 'طلب مش مفهوم' }, { status: 400 })
   }
 
   const db = admin()
+
+  // الإيميل اللي الرمز هيروح عليه — راجع resolveEmail لقواعد الربط بالرقم
+  const target = await resolveEmail(db, phone, submittedEmail)
+  if (!target.ok) return NextResponse.json({ error: target.error }, { status: target.status })
 
   // حد المعدل: 3 إرسالات في الساعة لكل رقم
   const hourAgo = new Date(Date.now() - 3600_000).toISOString()
@@ -49,23 +52,25 @@ export async function POST(req: Request) {
 
   const { error } = await db.from('otp_codes').insert({
     phone,
-    code_hash: hash(code, phone),
-    expires_at: new Date(Date.now() + 10 * 60_000).toISOString(),
+    code_hash: codeHash(code, phone, target.email),
+    expires_at: new Date(Date.now() + OTP_TTL_MS).toISOString(),
   })
   if (error) {
     return NextResponse.json({ error: 'حصلت مشكلة. جرب تاني.' }, { status: 500 })
   }
 
-  let sent = await sendAuthCode(phone, code)
+  const sent = await deliverCode(phone, target.email, code)
   if (!sent.ok) {
-    // البديل: رسالة نصية
-    sent = await sendSms(phone, `رمزك في نسبوط: ${code}`)
+    return NextResponse.json({ error: sent.error ?? 'مقدرناش نبعت الرمز دلوقتي' }, { status: 503 })
   }
 
-  if (!sent.ok) {
-    return NextResponse.json({ error: 'مقدرناش نبعت الرمز دلوقتي' }, { status: 502 })
-  }
+  // ⚠ الرمز نفسه ما بيرجعش للعميل أبدًا. القناة بترجع علشان الصفحة تقول «على إيميلك».
+  // الإيميل بيرجع مقنّع — كفاية يعرف هو أنهي حساب، من غير ما يكشف عنوان حد تاني.
+  return NextResponse.json({ ok: true, channel: sent.channel, to: mask(target.email) })
+}
 
-  // ⚠ الرمز نفسه ما بيرجعش للعميل أبدًا
-  return NextResponse.json({ ok: true })
+/** a***@gmail.com */
+function mask(email: string): string {
+  const [user, domain] = email.split('@')
+  return `${user.slice(0, 1)}***@${domain}`
 }

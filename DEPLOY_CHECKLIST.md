@@ -93,6 +93,8 @@ Project ← **Settings ← Environment Variables**. لكل متغير اختار
 | `NEXT_PUBLIC_SITE_URL` | Production | الدومين النهائي، مثال `https://nasbot.app` (من غير سلاش في الآخر) |
 | `CRON_SECRET` | Production + Preview | ولّده: `openssl rand -hex 32` |
 | `ADMIN_AUTH_PEPPER` | Production + Preview | ولّده: `openssl rand -hex 32` — **غير** الـ CRON_SECRET |
+| `SMTP_HOST` · `SMTP_PORT` · `SMTP_USER` · `SMTP_PASS` | Production + Preview | **رمز الدخول بيروح على الإيميل.** جيميل: `smtp.gmail.com` · `465` · إيميلك · كلمة مرور تطبيق من myaccount.google.com/apppasswords |
+| `MAIL_FROM` | Production | اختياري — المرسِل الظاهر، مثال `نسبوط <you@gmail.com>` |
 | `WHATSAPP_PROVIDER` | Production | `meta` |
 | `WHATSAPP_TOKEN` | Production | Meta for Developers ← WhatsApp ← API Setup |
 | `WHATSAPP_PHONE_ID` | Production | نفس الصفحة ← Phone number ID |
@@ -102,7 +104,7 @@ Project ← **Settings ← Environment Variables**. لكل متغير اختار
 
 مش لازم تحطهم على Vercel: `SUPABASE_DB_URL` · `SITE_URL` · `BASE_URL` ·
 `NEXT_DIST_DIR` · `MAX` — دول للطرفية والاختبارات المحلية بس.
-و`RESEND_API_KEY` و`SENTRY_DSN` لسه مش متوصّلين في الكود.
+و`SENTRY_DSN` لسه مش متوصّل في الكود. `RESEND_API_KEY` بديل لـ SMTP لو عندك دومين موثّق عند Resend.
 
 الشرح الكامل لكل متغير في `.env.example`.
 
