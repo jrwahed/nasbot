@@ -1,0 +1,11 @@
+project_id = "nasbot"
+
+[db]
+major_version = 17
+
+[auth]
+enabled = true
+site_url = "http://localhost:3000"
+
+[storage]
+enabled = true

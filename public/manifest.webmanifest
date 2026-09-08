@@ -1,0 +1,14 @@
+{
+  "name": "نسبوط — نادي خروجات في القاهرة",
+  "short_name": "نسبوط",
+  "description": "نادي خروجات في القاهرة. مفيش عضوية. 8 بس. لما تكمل تكمل.",
+  "lang": "ar",
+  "dir": "rtl",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#fbf7ef",
+  "theme_color": "#f4632a",
+  "categories": ["social", "lifestyle", "travel"]
+}

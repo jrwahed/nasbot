@@ -1,0 +1,187 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ==========================================================================
+   نسبوط — المتغيرات والحركات
+   القيم كلها من design/نسبوط.dc.html — راجع DESIGN_TOKENS.md
+   ========================================================================== */
+
+:root {
+  /* الثابتة */
+  --orange: #f4632a;
+  --ink: #14161a;
+  --cream: #fbf7ef;
+  --cobalt: #2b4cff;
+  --sand: #efe3cf;
+  --sand-deep: #e2d2b4;
+  --sand-line: #d9cbaf;
+  --success: #3e5c43;
+  --warn: #d9a441;
+  --error: #8e2f1f;
+  --photo-text: #6b6455;
+  --map-label: #9a9ca3;
+  --btn-grey: #3a3d44;
+}
+
+/* الوضع النهاري — من شاشة 8 في الملف */
+:root,
+[data-theme='day'] {
+  --bg: #fbf7ef;
+  --fg: #14161a;
+  --muted: #55575c;
+  --surface: #efe3cf;
+  --line: #efe3cf;
+  --logo-stroke: #2b4cff;
+  /* حد الفلتر غير المفعّل — الرملي مش بيبان على الكريمي */
+  --chip-idle-border: #14161a;
+  /* سطر «8 بس. لما تكمل تكمل.» — رملي في الليلي زي الملف */
+  --sbt-sub: #55575c;
+  /* نص التمييز الصغير — البرتقالي #F4632A على الكريمي 2.95:1 وبيرسب.
+     في النهاري بنستخدم نسخة أغمق منه (78%) بتدّي 4.60:1 وفضلت برتقالي،
+     وفي الليلي البرتقالي نفسه بيعدّي (5.75:1). */
+  --accent-text: #be4d21;
+  --ok-text: #3e5c43;
+  --err-text: #8e2f1f;
+  color-scheme: light;
+}
+
+/* الوضع الليلي — من شاشات 1 و7 و11 في الملف */
+[data-theme='night'] {
+  --bg: #14161a;
+  --fg: #fbf7ef;
+  --muted: #c9c4b8;
+  --surface: #1e2128;
+  --line: #2a2e36;
+  --logo-stroke: #fbf7ef;
+  /* رملي زي الملف بالظبط في الوضع الليلي */
+  --chip-idle-border: #efe3cf;
+  --sbt-sub: #efe3cf;
+  --accent-text: #f4632a;
+  /* نسخ أفتح — الأخضر والأحمر الأصليين بيرسبوا على الأسود */
+  --ok-text: #8fc79b;
+  --err-text: #f2a192;
+  color-scheme: dark;
+}
+
+html {
+  background: var(--bg);
+  /* ممنوع تمرير أفقي للصفحة نفسها */
+  overflow-x: hidden;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-plex), 'IBM Plex Sans Arabic', system-ui, sans-serif;
+  font-size: 16px;
+  line-height: 1.7;
+  overflow-x: hidden;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* الحركات — حرفيًا من الملف */
+@keyframes nb-marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@keyframes nb-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(244, 99, 42, 0.7);
+  }
+  100% {
+    box-shadow: 0 0 0 14px rgba(244, 99, 42, 0);
+  }
+}
+
+/* نبضة نقط خريطة SVG — بديل nb-pulse لأن SVG مش بيدعم box-shadow */
+@keyframes nb-map-ring {
+  0% {
+    transform: scale(1);
+    opacity: 0.7;
+  }
+  100% {
+    transform: scale(3);
+    opacity: 0;
+  }
+}
+
+.nb-map-ring {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: nb-map-ring 1.6s ease-out infinite;
+}
+
+/* ==========================================================================
+   مساعدات
+   ========================================================================== */
+
+/* شريط تمرير أفقي بدون سكرول بار — زي الملف */
+.nb-scroll-x {
+  display: flex;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.nb-scroll-x::-webkit-scrollbar {
+  display: none;
+}
+
+/* مساحة لمس شفافة تكمّل 44px من غير ما تغيّر الشكل
+   (الفلتر في الملف ارتفاعه 40 — راجع PLAN.md §11 بند 3) */
+.nb-touch-44 {
+  position: relative;
+}
+.nb-touch-44::after {
+  content: '';
+  position: absolute;
+  inset: -2px 0;
+  min-height: 44px;
+}
+
+/* حشو أمان الموبايل للأزرار اللاصقة */
+.nb-safe-bottom {
+  padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+}
+
+/* التركيز بالكيبورد — واضح ومتسق */
+:where(a, button, input, textarea, select, [tabindex]):focus-visible {
+  outline: 3px solid var(--orange);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* الشعار — المفرغة */
+.nb-logo-stroke {
+  color: transparent;
+  -webkit-text-stroke-color: var(--logo-stroke);
+}
+
+/* ==========================================================================
+   احترام prefers-reduced-motion
+   ========================================================================== */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  /* نبضة الخريطة بتتلغي خالص بدل ما تفضل ثابتة على ظل كبير */
+  .nb-pulse-dot {
+    animation: none !important;
+    box-shadow: none !important;
+  }
+  .nb-map-ring {
+    animation: none !important;
+    opacity: 0 !important;
+  }
+}

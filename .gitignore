@@ -1,0 +1,23 @@
+node_modules
+.next
+out
+shots
+test-results
+playwright-report
+.env*
+*.tsbuildinfo
+next-env.d.ts
+
+.next-build
+.backup-src
+
+# مجلدات البناء المؤقتة (NEXT_DIST_DIR)
+.next-*
+
+# ملفات جلسات التطوير — بتتولّد من scripts/dev-session.ts وفيها توكن حقيقي
+*.tmp.json
+*.tmp.js
+public/dev-session*.json
+
+# القالب بيتحفظ، السر لأ
+!.env.example

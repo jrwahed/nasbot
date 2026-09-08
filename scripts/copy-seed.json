@@ -1,0 +1,1916 @@
+[
+  {
+    "key": "captainboard.label.1",
+    "value_ar": "احفظ التقرير",
+    "screen": "لوحة الكابتن",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "captainboard.text.1",
+    "value_ar": "تقرير السبوطة",
+    "screen": "لوحة الكابتن",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "captainboard.label.2",
+    "value_ar": "ارفع صور المجموعة",
+    "screen": "لوحة الكابتن",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "captainboard.text.2",
+    "value_ar": "صور المجموعة",
+    "screen": "لوحة الكابتن",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "captainboard.text.3",
+    "value_ar": "وصل",
+    "screen": "لوحة الكابتن",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "captainboard.text.4",
+    "value_ar": "الكشف",
+    "screen": "لوحة الكابتن",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "captainboard.text.5",
+    "value_ar": "طوارئ",
+    "screen": "لوحة الكابتن",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "captainboard.label.3",
+    "value_ar": "الرئيسية",
+    "screen": "لوحة الكابتن",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "captainboard.text.6",
+    "value_ar": "ثانية واحدة…",
+    "screen": "لوحة الكابتن",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "captainboard.text.7",
+    "value_ar": "بقى كابتن",
+    "screen": "لوحة الكابتن",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "captainboard.text.8",
+    "value_ar": "لو أنت كابتن، ادخل بالرقم اللي مسجل بيه.",
+    "screen": "لوحة الكابتن",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "captainboard.text.9",
+    "value_ar": "الصفحة دي للكباتن.",
+    "screen": "لوحة الكابتن",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "captains.text.1",
+    "value_ar": "كلمني",
+    "screen": "الكباتن",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "captains.label.1",
+    "value_ar": "ليه عايز تبقى كابتن؟",
+    "screen": "الكباتن",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "captains.label.2",
+    "value_ar": "بتعمل إيه؟",
+    "screen": "الكباتن",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "captains.label.3",
+    "value_ar": "رقمك",
+    "screen": "الكباتن",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "captains.label.4",
+    "value_ar": "اسمك",
+    "screen": "الكباتن",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "captains.text.2",
+    "value_ar": "وصلنا كلامك. هنكلمك خلال يومين.",
+    "screen": "الكباتن",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "captains.text.3",
+    "value_ar": "لو بتعرف حتة كويسة وبتحب تجمع ناس — كلمنا.",
+    "screen": "الكباتن",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "captains.text.4",
+    "value_ar": "بقى كابتن",
+    "screen": "الكباتن",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "captains.text.5",
+    "value_ar": "في كابتن مع كل سبوطة. هو اللي بيستقبلك وبيعرّف الناس على بعض.",
+    "screen": "الكباتن",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "captains.text.6",
+    "value_ar": "الكباتن",
+    "screen": "الكباتن",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "captains.label.5",
+    "value_ar": "الرئيسية",
+    "screen": "الكباتن",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "captains.label.6",
+    "value_ar": "قولنا ليه",
+    "screen": "الكباتن",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "captains.label.7",
+    "value_ar": "قولنا بتعمل إيه",
+    "screen": "الكباتن",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "captains.label.8",
+    "value_ar": "الرقم ده ناقص رقم",
+    "screen": "الكباتن",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "captains.label.9",
+    "value_ar": "اكتبلنا اسمك",
+    "screen": "الكباتن",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "game.label.1",
+    "value_ar": "اللي بعده",
+    "screen": "اللعبة",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "game.label.2",
+    "value_ar": "حاجة نفسك تجربها",
+    "screen": "اللعبة",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "game.label.3",
+    "value_ar": "اكتب أي حاجة… أو سيبها فاضية",
+    "screen": "اللعبة",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "game.label.4",
+    "value_ar": "اللي قبله",
+    "screen": "اللعبة",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "result.label.1",
+    "value_ar": "شارك على القصة",
+    "screen": "نتيجة اللعبة",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "result.text.1",
+    "value_ar": "أنا جاي",
+    "screen": "نتيجة اللعبة",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "result.label.2",
+    "value_ar": "اللعبة",
+    "screen": "نتيجة اللعبة",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "result.text.2",
+    "value_ar": "ثانية واحدة…",
+    "screen": "نتيجة اللعبة",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "result.label.3",
+    "value_ar": "مقدرناش نحفظ الصورة. جرب تاني.",
+    "screen": "نتيجة اللعبة",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "result.label.4",
+    "value_ar": "البطاقة اتحفظت.",
+    "screen": "نتيجة اللعبة",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "join.text.1",
+    "value_ar": "مفيش باسورد. رقمك هو دخولك.",
+    "screen": "إنشاء الحساب",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "join.text.2",
+    "value_ar": "كمّل الحجز",
+    "screen": "إنشاء الحساب",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "join.text.3",
+    "value_ar": "موافق إن بياناتي تتخزن علشان المطابقة والحجز",
+    "screen": "إنشاء الحساب",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "join.text.4",
+    "value_ar": "القواعد الخمس",
+    "screen": "إنشاء الحساب",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "join.text.5",
+    "value_ar": "موافق على",
+    "screen": "إنشاء الحساب",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "join.label.1",
+    "value_ar": "موافقتك",
+    "screen": "إنشاء الحساب",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "join.text.6",
+    "value_ar": "صورتك بيشوفها الكابتن علشان يعرفك عند البوابة، ومجموعتك بتشوفها بعد ما تتقابلوا — مش قبل.",
+    "screen": "إنشاء الحساب",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "join.label.2",
+    "value_ar": "حط صورتك",
+    "screen": "إنشاء الحساب",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "join.label.3",
+    "value_ar": "صورتك",
+    "screen": "إنشاء الحساب",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "join.text.7",
+    "value_ar": "الأيام الفاضية",
+    "screen": "إنشاء الحساب",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "join.text.8",
+    "value_ar": "الميزانية المريحة",
+    "screen": "إنشاء الحساب",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "join.text.9",
+    "value_ar": "مستواك في",
+    "screen": "إنشاء الحساب",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "join.text.10",
+    "value_ar": "اختار 5 ·",
+    "screen": "إنشاء الحساب",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "join.label.4",
+    "value_ar": "بتحب إيه؟",
+    "screen": "إنشاء الحساب",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "join.text.11",
+    "value_ar": "تحبي مجموعاتك تكون بنات بس؟",
+    "screen": "إنشاء الحساب",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "join.text.12",
+    "value_ar": "بنات بس",
+    "screen": "إنشاء الحساب",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "join.text.13",
+    "value_ar": "المنطقة",
+    "screen": "إنشاء الحساب",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "join.text.14",
+    "value_ar": "النوع",
+    "screen": "إنشاء الحساب",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "join.label.5",
+    "value_ar": "سنة الميلاد",
+    "screen": "إنشاء الحساب",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "join.label.6",
+    "value_ar": "الاسم الأول",
+    "screen": "إنشاء الحساب",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "join.label.7",
+    "value_ar": "عنك",
+    "screen": "إنشاء الحساب",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "join.label.8",
+    "value_ar": "الإيميل",
+    "screen": "إنشاء الحساب",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "join.label.9",
+    "value_ar": "رمز التحقق",
+    "screen": "إنشاء الحساب",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "join.label.10",
+    "value_ar": "الرمز (6 أرقام)",
+    "screen": "إنشاء الحساب",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "join.text.15",
+    "value_ar": "بعتنالك الرمز على واتساب.",
+    "screen": "إنشاء الحساب",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "join.label.11",
+    "value_ar": "ابعتلي الرمز على واتساب",
+    "screen": "إنشاء الحساب",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "join.label.12",
+    "value_ar": "رقم الموبايل",
+    "screen": "إنشاء الحساب",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "join.label.13",
+    "value_ar": "رقمك",
+    "screen": "إنشاء الحساب",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "join.text.16",
+    "value_ar": "إحنا الرابع · الخميس 8",
+    "screen": "إنشاء الحساب",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "join.text.17",
+    "value_ar": "قبل ما نحجزلك — دقيقتين نعرفك",
+    "screen": "إنشاء الحساب",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "join.label.14",
+    "value_ar": "رجوع",
+    "screen": "إنشاء الحساب",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "join.label.15",
+    "value_ar": "لازم توافق الأول",
+    "screen": "إنشاء الحساب",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "join.label.16",
+    "value_ar": "اختار يوم على الأقل",
+    "screen": "إنشاء الحساب",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "join.label.17",
+    "value_ar": "اختار 5 بالظبط",
+    "screen": "إنشاء الحساب",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "join.label.18",
+    "value_ar": "اختار منطقتك",
+    "screen": "إنشاء الحساب",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "join.label.19",
+    "value_ar": "اختار واحد",
+    "screen": "إنشاء الحساب",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "join.label.20",
+    "value_ar": "السنة دي مش مظبوطة",
+    "screen": "إنشاء الحساب",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "join.label.21",
+    "value_ar": "اكتبلنا اسمك الأول",
+    "screen": "إنشاء الحساب",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "join.label.22",
+    "value_ar": "الإيميل ده ناقص حاجة",
+    "screen": "إنشاء الحساب",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "join.label.23",
+    "value_ar": "الرمز مش مظبوط",
+    "screen": "إنشاء الحساب",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "join.label.24",
+    "value_ar": "اكتب الرمز اللي جالك",
+    "screen": "إنشاء الحساب",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "join.label.25",
+    "value_ar": "الرقم ده ناقص رقم",
+    "screen": "إنشاء الحساب",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "map.text.1",
+    "value_ar": "المناطق الباهتة اللي لسه مروحتهاش.",
+    "screen": "الخريطة",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "map.text.2",
+    "value_ar": "الغامضة",
+    "screen": "الخريطة",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "map.text.3",
+    "value_ar": "سبوطة",
+    "screen": "الخريطة",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "map.text.4",
+    "value_ar": "دوس على أي نقطة تشوف السبوطة.",
+    "screen": "الخريطة",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "map.text.5",
+    "value_ar": "الخريطة",
+    "screen": "الخريطة",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "map.label.1",
+    "value_ar": "الرئيسية",
+    "screen": "الخريطة",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "map.label.2",
+    "value_ar": "ليلي",
+    "screen": "الخريطة",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "map.label.3",
+    "value_ar": "نهاري",
+    "screen": "الخريطة",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "dm.text.1",
+    "value_ar": "ابعت",
+    "screen": "الشات الخاص",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "dm.label.1",
+    "value_ar": "اكتب رسالة",
+    "screen": "الشات الخاص",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "dm.label.2",
+    "value_ar": "اكتب هنا",
+    "screen": "الشات الخاص",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "dm.text.2",
+    "value_ar": "ابدأ الكلام.",
+    "screen": "الشات الخاص",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "dm.text.3",
+    "value_ar": "اتقابلتوا في سبوطة · الشات ده بينكم إنتوا الاتنين بس",
+    "screen": "الشات الخاص",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "dm.label.3",
+    "value_ar": "ملفي",
+    "screen": "الشات الخاص",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "dm.text.4",
+    "value_ar": "الشات ده مش متاح. الشات الخاص بيتفتح بس لما تكونوا اخترتوا بعض.",
+    "screen": "الشات الخاص",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "dm.label.4",
+    "value_ar": "أحمد",
+    "screen": "الشات الخاص",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "me.text.1",
+    "value_ar": "حذف الحساب",
+    "screen": "ملفي",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "me.text.2",
+    "value_ar": "الخروج",
+    "screen": "ملفي",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "me.text.3",
+    "value_ar": "تعديل الملف",
+    "screen": "ملفي",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "me.label.1",
+    "value_ar": "ليلي",
+    "screen": "ملفي",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "me.text.4",
+    "value_ar": "الوضع",
+    "screen": "ملفي",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "me.text.5",
+    "value_ar": "الإعدادات",
+    "screen": "ملفي",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "me.label.2",
+    "value_ar": "مفتوح",
+    "screen": "ملفي",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "me.text.6",
+    "value_ar": "شاتاتي",
+    "screen": "ملفي",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "me.text.7",
+    "value_ar": "قيّمها",
+    "screen": "ملفي",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "me.text.8",
+    "value_ar": "مفيش حاجة هنا لسه.",
+    "screen": "ملفي",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "me.label.3",
+    "value_ar": "الفاتت",
+    "screen": "ملفي",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "me.label.4",
+    "value_ar": "الجاية",
+    "screen": "ملفي",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "me.text.9",
+    "value_ar": "سبوطاتي",
+    "screen": "ملفي",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "me.text.10",
+    "value_ar": "احجزوا سوا",
+    "screen": "ملفي",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "me.text.11",
+    "value_ar": "ابعتله",
+    "screen": "ملفي",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "me.text.12",
+    "value_ar": "الصور بتظهر هنا لأنكم اتقابلتم واختارتوا بعض.",
+    "screen": "ملفي",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "me.text.13",
+    "value_ar": "رايحين معاك",
+    "screen": "ملفي",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "me.text.14",
+    "value_ar": "صاحبك بيحجز بالكود ده وياخد خصم 15%، وأنت بتاخد رصيد.",
+    "screen": "ملفي",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "me.label.5",
+    "value_ar": "انسخ الكود",
+    "screen": "ملفي",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "me.text.15",
+    "value_ar": "كودك",
+    "screen": "ملفي",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "me.text.16",
+    "value_ar": "رصيدك",
+    "screen": "ملفي",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "me.label.6",
+    "value_ar": "لسه",
+    "screen": "ملفي",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "me.label.7",
+    "value_ar": "الرئيسية",
+    "screen": "ملفي",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "me.text.17",
+    "value_ar": "ثانية واحدة…",
+    "screen": "ملفي",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "chat.label.1",
+    "value_ar": "سبوطتك",
+    "screen": "الشات",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "chat.label.2",
+    "value_ar": "أحمد",
+    "screen": "الشات",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "group.text.1",
+    "value_ar": "انقليني لمجموعة بنات بس",
+    "screen": "كشف المجموعة",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "group.text.2",
+    "value_ar": "تمام. هندوّرلك على مجموعة بنات بس.",
+    "screen": "كشف المجموعة",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "group.text.3",
+    "value_ar": "في حاجة مش مريحة؟ كلمنا",
+    "screen": "كشف المجموعة",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "group.text.4",
+    "value_ar": "الشات بيتفتح دلوقتي وبيتقفل بعد السبوطة بيومين.",
+    "screen": "كشف المجموعة",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "group.text.5",
+    "value_ar": "افتح شات السبوطة",
+    "screen": "كشف المجموعة",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "group.text.6",
+    "value_ar": "افتح في الخرايط",
+    "screen": "كشف المجموعة",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "group.label.1",
+    "value_ar": "العنوان الكامل بيظهر مع الكشف.",
+    "screen": "كشف المجموعة",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "group.text.7",
+    "value_ar": "المكان",
+    "screen": "كشف المجموعة",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "group.text.8",
+    "value_ar": "على الكشف.",
+    "screen": "كشف المجموعة",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "group.label.2",
+    "value_ar": "بالليل.",
+    "screen": "كشف المجموعة",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "group.text.9",
+    "value_ar": "ليه المجموعة دي؟",
+    "screen": "كشف المجموعة",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "group.label.3",
+    "value_ar": "سبوطاتي",
+    "screen": "كشف المجموعة",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "group.text.10",
+    "value_ar": "ثانية واحدة…",
+    "screen": "كشف المجموعة",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "review.text.1",
+    "value_ar": "ابعت",
+    "screen": "التقييم",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "review.text.2",
+    "value_ar": "أوافق على نشر الصورة",
+    "screen": "التقييم",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "review.text.3",
+    "value_ar": "محدش هيعرف إجابتك إلا لو هو كمان قال نفس الكلام.",
+    "screen": "التقييم",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "review.text.4",
+    "value_ar": "عايز تشوف مين تاني؟",
+    "screen": "التقييم",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "review.label.1",
+    "value_ar": "لأ",
+    "screen": "التقييم",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "review.label.2",
+    "value_ar": "أيوه",
+    "screen": "التقييم",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "review.text.5",
+    "value_ar": "وصلت؟",
+    "screen": "التقييم",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "review.label.3",
+    "value_ar": "سبوطتك",
+    "screen": "التقييم",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "review.text.6",
+    "value_ar": "روح لملفي",
+    "screen": "التقييم",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "review.text.7",
+    "value_ar": "الكوبون في ملفك، هيتخصم لوحده من سبوطتك الجاية.",
+    "screen": "التقييم",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "review.text.8",
+    "value_ar": "كوبون 10%",
+    "screen": "التقييم",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "review.text.9",
+    "value_ar": "شكرًا. الصور بكرة.",
+    "screen": "التقييم",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "one.text.1",
+    "value_ar": "لأ، وريني غيرها",
+    "screen": "نديها واحدة",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "one.text.2",
+    "value_ar": "أنا جاي",
+    "screen": "نديها واحدة",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "one.text.3",
+    "value_ar": "دي بتاعتك النهارده",
+    "screen": "نديها واحدة",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "one.text.4",
+    "value_ar": "؟",
+    "screen": "نديها واحدة",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "one.label.1",
+    "value_ar": "بندوّر على سبوطة",
+    "screen": "نديها واحدة",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "one.text.5",
+    "value_ar": "← رجوع",
+    "screen": "نديها واحدة",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "home.text.1",
+    "value_ar": "مفيش سبوطة بالفلتر ده الأسبوع ده. جرب فلتر تاني.",
+    "screen": "الرئيسية",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "home.text.2",
+    "value_ar": "8 بس. لما تكمل تكمل.",
+    "screen": "الرئيسية",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "home.text.3",
+    "value_ar": "سبوطات الأسبوع ده",
+    "screen": "الرئيسية",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "rules.text.1",
+    "value_ar": "كل اللي معاك رقمه متحقق ووافق على القواعد.",
+    "screen": "القواعد",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "rules.text.2",
+    "value_ar": "اتصل بينا",
+    "screen": "القواعد",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "rules.text.3",
+    "value_ar": "الرقم ده شغال طول وقت السبوطة.",
+    "screen": "القواعد",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "rules.text.4",
+    "value_ar": "لو حصل أي حاجة",
+    "screen": "القواعد",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "rules.text.5",
+    "value_ar": "كل يوم تلات في سبوطة بنات بس. وأي بنت في أي مجموعة تانية تقدر تطلب تتنقل لمجموعة بنات بس في أي وقت.",
+    "screen": "القواعد",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "rules.text.6",
+    "value_ar": "بنات بس كل تلات",
+    "screen": "القواعد",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "rules.text.7",
+    "value_ar": "الضمان",
+    "screen": "القواعد",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "rules.text.8",
+    "value_ar": "إحنا بنجمع ناس متعرفش بعضها. علشان كده القواعد دي مش كلام — دي شرط الحجز.",
+    "screen": "القواعد",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "rules.text.9",
+    "value_ar": "الثقة قبل الفسحة",
+    "screen": "القواعد",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "rules.label.1",
+    "value_ar": "الرئيسية",
+    "screen": "القواعد",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "mystery.text.1",
+    "value_ar": "المكان بيوصلك على الواتساب قبلها بساعتين.",
+    "screen": "السبوطة الغامضة",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "mystery.text.2",
+    "value_ar": "أنا جاي — 500 جنيه",
+    "screen": "السبوطة الغامضة",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "mystery.text.3",
+    "value_ar": "روح سبوطتين الأول",
+    "screen": "السبوطة الغامضة",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "mystery.text.4",
+    "value_ar": "أنا جاي",
+    "screen": "السبوطة الغامضة",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "mystery.text.5",
+    "value_ar": "واحد بيتفتح كل يوم قبل الميعاد.",
+    "screen": "السبوطة الغامضة",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "mystery.text.6",
+    "value_ar": "الأدلة",
+    "screen": "السبوطة الغامضة",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "mystery.text.7",
+    "value_ar": "آخر جمعة في الشهر · 500 جنيه · 8 أماكن",
+    "screen": "السبوطة الغامضة",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "mystery.text.8",
+    "value_ar": "هتعرف المكان قبلها بساعتين. الشرط الوحيد: تكون جيت معانا قبل كده.",
+    "screen": "السبوطة الغامضة",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "mystery.text.9",
+    "value_ar": "مش هنقولك.",
+    "screen": "السبوطة الغامضة",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "mystery.text.10",
+    "value_ar": "؟",
+    "screen": "السبوطة الغامضة",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "mystery.label.1",
+    "value_ar": "السبوطة الغامضة",
+    "screen": "السبوطة الغامضة",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "mystery.text.11",
+    "value_ar": "← رجوع",
+    "screen": "السبوطة الغامضة",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "done.text.1",
+    "value_ar": "روح لسبوطتك",
+    "screen": "تأكيد الحجز",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "done.label.1",
+    "value_ar": "هات صاحبك بالكود — هتبقوا في نفس المجموعة",
+    "screen": "تأكيد الحجز",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "done.text.2",
+    "value_ar": "هات صاحبك",
+    "screen": "تأكيد الحجز",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "done.text.3",
+    "value_ar": "ضيف للتقويم",
+    "screen": "تأكيد الحجز",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "done.text.4",
+    "value_ar": "بنراجعه وهنأكدلك على واتساب خلال ساعتين. مكانك محجوز لحد ساعتها.",
+    "screen": "تأكيد الحجز",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "done.label.2",
+    "value_ar": "صاحبي",
+    "screen": "تأكيد الحجز",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "sbota.label.1",
+    "value_ar": "القواعد",
+    "screen": "صفحة السبوطة",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "sbota.label.2",
+    "value_ar": "هات صاحبك بالكود — هتبقوا في نفس المجموعة",
+    "screen": "صفحة السبوطة",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "sbota.text.1",
+    "value_ar": "سجلني في الانتظار",
+    "screen": "صفحة السبوطة",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "sbota.text.2",
+    "value_ar": "مش شامله",
+    "screen": "صفحة السبوطة",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "sbota.text.3",
+    "value_ar": "اللي شامله",
+    "screen": "صفحة السبوطة",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "sbota.text.4",
+    "value_ar": "ساعة الشكوى في الآخر: كل واحد يحكي أسوأ عميل.",
+    "screen": "صفحة السبوطة",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "sbota.label.3",
+    "value_ar": "رجوع",
+    "screen": "صفحة السبوطة",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "sbota.text.5",
+    "value_ar": "ثانية واحدة…",
+    "screen": "صفحة السبوطة",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "pay.text.1",
+    "value_ar": "مفيش حاجة بتتخصم أوتوماتيك — أنت اللي بتحوّل بنفسك.",
+    "screen": "الدفع",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "pay.text.2",
+    "value_ar": "بعتّ التحويل",
+    "screen": "الدفع",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "pay.text.3",
+    "value_ar": "احجزلي وورّيني الرقم",
+    "screen": "الدفع",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "pay.text.4",
+    "value_ar": "الإجمالي",
+    "screen": "الدفع",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "pay.text.5",
+    "value_ar": "خصم الكود",
+    "screen": "الدفع",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "pay.text.6",
+    "value_ar": "السبوطة",
+    "screen": "الدفع",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "pay.label.1",
+    "value_ar": "اختار الصورة",
+    "screen": "الدفع",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "pay.label.2",
+    "value_ar": "صورة التحويل",
+    "screen": "الدفع",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "pay.text.7",
+    "value_ar": "ارفع صورة التحويل",
+    "screen": "الدفع",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "pay.text.8",
+    "value_ar": "انسخ الرقم",
+    "screen": "الدفع",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "pay.label.3",
+    "value_ar": "إنستا باي",
+    "screen": "الدفع",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "pay.text.9",
+    "value_ar": "بنشتغل بالتحويل اليدوي دلوقتي: هنوريك الرقم، تحوّل، وترفع صورة التحويل — وإحنا نأكدلك.",
+    "screen": "الدفع",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "pay.text.10",
+    "value_ar": "هتحوّل إزاي؟",
+    "screen": "الدفع",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "pay.text.11",
+    "value_ar": "طبّقه",
+    "screen": "الدفع",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "pay.label.4",
+    "value_ar": "كود الإحالة",
+    "screen": "الدفع",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "pay.label.5",
+    "value_ar": "لو معاك كود",
+    "screen": "الدفع",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "pay.text.12",
+    "value_ar": "الدفع",
+    "screen": "الدفع",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "pay.label.6",
+    "value_ar": "رجوع",
+    "screen": "الدفع",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "pay.label.7",
+    "value_ar": "مقدرناش نسجل التحويل",
+    "screen": "الدفع",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "pay.label.8",
+    "value_ar": "ارفع صورة التحويل الأول",
+    "screen": "الدفع",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "pay.text.13",
+    "value_ar": "ثانية واحدة…",
+    "screen": "الدفع",
+    "context_ar": "page.tsx"
+  },
+  {
+    "key": "shared.label.1",
+    "value_ar": "اقفل",
+    "screen": "مكونات مشتركة",
+    "context_ar": "BottomSheet.tsx"
+  },
+  {
+    "key": "shared.text.1",
+    "value_ar": "افتحها",
+    "screen": "مكونات مشتركة",
+    "context_ar": "CairoMap.tsx"
+  },
+  {
+    "key": "shared.text.2",
+    "value_ar": "هتعرف المكان قبلها بساعتين. الشرط الوحيد: تكون جيت معانا قبل كده.",
+    "screen": "مكونات مشتركة",
+    "context_ar": "CairoMap.tsx"
+  },
+  {
+    "key": "shared.text.3",
+    "value_ar": "مش هنقولك.",
+    "screen": "مكونات مشتركة",
+    "context_ar": "CairoMap.tsx"
+  },
+  {
+    "key": "shared.label.2",
+    "value_ar": "اقفل",
+    "screen": "مكونات مشتركة",
+    "context_ar": "CairoMap.tsx"
+  },
+  {
+    "key": "shared.label.3",
+    "value_ar": "سبوطة",
+    "screen": "مكونات مشتركة",
+    "context_ar": "CairoMap.tsx"
+  },
+  {
+    "key": "shared.text.4",
+    "value_ar": "للي راحوا سبوطتين",
+    "screen": "مكونات مشتركة",
+    "context_ar": "CairoMap.tsx"
+  },
+  {
+    "key": "shared.text.5",
+    "value_ar": "؟",
+    "screen": "مكونات مشتركة",
+    "context_ar": "CairoMap.tsx"
+  },
+  {
+    "key": "shared.label.4",
+    "value_ar": "السبوطة الغامضة — للي راحوا سبوطتين",
+    "screen": "مكونات مشتركة",
+    "context_ar": "CairoMap.tsx"
+  },
+  {
+    "key": "shared.text.6",
+    "value_ar": "لسه",
+    "screen": "مكونات مشتركة",
+    "context_ar": "CairoMap.tsx"
+  },
+  {
+    "key": "shared.label.5",
+    "value_ar": "خريطة القاهرة ومناطق السبوطات",
+    "screen": "مكونات مشتركة",
+    "context_ar": "CairoMap.tsx"
+  },
+  {
+    "key": "shared.text.7",
+    "value_ar": "ابعت",
+    "screen": "مكونات مشتركة",
+    "context_ar": "ChatRoom.tsx"
+  },
+  {
+    "key": "shared.label.6",
+    "value_ar": "اكتب رسالة",
+    "screen": "مكونات مشتركة",
+    "context_ar": "ChatRoom.tsx"
+  },
+  {
+    "key": "shared.label.7",
+    "value_ar": "اكتب هنا",
+    "screen": "مكونات مشتركة",
+    "context_ar": "ChatRoom.tsx"
+  },
+  {
+    "key": "shared.text.8",
+    "value_ar": "الغرفة اتقفلت. شكرًا إنك جيت.",
+    "screen": "مكونات مشتركة",
+    "context_ar": "ChatRoom.tsx"
+  },
+  {
+    "key": "shared.text.9",
+    "value_ar": "اقفل",
+    "screen": "مكونات مشتركة",
+    "context_ar": "ChatRoom.tsx"
+  },
+  {
+    "key": "shared.text.10",
+    "value_ar": "شيل من الغرفة",
+    "screen": "مكونات مشتركة",
+    "context_ar": "ChatRoom.tsx"
+  },
+  {
+    "key": "shared.text.11",
+    "value_ar": "إبلاغ",
+    "screen": "مكونات مشتركة",
+    "context_ar": "ChatRoom.tsx"
+  },
+  {
+    "key": "shared.text.12",
+    "value_ar": "الكابتن",
+    "screen": "مكونات مشتركة",
+    "context_ar": "ChatRoom.tsx"
+  },
+  {
+    "key": "shared.text.13",
+    "value_ar": "ثانية واحدة…",
+    "screen": "مكونات مشتركة",
+    "context_ar": "ChatRoom.tsx"
+  },
+  {
+    "key": "shared.label.8",
+    "value_ar": "الشات",
+    "screen": "مكونات مشتركة",
+    "context_ar": "ChatRoom.tsx"
+  },
+  {
+    "key": "shared.label.9",
+    "value_ar": "وصلنا البلاغ. هنشوفه حالًا.",
+    "screen": "مكونات مشتركة",
+    "context_ar": "ChatRoom.tsx"
+  },
+  {
+    "key": "shared.text.14",
+    "value_ar": "بكرة",
+    "screen": "مكونات مشتركة",
+    "context_ar": "ClueGrid.tsx"
+  },
+  {
+    "key": "shared.label.10",
+    "value_ar": "فلاتر السبوطات",
+    "screen": "مكونات مشتركة",
+    "context_ar": "FilterChips.tsx"
+  },
+  {
+    "key": "shared.label.11",
+    "value_ar": "نسبوط — الرئيسية",
+    "screen": "مكونات مشتركة",
+    "context_ar": "Header.tsx"
+  },
+  {
+    "key": "shared.label.12",
+    "value_ar": "دخول",
+    "screen": "مكونات مشتركة",
+    "context_ar": "Header.tsx"
+  },
+  {
+    "key": "shared.text.15",
+    "value_ar": "الكباتن",
+    "screen": "مكونات مشتركة",
+    "context_ar": "Header.tsx"
+  },
+  {
+    "key": "shared.text.16",
+    "value_ar": "القواعد",
+    "screen": "مكونات مشتركة",
+    "context_ar": "Header.tsx"
+  },
+  {
+    "key": "shared.text.17",
+    "value_ar": "الخريطة",
+    "screen": "مكونات مشتركة",
+    "context_ar": "Header.tsx"
+  },
+  {
+    "key": "shared.text.18",
+    "value_ar": "الجدول",
+    "screen": "مكونات مشتركة",
+    "context_ar": "Header.tsx"
+  },
+  {
+    "key": "home.text.4",
+    "value_ar": "هنطلعلك سبوطة واحدة بس",
+    "screen": "الرئيسية",
+    "context_ar": "OneButton.tsx"
+  },
+  {
+    "key": "home.text.5",
+    "value_ar": "نديها واحدة؟",
+    "screen": "الرئيسية",
+    "context_ar": "OneButton.tsx"
+  },
+  {
+    "key": "home.text.6",
+    "value_ar": "ابعتلي الجدول على واتساب",
+    "screen": "الرئيسية",
+    "context_ar": "Sections.tsx"
+  },
+  {
+    "key": "home.label.1",
+    "value_ar": "رقم الموبايل",
+    "screen": "الرئيسية",
+    "context_ar": "Sections.tsx"
+  },
+  {
+    "key": "home.text.7",
+    "value_ar": "تمام. هيوصلك الجدول على واتساب.",
+    "screen": "الرئيسية",
+    "context_ar": "Sections.tsx"
+  },
+  {
+    "key": "home.text.8",
+    "value_ar": "هنبعتلك جدول الأسبوع اللي بعده.",
+    "screen": "الرئيسية",
+    "context_ar": "Sections.tsx"
+  },
+  {
+    "key": "home.text.9",
+    "value_ar": "مش فاضي الأسبوع ده؟",
+    "screen": "الرئيسية",
+    "context_ar": "Sections.tsx"
+  },
+  {
+    "key": "home.label.2",
+    "value_ar": "الرقم ده ناقص رقم",
+    "screen": "الرئيسية",
+    "context_ar": "Sections.tsx"
+  },
+  {
+    "key": "home.text.10",
+    "value_ar": "اقرأ القواعد",
+    "screen": "الرئيسية",
+    "context_ar": "Sections.tsx"
+  },
+  {
+    "key": "home.text.11",
+    "value_ar": "قواعدنا في سطرين",
+    "screen": "الرئيسية",
+    "context_ar": "Sections.tsx"
+  },
+  {
+    "key": "home.text.12",
+    "value_ar": "الكباتن",
+    "screen": "الرئيسية",
+    "context_ar": "Sections.tsx"
+  },
+  {
+    "key": "home.text.13",
+    "value_ar": "اللي حصل الجمعة اللي فاتت",
+    "screen": "الرئيسية",
+    "context_ar": "Sections.tsx"
+  },
+  {
+    "key": "shared.label.13",
+    "value_ar": "الأيام",
+    "screen": "مكونات مشتركة",
+    "context_ar": "Icons.tsx"
+  },
+  {
+    "key": "shared.label.14",
+    "value_ar": "الميزانية",
+    "screen": "مكونات مشتركة",
+    "context_ar": "Icons.tsx"
+  },
+  {
+    "key": "shared.label.15",
+    "value_ar": "المزاج",
+    "screen": "مكونات مشتركة",
+    "context_ar": "Icons.tsx"
+  },
+  {
+    "key": "shared.label.16",
+    "value_ar": "اتنين",
+    "screen": "مكونات مشتركة",
+    "context_ar": "Icons.tsx"
+  },
+  {
+    "key": "shared.label.17",
+    "value_ar": "الزحمة",
+    "screen": "مكونات مشتركة",
+    "context_ar": "Icons.tsx"
+  },
+  {
+    "key": "shared.label.18",
+    "value_ar": "المجموعة",
+    "screen": "مكونات مشتركة",
+    "context_ar": "Icons.tsx"
+  },
+  {
+    "key": "shared.label.19",
+    "value_ar": "الغروب",
+    "screen": "مكونات مشتركة",
+    "context_ar": "Icons.tsx"
+  },
+  {
+    "key": "shared.label.20",
+    "value_ar": "الهدوء",
+    "screen": "مكونات مشتركة",
+    "context_ar": "Icons.tsx"
+  },
+  {
+    "key": "shared.label.21",
+    "value_ar": "الخريطة",
+    "screen": "مكونات مشتركة",
+    "context_ar": "Icons.tsx"
+  },
+  {
+    "key": "shared.label.22",
+    "value_ar": "الأكل",
+    "screen": "مكونات مشتركة",
+    "context_ar": "Icons.tsx"
+  },
+  {
+    "key": "shared.label.23",
+    "value_ar": "التصوير",
+    "screen": "مكونات مشتركة",
+    "context_ar": "Icons.tsx"
+  },
+  {
+    "key": "shared.label.24",
+    "value_ar": "السمع",
+    "screen": "مكونات مشتركة",
+    "context_ar": "Icons.tsx"
+  },
+  {
+    "key": "shared.label.25",
+    "value_ar": "الكلام",
+    "screen": "مكونات مشتركة",
+    "context_ar": "Icons.tsx"
+  },
+  {
+    "key": "shared.label.26",
+    "value_ar": "اللابتوب",
+    "screen": "مكونات مشتركة",
+    "context_ar": "Icons.tsx"
+  },
+  {
+    "key": "shared.label.27",
+    "value_ar": "الملعب",
+    "screen": "مكونات مشتركة",
+    "context_ar": "Icons.tsx"
+  },
+  {
+    "key": "shared.label.28",
+    "value_ar": "النيل",
+    "screen": "مكونات مشتركة",
+    "context_ar": "Icons.tsx"
+  },
+  {
+    "key": "shared.label.29",
+    "value_ar": "سرير",
+    "screen": "مكونات مشتركة",
+    "context_ar": "Icons.tsx"
+  },
+  {
+    "key": "shared.label.30",
+    "value_ar": "مقفول",
+    "screen": "مكونات مشتركة",
+    "context_ar": "Icons.tsx"
+  },
+  {
+    "key": "shared.label.31",
+    "value_ar": "الضمان",
+    "screen": "مكونات مشتركة",
+    "context_ar": "Icons.tsx"
+  },
+  {
+    "key": "shared.label.32",
+    "value_ar": "المستوى",
+    "screen": "مكونات مشتركة",
+    "context_ar": "Icons.tsx"
+  },
+  {
+    "key": "shared.label.33",
+    "value_ar": "المكان",
+    "screen": "مكونات مشتركة",
+    "context_ar": "Icons.tsx"
+  },
+  {
+    "key": "shared.label.34",
+    "value_ar": "المدة",
+    "screen": "مكونات مشتركة",
+    "context_ar": "Icons.tsx"
+  },
+  {
+    "key": "shared.label.35",
+    "value_ar": "الميعاد",
+    "screen": "مكونات مشتركة",
+    "context_ar": "Icons.tsx"
+  },
+  {
+    "key": "shared.text.19",
+    "value_ar": "؟",
+    "screen": "مكونات مشتركة",
+    "context_ar": "LiveQ.tsx"
+  },
+  {
+    "key": "shared.text.20",
+    "value_ar": "نسبوط",
+    "screen": "مكونات مشتركة",
+    "context_ar": "Logo.tsx"
+  },
+  {
+    "key": "shared.label.36",
+    "value_ar": "خريطة المكان",
+    "screen": "مكونات مشتركة",
+    "context_ar": "MiniMap.tsx"
+  },
+  {
+    "key": "shared.text.21",
+    "value_ar": "افتح الخريطة",
+    "screen": "مكونات مشتركة",
+    "context_ar": "MiniMap.tsx"
+  },
+  {
+    "key": "shared.text.22",
+    "value_ar": "؟",
+    "screen": "مكونات مشتركة",
+    "context_ar": "MiniMap.tsx"
+  },
+  {
+    "key": "shared.label.37",
+    "value_ar": "خريطة مصغرة لمناطق السبوطات",
+    "screen": "مكونات مشتركة",
+    "context_ar": "MiniMap.tsx"
+  },
+  {
+    "key": "shared.text.23",
+    "value_ar": "السبوطة دي مش موجودة… بس دي موجودة",
+    "screen": "مكونات مشتركة",
+    "context_ar": "NotFoundView.tsx"
+  },
+  {
+    "key": "shared.text.24",
+    "value_ar": "؟",
+    "screen": "مكونات مشتركة",
+    "context_ar": "NotFoundView.tsx"
+  },
+  {
+    "key": "shared.label.38",
+    "value_ar": "مش لاقيين الصفحة",
+    "screen": "مكونات مشتركة",
+    "context_ar": "NotFoundView.tsx"
+  },
+  {
+    "key": "shared.text.25",
+    "value_ar": "← الرئيسية",
+    "screen": "مكونات مشتركة",
+    "context_ar": "NotFoundView.tsx"
+  },
+  {
+    "key": "shared.text.26",
+    "value_ar": "؟",
+    "screen": "مكونات مشتركة",
+    "context_ar": "QIcon.tsx"
+  },
+  {
+    "key": "shared.text.27",
+    "value_ar": "أنا جاي",
+    "screen": "مكونات مشتركة",
+    "context_ar": "SbotaCard.tsx"
+  },
+  {
+    "key": "shared.text.28",
+    "value_ar": "سجلني في الانتظار",
+    "screen": "مكونات مشتركة",
+    "context_ar": "SbotaCard.tsx"
+  },
+  {
+    "key": "shared.text.29",
+    "value_ar": "بنات بس",
+    "screen": "مكونات مشتركة",
+    "context_ar": "SbotaCard.tsx"
+  },
+  {
+    "key": "shared.label.39",
+    "value_ar": "ليلي",
+    "screen": "مكونات مشتركة",
+    "context_ar": "ThemeToggle.tsx"
+  },
+  {
+    "key": "shared.label.40",
+    "value_ar": "حوّل للوضع الليلي",
+    "screen": "مكونات مشتركة",
+    "context_ar": "ThemeToggle.tsx"
+  },
+  {
+    "key": "shared.text.30",
+    "value_ar": "سبوطتك الجاية",
+    "screen": "مكونات مشتركة",
+    "context_ar": "TypeCard.tsx"
+  },
+  {
+    "key": "shared.text.31",
+    "value_ar": "مين جاي؟",
+    "screen": "مكونات مشتركة",
+    "context_ar": "TypeCard.tsx"
+  },
+  {
+    "key": "shared.text.32",
+    "value_ar": "مين حاجز لحد دلوقتي",
+    "screen": "مكونات مشتركة",
+    "context_ar": "WhoBooked.tsx"
+  },
+  {
+    "key": "shared.brand",
+    "value_ar": "نسبوط",
+    "screen": "مكونات مشتركة",
+    "context_ar": "اسم الموقع في aria-label"
+  },
+  {
+    "key": "shared.back",
+    "value_ar": "رجوع",
+    "screen": "مكونات مشتركة",
+    "context_ar": "زر الرجوع الافتراضي"
+  },
+  {
+    "key": "shared.me",
+    "value_ar": "أنا",
+    "screen": "مكونات مشتركة",
+    "context_ar": "اسم صاحب الرسالة الافتراضي"
+  },
+  {
+    "key": "shared.countdown.started",
+    "value_ar": "بدأت",
+    "screen": "مكونات مشتركة",
+    "context_ar": "العد التنازلي — بدأت"
+  },
+  {
+    "key": "shared.countdown.day",
+    "value_ar": "فاضل يوم",
+    "screen": "مكونات مشتركة",
+    "context_ar": "العد التنازلي — يوم"
+  },
+  {
+    "key": "shared.countdown.day2",
+    "value_ar": "فاضل يومين",
+    "screen": "مكونات مشتركة",
+    "context_ar": "العد التنازلي — يومين"
+  },
+  {
+    "key": "shared.countdown.days",
+    "value_ar": "فاضل {{n}} أيام",
+    "screen": "مكونات مشتركة",
+    "context_ar": "العد التنازلي — أيام"
+  },
+  {
+    "key": "shared.countdown.hour",
+    "value_ar": "فاضل ساعة",
+    "screen": "مكونات مشتركة",
+    "context_ar": "العد التنازلي — ساعة"
+  },
+  {
+    "key": "shared.countdown.hour2",
+    "value_ar": "فاضل ساعتين",
+    "screen": "مكونات مشتركة",
+    "context_ar": "العد التنازلي — ساعتين"
+  },
+  {
+    "key": "shared.countdown.hours",
+    "value_ar": "فاضل {{n}} ساعة",
+    "screen": "مكونات مشتركة",
+    "context_ar": "العد التنازلي — ساعات"
+  },
+  {
+    "key": "shared.countdown.min",
+    "value_ar": "فاضل دقيقة",
+    "screen": "مكونات مشتركة",
+    "context_ar": "العد التنازلي — دقيقة"
+  },
+  {
+    "key": "shared.countdown.min2",
+    "value_ar": "فاضل دقيقتين",
+    "screen": "مكونات مشتركة",
+    "context_ar": "العد التنازلي — دقيقتين"
+  },
+  {
+    "key": "shared.countdown.mins",
+    "value_ar": "فاضل {{n}} دقيقة",
+    "screen": "مكونات مشتركة",
+    "context_ar": "العد التنازلي — دقايق"
+  },
+  {
+    "key": "shared.rating.1",
+    "value_ar": "وحش",
+    "screen": "مكونات مشتركة",
+    "context_ar": "وش التقييم 1"
+  },
+  {
+    "key": "shared.rating.2",
+    "value_ar": "مش أوي",
+    "screen": "مكونات مشتركة",
+    "context_ar": "وش التقييم 2"
+  },
+  {
+    "key": "shared.rating.3",
+    "value_ar": "عادي",
+    "screen": "مكونات مشتركة",
+    "context_ar": "وش التقييم 3"
+  },
+  {
+    "key": "shared.rating.4",
+    "value_ar": "حلو",
+    "screen": "مكونات مشتركة",
+    "context_ar": "وش التقييم 4"
+  },
+  {
+    "key": "shared.rating.5",
+    "value_ar": "ممتاز",
+    "screen": "مكونات مشتركة",
+    "context_ar": "وش التقييم 5"
+  },
+  {
+    "key": "pay.method.vodafone",
+    "value_ar": "فودافون كاش",
+    "screen": "الدفع",
+    "context_ar": "اسم طريقة التحويل"
+  },
+  {
+    "key": "pay.method.vodafone_note",
+    "value_ar": "تحويل من محفظتك",
+    "screen": "الدفع",
+    "context_ar": "وصف فودافون كاش"
+  },
+  {
+    "key": "pay.method.instapay",
+    "value_ar": "إنستا باي",
+    "screen": "الدفع",
+    "context_ar": "اسم طريقة التحويل"
+  },
+  {
+    "key": "pay.method.instapay_note",
+    "value_ar": "تحويل من أي بنك",
+    "screen": "الدفع",
+    "context_ar": "وصف إنستا باي"
+  },
+  {
+    "key": "chat.removed",
+    "value_ar": "{{name}} اتشال من الغرفة.",
+    "screen": "الشات",
+    "context_ar": "رسالة بعد شيل عضو"
+  }
+]

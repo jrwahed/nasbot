@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Rubik:wght@900&family=IBM+Plex+Sans+Arabic:wght@400;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#E9E2D6;font-family:'IBM Plex Sans Arabic',sans-serif;color:#14161A}
+a{color:#F4632A}a:hover{color:#2B4CFF}
+@keyframes nb-marquee{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+@keyframes nb-pulse{0%{box-shadow:0 0 0 0 rgba(244,99,42,.7)}100%{box-shadow:0 0 0 14px rgba(244,99,42,0)}}
+</style>
+</helmet>
+<section dir="rtl" style="padding:40px;display:flex;flex-wrap:wrap;gap:48px;align-items:flex-start">
+
+<!-- ========== 1. الرئيسية — ليلي ========== -->
+<div style="display:flex;flex-direction:column;gap:12px">
+<div style="font:600 14px 'IBM Plex Sans Arabic';color:#55575C">1 · الرئيسية — الوضع الليلي · 390</div>
+<div data-screen-label="1 الرئيسية ليلي" style="width:390px;background:#14161A;color:#FBF7EF;position:relative;font-size:16px;line-height:1.7;overflow:hidden">
+  <div style="display:flex;justify-content:space-between;align-items:center;padding:18px 20px 8px">
+    <div style="position:relative;display:inline-block;font:900 34px Rubik;transform:skewX(-6deg);line-height:1">
+      <span style="position:absolute;top:4px;right:-5px;color:transparent;-webkit-text-stroke:2px #FBF7EF">نسبوط</span>
+      <span style="position:relative;color:#F4632A">نسبوط</span>
+    </div>
+    <button style="background:none;border:0;color:#FBF7EF;font:600 16px 'IBM Plex Sans Arabic';min-height:44px;padding:0 8px;cursor:pointer">دخول</button>
+  </div>
+  <div style="padding:8px 20px 0">
+    <button style="width:100%;background:#F4632A;color:#14161A;border:0;border-radius:18px;padding:20px 16px;font:900 32px Rubik;line-height:1.1;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:6px">
+      <span>نديها واحدة؟</span>
+      <span style="font:400 14px 'IBM Plex Sans Arabic'">هنطلعلك سبوطة واحدة بس</span>
+    </button>
+  </div>
+  <div dir="ltr" style="overflow:hidden;margin:18px 0 0;border-top:2px solid #EFE3CF;border-bottom:2px solid #EFE3CF;padding:8px 0">
+    <div style="display:flex;width:max-content;animation:nb-marquee 28s linear infinite">
+      <span dir="rtl" style="white-space:nowrap;font:600 15px 'IBM Plex Sans Arabic';color:#FBF7EF;padding-inline:16px">الخميس · إحنا الرابع · بادل التجمع · <b style="color:#F4632A">فاضل 3</b> ▸ الجمعة · فطار على النيل · كاياك المعادي · <b style="color:#F4632A">فاضل 5</b> ▸ الجمعة · بعد ما الشمس تغيب · وادي دجلة · كامل ▸ </span>
+      <span dir="rtl" style="white-space:nowrap;font:600 15px 'IBM Plex Sans Arabic';color:#FBF7EF;padding-inline:16px">الخميس · إحنا الرابع · بادل التجمع · <b style="color:#F4632A">فاضل 3</b> ▸ الجمعة · فطار على النيل · كاياك المعادي · <b style="color:#F4632A">فاضل 5</b> ▸ الجمعة · بعد ما الشمس تغيب · وادي دجلة · كامل ▸ </span>
+    </div>
+  </div>
+  <div style="padding:28px 20px 0">
+    <h2 style="margin:0;font:900 30px Rubik;line-height:1.15">سبوطات الأسبوع ده</h2>
+    <div style="color:#EFE3CF;margin-top:4px">8 بس. لما تكمل تكمل.</div>
+  </div>
+  <div style="display:flex;gap:8px;overflow-x:auto;padding:16px 20px 4px;scrollbar-width:none">
+    <sc-for list="{{ filters }}" as="f" hint-placeholder-count="6">
+      <button onClick="{{ f.pick }}" style="{{ f.style }}">{{ f.label }}</button>
+    </sc-for>
+  </div>
+  <div style="display:flex;flex-direction:column;gap:16px;padding:16px 20px 0">
+    <sc-for list="{{ cards }}" as="c" hint-placeholder-count="5">
+      <article style="background:#EFE3CF;color:#14161A;border-radius:20px;overflow:hidden">
+        <div style="position:relative;aspect-ratio:4/3;background:#E2D2B4;display:grid;place-items:center;padding:16px;text-align:center;font:400 13px 'IBM Plex Sans Arabic';color:#6B6455">
+          <span>{{ c.img }}</span>
+          <span style="{{ c.leftStyle }}">{{ c.left }}</span>
+          <sc-if value="{{ c.girls }}" hint-placeholder-val="{{ false }}">
+            <span style="position:absolute;top:14px;left:14px;background:#2B4CFF;color:#FBF7EF;border-radius:999px;padding:5px 14px;font:900 15px Rubik;transform:rotate(4deg)">بنات بس</span>
+          </sc-if>
+        </div>
+        <div style="padding:16px 18px 18px;display:flex;flex-direction:column;gap:6px">
+          <h3 style="margin:0;font:900 26px Rubik;line-height:1.15">{{ c.name }}</h3>
+          <div style="font-weight:600">{{ c.meta }}</div>
+          <div style="color:#55575C">{{ c.mood }}</div>
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:8px">
+            <div style="font:900 28px Rubik;line-height:1">{{ c.price }} <span style="font:600 14px 'IBM Plex Sans Arabic'">{{ c.priceNote }}</span></div>
+            <button style="{{ c.btnStyle }}">{{ c.btn }}</button>
+          </div>
+        </div>
+      </article>
+    </sc-for>
+  </div>
+  <div style="padding:32px 20px 0">
+    <div style="position:relative;height:260px;border-radius:20px;background:#1E2128;overflow:hidden;border:2px solid #2A2E36">
+      <div style="position:absolute;right:18px;top:26px;width:120px;height:80px;border-radius:26px;background:#2A2E36"></div>
+      <div style="position:absolute;right:150px;top:110px;width:90px;height:70px;border-radius:26px;background:#2A2E36"></div>
+      <div style="position:absolute;left:20px;top:40px;width:110px;height:90px;border-radius:30px;background:#2A2E36"></div>
+      <div style="position:absolute;right:60px;bottom:30px;width:100px;height:60px;border-radius:24px;background:#2A2E36"></div>
+      <span style="position:absolute;right:60px;top:56px;font:600 12px 'IBM Plex Sans Arabic';color:#9A9CA3">التجمع</span>
+      <span style="position:absolute;right:168px;top:132px;font:600 12px 'IBM Plex Sans Arabic';color:#9A9CA3">المعادي</span>
+      <span style="position:absolute;left:52px;top:74px;font:600 12px 'IBM Plex Sans Arabic';color:#9A9CA3">زايد</span>
+      <span style="position:absolute;right:82px;bottom:46px;font:600 12px 'IBM Plex Sans Arabic';color:#9A9CA3">وادي دجلة</span>
+      <span style="position:absolute;right:40px;top:40px;width:14px;height:14px;border-radius:50%;background:#F4632A;animation:nb-pulse 1.6s ease-out infinite"></span>
+      <span style="position:absolute;right:110px;top:70px;width:14px;height:14px;border-radius:50%;background:#F4632A;animation:nb-pulse 1.6s .4s ease-out infinite"></span>
+      <span style="position:absolute;right:190px;top:150px;width:14px;height:14px;border-radius:50%;background:#F4632A;animation:nb-pulse 1.6s .8s ease-out infinite"></span>
+      <span style="position:absolute;right:120px;bottom:50px;width:14px;height:14px;border-radius:50%;background:#F4632A;animation:nb-pulse 1.6s 1.2s ease-out infinite"></span>
+      <span style="position:absolute;left:70px;top:60px;width:30px;height:30px;border-radius:50%;background:#2B4CFF;color:#FBF7EF;display:grid;place-items:center;font:900 18px Rubik;transform:skewX(-6deg)">؟</span>
+      <button style="position:absolute;bottom:14px;left:14px;background:#FBF7EF;color:#14161A;border:0;border-radius:999px;padding:0 18px;min-height:44px;font:900 15px Rubik;cursor:pointer">افتح الخريطة</button>
+    </div>
+  </div>
+  <div style="padding:36px 0 0">
+    <h2 style="margin:0 20px;font:900 26px Rubik;line-height:1.15">اللي حصل الجمعة اللي فاتت</h2>
+    <div style="display:flex;gap:12px;overflow-x:auto;padding:16px 20px 0;scrollbar-width:none">
+      <div style="position:relative;flex:0 0 240px;aspect-ratio:1;border-radius:18px;background:#EFE3CF;color:#6B6455;display:grid;place-items:center;text-align:center;padding:20px;font-size:13px">[صورة المجموعة الحقيقية — كاياك المعادي 7 الصبح]<span style="position:absolute;bottom:12px;left:14px;font:italic 400 15px 'IBM Plex Sans Arabic';color:#14161A;transform:rotate(-6deg)">~ الكابتن سارة</span></div>
+      <div style="position:relative;flex:0 0 240px;aspect-ratio:1;border-radius:18px;background:#EFE3CF;color:#6B6455;display:grid;place-items:center;text-align:center;padding:20px;font-size:13px">[صورة المجموعة الحقيقية — ملعب بادل بالفلاش]<span style="position:absolute;bottom:12px;left:14px;font:italic 400 15px 'IBM Plex Sans Arabic';color:#14161A;transform:rotate(-6deg)">~ الكابتن يوسف</span></div>
+      <div style="position:relative;flex:0 0 240px;aspect-ratio:1;border-radius:18px;background:#EFE3CF;color:#6B6455;display:grid;place-items:center;text-align:center;padding:20px;font-size:13px">[صورة المجموعة الحقيقية — شوي في وادي دجلة]<span style="position:absolute;bottom:12px;left:14px;font:italic 400 15px 'IBM Plex Sans Arabic';color:#14161A;transform:rotate(-6deg)">~ الكابتن دينا</span></div>
+    </div>
+    <div style="margin:14px 20px 0;font-size:17px">«رحت لوحدي ومحستش إني لوحدي.» <span style="color:#F4632A;font-weight:600">— نور</span></div>
+  </div>
+  <div style="padding:36px 20px 0">
+    <h2 style="margin:0;font:900 26px Rubik;line-height:1.15">الكباتن</h2>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px">
+      <div style="display:flex;flex-direction:column;align-items:center;text-align:center;gap:8px"><div style="width:84px;height:84px;border-radius:50%;background:#EFE3CF;color:#6B6455;font-size:11px;display:grid;place-items:center">[صورة]</div><div style="font:900 16px Rubik">الكابتن سارة — كاياك</div><div style="font-size:14px;color:#C9C4B8">بتصحى قبل الشمس وبتخليك تصحى معاها.</div></div>
+      <div style="display:flex;flex-direction:column;align-items:center;text-align:center;gap:8px"><div style="width:84px;height:84px;border-radius:50%;background:#EFE3CF;color:#6B6455;font-size:11px;display:grid;place-items:center">[صورة]</div><div style="font:900 16px Rubik">الكابتن يوسف — بادل</div><div style="font-size:14px;color:#C9C4B8">بيلعب من سنتين وبيعرّف الناس على بعض من أول كورة.</div></div>
+      <div style="display:flex;flex-direction:column;align-items:center;text-align:center;gap:8px"><div style="width:84px;height:84px;border-radius:50%;background:#EFE3CF;color:#6B6455;font-size:11px;display:grid;place-items:center">[صورة]</div><div style="font:900 16px Rubik">الكابتن دينا — شغل</div><div style="font-size:14px;color:#C9C4B8">مصممة فريلانس، بتقفل اللابتوبات الساعة 1.</div></div>
+      <div style="display:flex;flex-direction:column;align-items:center;text-align:center;gap:8px"><div style="width:84px;height:84px;border-radius:50%;background:#EFE3CF;color:#6B6455;font-size:11px;display:grid;place-items:center">[صورة]</div><div style="font:900 16px Rubik">الكابتن عمر — هايك</div><div style="font-size:14px;color:#C9C4B8">عارف كل صخرة في وادي دجلة بالاسم.</div></div>
+    </div>
+  </div>
+  <div style="padding:36px 20px 0">
+    <h2 style="margin:0;font:900 26px Rubik;line-height:1.15">قواعدنا في سطرين</h2>
+    <div style="display:flex;flex-wrap:wrap;gap:12px 10px;margin-top:16px">
+      <span style="background:#EFE3CF;color:#14161A;border-radius:999px;padding:8px 16px;font:900 15px Rubik;transform:rotate(-2deg)">كابتن في كل سبوطة</span>
+      <span style="background:#2B4CFF;color:#FBF7EF;border-radius:999px;padding:8px 16px;font:900 15px Rubik;transform:rotate(3deg)">بنات بس كل تلات</span>
+      <span style="background:#F4632A;color:#14161A;border-radius:999px;padding:8px 16px;font:900 15px Rubik;transform:rotate(-3deg)">فلوسك بترجع لو إحنا لغينا</span>
+      <span style="background:#EFE3CF;color:#14161A;border-radius:999px;padding:8px 16px;font:900 15px Rubik;transform:rotate(2deg)">اللي يضايق حد بيمشي</span>
+    </div>
+    <button style="background:none;border:0;color:#F4632A;font:600 16px 'IBM Plex Sans Arabic';padding:0;min-height:44px;margin-top:8px;cursor:pointer;text-decoration:underline">اقرأ القواعد</button>
+  </div>
+  <div style="margin:36px 20px 0;background:#EFE3CF;color:#14161A;border-radius:20px;padding:20px">
+    <h2 style="margin:0;font:900 24px Rubik;line-height:1.15">مش فاضي الأسبوع ده؟</h2>
+    <div style="font-size:14px;color:#55575C;margin-top:4px">هنبعتلك جدول الأسبوع اللي بعده.</div>
+    <input dir="ltr" placeholder="01x xxxx xxxx" style="width:100%;box-sizing:border-box;margin-top:14px;border:2px solid #14161A;border-radius:14px;background:#FBF7EF;min-height:50px;padding:0 14px;font:600 18px 'IBM Plex Sans Arabic';text-align:right">
+    <button style="width:100%;margin-top:10px;background:#14161A;color:#FBF7EF;border:0;border-radius:14px;min-height:50px;font:900 16px Rubik;cursor:pointer">ابعتلي الجدول على واتساب</button>
+  </div>
+  <footer style="padding:36px 20px 80px;color:#C9C4B8;font-size:14px">
+    <div style="display:flex;flex-wrap:wrap;gap:8px 18px;font-weight:600;color:#FBF7EF"><span>القواعد</span><span>الأسئلة</span><span>بقى كابتن</span><span>مين إحنا</span><span>الشروط</span></div>
+    <div style="margin-top:16px">نسبوط — نادي خروجات في القاهرة. مفيش عضوية.</div>
+  </footer>
+  <div style="position:absolute;left:16px;bottom:16px;width:44px;height:44px;border-radius:11px;background:#F4632A;color:#14161A;display:grid;place-items:center;font:900 28px Rubik;transform:skewX(-6deg) rotate(-8deg)">؟</div>
+</div>
+</div>
+
+<!-- ========== 7. صفحة السبوطة ========== -->
+<div style="display:flex;flex-direction:column;gap:12px">
+<div style="font:600 14px 'IBM Plex Sans Arabic';color:#55575C">7 · صفحة السبوطة · 390</div>
+<div data-screen-label="7 صفحة السبوطة" style="width:390px;background:#14161A;color:#FBF7EF;position:relative;font-size:16px;line-height:1.7;overflow:hidden;padding-bottom:120px">
+  <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 20px 8px">
+    <button style="background:none;border:0;color:#FBF7EF;font:600 16px 'IBM Plex Sans Arabic';min-height:44px;padding:0;cursor:pointer">← رجوع</button>
+    <div style="position:relative;display:inline-block;font:900 22px Rubik;transform:skewX(-6deg);line-height:1"><span style="position:absolute;top:3px;right:-3px;color:transparent;-webkit-text-stroke:1.5px #FBF7EF">نسبوط</span><span style="position:relative;color:#F4632A">نسبوط</span></div>
+  </div>
+  <div style="position:relative">
+    <div style="display:flex;gap:10px;overflow-x:auto;padding:6px 20px 0;scrollbar-width:none">
+      <div style="flex:0 0 300px;aspect-ratio:1;border-radius:20px;background:#EFE3CF;color:#6B6455;display:grid;place-items:center;text-align:center;padding:20px;font-size:13px">[صورة المجموعة الحقيقية — بادل التجمع، الخميس اللي فات]</div>
+      <div style="flex:0 0 300px;aspect-ratio:1;border-radius:20px;background:#EFE3CF;color:#6B6455;display:grid;place-items:center;text-align:center;padding:20px;font-size:13px">[صورة — الملعب بالليل بالفلاش]</div>
+      <div style="flex:0 0 300px;aspect-ratio:1;border-radius:20px;background:#EFE3CF;color:#6B6455;display:grid;place-items:center;text-align:center;padding:20px;font-size:13px">[صورة — الكابتن يوسف مع المجموعة]</div>
+    </div>
+    <span style="position:absolute;top:20px;right:34px;background:#F4632A;color:#14161A;border-radius:999px;padding:6px 16px;font:900 18px Rubik;transform:rotate(-4deg)">فاضل {{ spotsLeft }} من 8</span>
+  </div>
+  <div style="padding:22px 20px 0">
+    <h1 style="margin:0;font:900 40px Rubik;line-height:1.1">إحنا الرابع</h1>
+    <p style="margin:8px 0 0;font-size:17px">كل لاعب بادل في القاهرة قال مرة "محتاج رابع". إحنا الرابع.</p>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:20px 20px 0">
+    <div style="display:flex;gap:10px;align-items:center"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#F4632A" stroke-width="2"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg><span style="font-weight:600">الخميس 8 بالليل</span></div>
+    <div style="display:flex;gap:10px;align-items:center"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#F4632A" stroke-width="2"><path d="M4 12h16M14 6l6 6-6 6"></path></svg><span style="font-weight:600">ساعتين</span></div>
+    <div style="display:flex;gap:10px;align-items:center"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#F4632A" stroke-width="2"><circle cx="12" cy="10" r="3"></circle><path d="M12 21s-7-6-7-11a7 7 0 0 1 14 0c0 5-7 11-7 11z"></path></svg><span style="font-weight:600">التجمع <span style="font-weight:400;color:#C9C4B8;font-size:13px">(العنوان بعد الحجز)</span></span></div>
+    <div style="display:flex;gap:10px;align-items:center"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#F4632A" stroke-width="2"><circle cx="12" cy="8" r="6"></circle><path d="M12 14v7"></path></svg><span style="font-weight:600">مبتدئين ومتوسطين</span></div>
+  </div>
+  <div style="margin:24px 20px 0;display:flex;gap:14px;align-items:center;background:#1E2128;border-radius:20px;padding:16px">
+    <div style="width:64px;height:64px;border-radius:50%;flex:0 0 64px;background:#EFE3CF;color:#6B6455;font-size:11px;display:grid;place-items:center">[صورة]</div>
+    <div><div style="font:900 18px Rubik">الكابتن يوسف</div><div style="font-size:14px;color:#C9C4B8">بيلعب من سنتين، وهو اللي هيعرفكم على بعض.</div></div>
+  </div>
+  <div style="margin:16px 20px 0;background:#EFE3CF;color:#14161A;border-radius:20px;padding:18px">
+    <div style="font:900 20px Rubik">مين حاجز لحد دلوقتي</div>
+    <div style="font:900 34px Rubik;line-height:1.1;margin-top:6px">5 من 8</div>
+    <div style="margin-top:6px">3 بنات و2 شباب · الأعمار 25–31 · اتنين أول مرة · تلاتة رايحين معانا قبل كده.</div>
+    <div style="margin-top:10px;font-size:14px;color:#55575C;border-top:1px solid #D9CBAF;padding-top:10px">هتعرف مجموعتك الأربع الساعة 8 بالليل.</div>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:24px 20px 0">
+    <div><div style="font:900 18px Rubik;color:#F4632A">اللي شامله</div><ul style="margin:6px 0 0;padding-inline-start:18px;font-size:15px"><li>ملعبين ساعتين</li><li>كرات</li><li>مياه وعصير</li><li>الكابتن</li></ul></div>
+    <div><div style="font:900 18px Rubik;color:#C9C4B8">مش شامله</div><ul style="margin:6px 0 0;padding-inline-start:18px;font-size:15px"><li>المضرب <span style="color:#C9C4B8">(في إيجار بـ 50)</span></li></ul></div>
+  </div>
+  <div style="padding:24px 20px 0">
+    <div style="font:900 34px Rubik;line-height:1.1">300 جنيه</div>
+    <div style="font-size:14px;color:#C9C4B8">شامل 40 جنيه رسوم تنظيم المجموعة والكابتن.</div>
+  </div>
+  <div style="margin:16px 20px 0;background:#EFE3CF;color:#14161A;border-radius:16px;padding:16px;display:flex;gap:12px;align-items:flex-start">
+    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#3E5C43" stroke-width="2.2" style="flex:0 0 26px;margin-top:4px"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"></path><path d="M8.5 12l2.5 2.5 4.5-5"></path></svg>
+    <div style="font-size:15px;font-weight:600">لو إحنا لغينا، فلوسك كاملة. لو أنت لغيت قبل 3 أيام، فلوسك كاملة. أقل من كده، رصيد.</div>
+  </div>
+  <div style="padding:14px 20px 0"><button style="background:none;border:2px solid #FBF7EF;color:#FBF7EF;border-radius:999px;min-height:44px;padding:0 18px;font:900 15px Rubik;cursor:pointer">القواعد</button></div>
+  <div style="position:absolute;bottom:0;left:0;right:0;background:#14161A;border-top:2px solid #2A2E36;padding:12px 20px 16px">
+    <button style="width:100%;background:#F4632A;color:#14161A;border:0;border-radius:16px;min-height:58px;font:900 22px Rubik;cursor:pointer">أنا جاي — 300 جنيه</button>
+    <div style="text-align:center;font-size:13px;color:#C9C4B8;margin-top:6px">هات صاحبك بالكود — هتبقوا في نفس المجموعة</div>
+  </div>
+</div>
+</div>
+
+<!-- ========== 8. إنشاء الحساب ========== -->
+<div style="display:flex;flex-direction:column;gap:12px">
+<div style="font:600 14px 'IBM Plex Sans Arabic';color:#55575C">8 · إنشاء الحساب · 390</div>
+<div data-screen-label="8 إنشاء الحساب" style="width:390px;background:#FBF7EF;color:#14161A;position:relative;font-size:16px;line-height:1.7;overflow:hidden;padding:0 20px 100px;box-sizing:border-box">
+  <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 0 8px">
+    <button style="background:none;border:0;color:#14161A;font:600 16px 'IBM Plex Sans Arabic';min-height:44px;padding:0;cursor:pointer">← رجوع</button>
+    <div style="position:relative;display:inline-block;font:900 22px Rubik;transform:skewX(-6deg);line-height:1"><span style="position:absolute;top:3px;right:-3px;color:transparent;-webkit-text-stroke:1.5px #2B4CFF">نسبوط</span><span style="position:relative;color:#F4632A">نسبوط</span></div>
+  </div>
+  <h1 style="margin:10px 0 0;font:900 30px Rubik;line-height:1.15">قبل ما نحجزلك — دقيقتين نعرفك</h1>
+  <div style="color:#55575C;margin-top:4px">بتحجز: <b style="color:#14161A">إحنا الرابع · الخميس 8</b></div>
+
+  <div style="margin-top:24px;display:flex;align-items:center;gap:10px"><span style="background:#F4632A;color:#14161A;border-radius:999px;padding:2px 14px;font:900 16px Rubik;transform:rotate(-3deg)">1</span><span style="font:900 20px Rubik">رقمك</span></div>
+  <div style="display:flex;flex-direction:column;gap:10px;margin-top:12px">
+    <input dir="ltr" placeholder="01x xxxx xxxx" style="width:100%;box-sizing:border-box;border:2px solid #14161A;border-radius:14px;background:#FBF7EF;min-height:52px;padding:0 14px;font:600 18px 'IBM Plex Sans Arabic';text-align:right">
+    <button style="width:100%;background:#14161A;color:#FBF7EF;border:0;border-radius:14px;min-height:50px;font:900 16px Rubik;cursor:pointer">ابعتلي الرمز على واتساب</button>
+    <input dir="ltr" placeholder="الرمز (6 أرقام)" style="width:100%;box-sizing:border-box;border:2px solid #14161A;border-radius:14px;background:#FBF7EF;min-height:52px;padding:0 14px;font:600 22px Rubik;letter-spacing:.4em;text-align:right">
+    <input placeholder="الإيميل" style="width:100%;box-sizing:border-box;border:2px solid #14161A;border-radius:14px;background:#FBF7EF;min-height:52px;padding:0 14px;font:600 16px 'IBM Plex Sans Arabic'">
+  </div>
+
+  <div style="margin-top:32px;display:flex;align-items:center;gap:10px"><span style="background:#F4632A;color:#14161A;border-radius:999px;padding:2px 14px;font:900 16px Rubik;transform:rotate(3deg)">2</span><span style="font:900 20px Rubik">عنك</span></div>
+  <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px;margin-top:12px">
+    <input placeholder="الاسم الأول" style="min-width:0;width:100%;box-sizing:border-box;border:2px solid #14161A;border-radius:14px;background:#FBF7EF;min-height:52px;padding:0 14px;font:600 16px 'IBM Plex Sans Arabic'">
+    <input placeholder="سنة الميلاد" style="min-width:0;width:100%;box-sizing:border-box;border:2px solid #14161A;border-radius:14px;background:#FBF7EF;min-height:52px;padding:0 14px;font:600 16px 'IBM Plex Sans Arabic'">
+  </div>
+  <div style="margin-top:14px;font-weight:600">النوع</div>
+  <div style="display:flex;gap:8px;margin-top:6px">
+    <button style="flex:1;min-height:48px;border-radius:999px;border:2px solid #14161A;background:#14161A;color:#FBF7EF;font:900 16px Rubik;cursor:pointer">بنت</button>
+    <button style="flex:1;min-height:48px;border-radius:999px;border:2px solid #14161A;background:transparent;color:#14161A;font:900 16px Rubik;cursor:pointer">شاب</button>
+  </div>
+  <div style="margin-top:14px;font-weight:600">المنطقة</div>
+  <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:6px">
+    <span style="border:2px solid #14161A;background:#14161A;color:#FBF7EF;border-radius:999px;padding:8px 14px;font:900 14px Rubik">التجمع</span>
+    <span style="border:2px solid #14161A;border-radius:999px;padding:8px 14px;font:900 14px Rubik">المعادي</span>
+    <span style="border:2px solid #14161A;border-radius:999px;padding:8px 14px;font:900 14px Rubik">زايد-أكتوبر</span>
+    <span style="border:2px solid #14161A;border-radius:999px;padding:8px 14px;font:900 14px Rubik">مصر الجديدة-مدينة نصر</span>
+    <span style="border:2px solid #14161A;border-radius:999px;padding:8px 14px;font:900 14px Rubik">وسط-زمالك</span>
+    <span style="border:2px solid #14161A;border-radius:999px;padding:8px 14px;font:900 14px Rubik">غير كده</span>
+  </div>
+  <div style="margin-top:14px;background:#EFE3CF;border-radius:16px;padding:14px">
+    <div style="display:flex;align-items:center;gap:10px"><span style="background:#2B4CFF;color:#FBF7EF;border-radius:999px;padding:3px 12px;font:900 14px Rubik;transform:rotate(-3deg)">بنات بس</span><span style="font-weight:600">تحبي مجموعاتك تكون بنات بس؟</span></div>
+    <div style="display:flex;gap:8px;margin-top:10px">
+      <button style="flex:1;min-height:44px;border-radius:999px;border:2px solid #14161A;background:transparent;color:#14161A;font:900 14px Rubik;cursor:pointer">دايمًا</button>
+      <button style="flex:1;min-height:44px;border-radius:999px;border:2px solid #14161A;background:#14161A;color:#FBF7EF;font:900 14px Rubik;cursor:pointer">أحيانًا</button>
+      <button style="flex:1;min-height:44px;border-radius:999px;border:2px solid #14161A;background:transparent;color:#14161A;font:900 14px Rubik;cursor:pointer">مش مهم</button>
+    </div>
+  </div>
+
+  <div style="margin-top:32px;display:flex;align-items:center;gap:10px"><span style="background:#F4632A;color:#14161A;border-radius:999px;padding:2px 14px;font:900 16px Rubik;transform:rotate(-2deg)">3</span><span style="font:900 20px Rubik">بتحب إيه؟</span><span style="color:#55575C;font-size:14px">اختار 5 · <b style="color:#14161A">{{ pickedCount }}/5</b></span></div>
+  <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px">
+    <sc-for list="{{ interests }}" as="i" hint-placeholder-count="20">
+      <button onClick="{{ i.toggle }}" style="{{ i.style }}">{{ i.label }}</button>
+    </sc-for>
+  </div>
+  <div style="margin-top:18px;font-weight:600">مستواك في</div>
+  <div style="display:flex;flex-direction:column;gap:8px;margin-top:6px;font-size:14px">
+    <div style="display:flex;align-items:center;gap:8px"><span style="width:56px;font-weight:600">بادل</span><div style="display:flex;gap:6px;flex:1"><span style="flex:1;text-align:center;border:2px solid #14161A;background:#14161A;color:#FBF7EF;border-radius:999px;padding:6px 0;font:900 12px Rubik">أول مرة</span><span style="flex:1;text-align:center;border:2px solid #14161A;border-radius:999px;padding:6px 0;font:900 12px Rubik">مبتدئ</span><span style="flex:1;text-align:center;border:2px solid #14161A;border-radius:999px;padding:6px 0;font:900 12px Rubik">متوسط</span><span style="flex:1;text-align:center;border:2px solid #14161A;border-radius:999px;padding:6px 0;font:900 12px Rubik">كويس</span></div></div>
+    <div style="display:flex;align-items:center;gap:8px"><span style="width:56px;font-weight:600">جري</span><div style="display:flex;gap:6px;flex:1"><span style="flex:1;text-align:center;border:2px solid #14161A;border-radius:999px;padding:6px 0;font:900 12px Rubik">أول مرة</span><span style="flex:1;text-align:center;border:2px solid #14161A;background:#14161A;color:#FBF7EF;border-radius:999px;padding:6px 0;font:900 12px Rubik">مبتدئ</span><span style="flex:1;text-align:center;border:2px solid #14161A;border-radius:999px;padding:6px 0;font:900 12px Rubik">متوسط</span><span style="flex:1;text-align:center;border:2px solid #14161A;border-radius:999px;padding:6px 0;font:900 12px Rubik">كويس</span></div></div>
+    <div style="display:flex;align-items:center;gap:8px"><span style="width:56px;font-weight:600">سباحة</span><div style="display:flex;gap:6px;flex:1"><span style="flex:1;text-align:center;border:2px solid #14161A;border-radius:999px;padding:6px 0;font:900 12px Rubik">أول مرة</span><span style="flex:1;text-align:center;border:2px solid #14161A;border-radius:999px;padding:6px 0;font:900 12px Rubik">مبتدئ</span><span style="flex:1;text-align:center;border:2px solid #14161A;border-radius:999px;padding:6px 0;font:900 12px Rubik">متوسط</span><span style="flex:1;text-align:center;border:2px solid #14161A;background:#14161A;color:#FBF7EF;border-radius:999px;padding:6px 0;font:900 12px Rubik">كويس</span></div></div>
+  </div>
+  <div style="margin-top:18px;font-weight:600">الميزانية المريحة</div>
+  <div style="display:flex;gap:6px;margin-top:6px">
+    <span style="flex:1;text-align:center;border:2px solid #14161A;border-radius:999px;padding:8px 0;font:900 13px Rubik">لحد 250</span>
+    <span style="flex:1;text-align:center;border:2px solid #14161A;background:#14161A;color:#FBF7EF;border-radius:999px;padding:8px 0;font:900 13px Rubik">لحد 500</span>
+    <span style="flex:1;text-align:center;border:2px solid #14161A;border-radius:999px;padding:8px 0;font:900 13px Rubik">لحد 1000</span>
+    <span style="flex:1;text-align:center;border:2px solid #14161A;border-radius:999px;padding:8px 0;font:900 13px Rubik">مفيش مشكلة</span>
+  </div>
+  <div style="margin-top:18px;font-weight:600">الأيام الفاضية</div>
+  <div style="display:flex;gap:6px;margin-top:6px">
+    <span style="flex:1;text-align:center;border:2px solid #14161A;border-radius:12px;padding:8px 0;font:900 13px Rubik">سبت</span>
+    <span style="flex:1;text-align:center;border:2px solid #14161A;border-radius:12px;padding:8px 0;font:900 13px Rubik">حد</span>
+    <span style="flex:1;text-align:center;border:2px solid #14161A;border-radius:12px;padding:8px 0;font:900 13px Rubik">اتنين</span>
+    <span style="flex:1;text-align:center;border:2px solid #14161A;background:#14161A;color:#FBF7EF;border-radius:12px;padding:8px 0;font:900 13px Rubik">تلات</span>
+    <span style="flex:1;text-align:center;border:2px solid #14161A;border-radius:12px;padding:8px 0;font:900 13px Rubik">أربع</span>
+    <span style="flex:1;text-align:center;border:2px solid #14161A;background:#14161A;color:#FBF7EF;border-radius:12px;padding:8px 0;font:900 13px Rubik">خميس</span>
+    <span style="flex:1;text-align:center;border:2px solid #14161A;background:#14161A;color:#FBF7EF;border-radius:12px;padding:8px 0;font:900 13px Rubik">جمعة</span>
+  </div>
+
+  <div style="margin-top:32px;display:flex;align-items:center;gap:10px"><span style="background:#F4632A;color:#14161A;border-radius:999px;padding:2px 14px;font:900 16px Rubik;transform:rotate(3deg)">4</span><span style="font:900 20px Rubik">صورتك</span></div>
+  <div style="display:flex;flex-direction:column;align-items:center;margin-top:14px;gap:12px">
+    <div style="width:140px;height:140px;border-radius:50%;border:3px dashed #14161A;display:grid;place-items:center;font:900 18px Rubik">حط صورتك</div>
+    <div style="background:#EFE3CF;border-radius:16px;padding:14px 16px;font-weight:600;font-size:15px">صورتك بيشوفها الكابتن علشان يعرفك عند البوابة، ومجموعتك بتشوفها بعد ما تتقابلوا — مش قبل.</div>
+  </div>
+
+  <div style="margin-top:32px;display:flex;align-items:center;gap:10px"><span style="background:#F4632A;color:#14161A;border-radius:999px;padding:2px 14px;font:900 16px Rubik;transform:rotate(-3deg)">5</span><span style="font:900 20px Rubik">موافقتك</span></div>
+  <label style="display:flex;gap:12px;align-items:flex-start;margin-top:12px;min-height:44px;cursor:pointer"><span style="width:26px;height:26px;flex:0 0 26px;border:2px solid #14161A;border-radius:8px;margin-top:4px;background:#14161A;display:grid;place-items:center;color:#FBF7EF;font:900 16px Rubik">✓</span><span>موافق على <b>القواعد الخمس</b></span></label>
+  <label style="display:flex;gap:12px;align-items:flex-start;margin-top:6px;min-height:44px;cursor:pointer"><span style="width:26px;height:26px;flex:0 0 26px;border:2px solid #14161A;border-radius:8px;margin-top:4px"></span><span>موافق إن بياناتي تتخزن علشان المطابقة والحجز</span></label>
+
+  <div style="position:absolute;bottom:0;left:0;right:0;background:#FBF7EF;border-top:2px solid #EFE3CF;padding:12px 20px 16px">
+    <button style="width:100%;background:#F4632A;color:#14161A;border:0;border-radius:16px;min-height:58px;font:900 22px Rubik;cursor:pointer">كمّل الحجز</button>
+    <div style="text-align:center;font-size:13px;color:#55575C;margin-top:6px">مفيش باسورد. رقمك هو دخولك.</div>
+  </div>
+</div>
+</div>
+
+<!-- ========== 11. كشف المجموعة ========== -->
+<div style="display:flex;flex-direction:column;gap:12px">
+<div style="font:600 14px 'IBM Plex Sans Arabic';color:#55575C">11 · سبوطتك — كشف المجموعة · 390</div>
+<div data-screen-label="11 كشف المجموعة" style="width:390px;background:#14161A;color:#FBF7EF;position:relative;font-size:16px;line-height:1.7;overflow:hidden;padding:0 20px 130px;box-sizing:border-box">
+  <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 0 8px">
+    <button style="background:none;border:0;color:#FBF7EF;font:600 16px 'IBM Plex Sans Arabic';min-height:44px;padding:0;cursor:pointer">← سبوطاتي</button>
+    <div style="position:relative;display:inline-block;font:900 22px Rubik;transform:skewX(-6deg);line-height:1"><span style="position:absolute;top:3px;right:-3px;color:transparent;-webkit-text-stroke:1.5px #FBF7EF">نسبوط</span><span style="position:relative;color:#F4632A">نسبوط</span></div>
+  </div>
+  <h1 style="margin:10px 0 0;font:900 32px Rubik;line-height:1.15">مجموعتك يوم الخميس</h1>
+  <div style="display:flex;align-items:center;gap:10px;margin-top:8px"><span style="background:#F4632A;color:#14161A;border-radius:999px;padding:6px 16px;font:900 22px Rubik;transform:rotate(-3deg)">فاضل 22 ساعة</span><span style="color:#C9C4B8">إحنا الرابع · التجمع</span></div>
+
+  <div style="margin-top:22px;display:flex;gap:14px;align-items:center;background:#EFE3CF;color:#14161A;border-radius:20px;padding:16px">
+    <div style="width:64px;height:64px;border-radius:50%;flex:0 0 64px;background:#E2D2B4;color:#6B6455;font-size:11px;display:grid;place-items:center">[صورة]</div>
+    <div><div style="font:900 18px Rubik">الكابتن يوسف</div><div style="font-size:14px">واقف عند البوابة 7:50 بتيشيرت أسود عليه نسبوط.</div></div>
+  </div>
+
+  <div style="margin-top:22px;font:900 20px Rubik">اللي رايحين معاك — 7</div>
+  <div style="display:flex;flex-direction:column;margin-top:8px">
+    <sc-for list="{{ people }}" as="p" hint-placeholder-count="7">
+      <div style="display:flex;gap:12px;align-items:center;padding:12px 0;border-bottom:1px solid #2A2E36">
+        <div style="width:48px;height:48px;flex:0 0 48px;border-radius:50%;background:#EFE3CF;color:#14161A;display:grid;place-items:center;font:900 22px Rubik">{{ p.initial }}</div>
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span style="font:900 17px Rubik">{{ p.name }}</span><span style="{{ p.tagStyle }}">{{ p.tag }}</span></div>
+          <div style="font-size:14px;color:#C9C4B8">{{ p.line }}</div>
+        </div>
+      </div>
+    </sc-for>
+  </div>
+
+  <div style="margin-top:22px;background:#2B4CFF;color:#FBF7EF;border-radius:20px;padding:18px">
+    <div style="font:900 20px Rubik">ليه المجموعة دي؟</div>
+    <div style="margin-top:4px">كلكم مبتدئين في البادل، ونصكم قال "مجموعة هادية".</div>
+  </div>
+
+  <div style="margin-top:22px;font:900 20px Rubik">المكان</div>
+  <div style="margin-top:8px;border-radius:20px;overflow:hidden;background:#1E2128;border:2px solid #2A2E36">
+    <div style="position:relative;height:140px">
+      <div style="position:absolute;right:30px;top:20px;width:140px;height:70px;border-radius:24px;background:#2A2E36"></div>
+      <div style="position:absolute;left:30px;bottom:16px;width:120px;height:60px;border-radius:24px;background:#2A2E36"></div>
+      <span style="position:absolute;right:90px;top:50px;width:16px;height:16px;border-radius:50%;background:#F4632A;animation:nb-pulse 1.6s ease-out infinite"></span>
+    </div>
+    <div style="padding:14px 16px;display:flex;justify-content:space-between;align-items:center;gap:12px">
+      <div style="font-size:14px"><b>ملاعب النادي — التجمع الخامس</b><br><span style="color:#C9C4B8">شارع التسعين الشمالي، جنب البنزينة، البوابة 3</span></div>
+      <button style="flex:0 0 auto;background:#FBF7EF;color:#14161A;border:0;border-radius:999px;min-height:44px;padding:0 14px;font:900 14px Rubik;cursor:pointer">افتح في الخرايط</button>
+    </div>
+  </div>
+
+  <div style="margin-top:22px;display:flex;flex-wrap:wrap;gap:8px">
+    <span style="background:#EFE3CF;color:#14161A;border-radius:999px;padding:6px 14px;font:900 13px Rubik;transform:rotate(-2deg)">احترام</span>
+    <span style="background:#EFE3CF;color:#14161A;border-radius:999px;padding:6px 14px;font:900 13px Rubik;transform:rotate(2deg)">التصوير بإذن</span>
+    <span style="background:#EFE3CF;color:#14161A;border-radius:999px;padding:6px 14px;font:900 13px Rubik;transform:rotate(-3deg)">محدش بياخد رقم حد إلا لو الاتنين عايزين</span>
+    <span style="background:#F4632A;color:#14161A;border-radius:999px;padding:6px 14px;font:900 13px Rubik;transform:rotate(3deg)">اللي يضايق حد بيمشي</span>
+  </div>
+
+  <button style="width:100%;margin-top:24px;background:#F4632A;color:#14161A;border:0;border-radius:16px;min-height:56px;font:900 20px Rubik;cursor:pointer">افتح شات السبوطة</button>
+  <div style="text-align:center;font-size:13px;color:#C9C4B8;margin-top:6px">الشات بيتفتح دلوقتي وبيتقفل بعد السبوطة بيومين.</div>
+
+  <div style="position:absolute;bottom:0;left:0;right:0;background:#14161A;border-top:2px solid #2A2E36;padding:12px 20px 16px;display:flex;flex-direction:column;gap:8px">
+    <button style="width:100%;background:#3A3D44;color:#FBF7EF;border:0;border-radius:14px;min-height:50px;font:900 16px Rubik;cursor:pointer">في حاجة مش مريحة؟ كلمنا</button>
+    <button style="width:100%;background:transparent;color:#FBF7EF;border:2px solid #2B4CFF;border-radius:14px;min-height:46px;font:900 15px Rubik;cursor:pointer">انقليني لمجموعة بنات بس</button>
+  </div>
+</div>
+</div>
+
+</section>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;activeFilter&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;الكل&quot;,&quot;options&quot;:[&quot;الكل&quot;,&quot;التجمع&quot;,&quot;المعادي&quot;,&quot;زايد&quot;,&quot;بنات بس&quot;,&quot;رياضة&quot;,&quot;نيل&quot;,&quot;طبيعة&quot;,&quot;أكل&quot;,&quot;شغل&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;الرئيسية&quot;},&quot;spotsLeft&quot;:{&quot;editor&quot;:&quot;int&quot;,&quot;default&quot;:3,&quot;min&quot;:0,&quot;max&quot;:8,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;إحنا الرابع&quot;}}">
+class Component extends DCLogic {
+  state = { filter: null, picked: ['بادل','تصوير','أكل','طبيعة','سفر'] };
+  renderVals() {
+    const active = this.state.filter ?? this.props.activeFilter ?? 'الكل';
+    const chip = (on) => `flex:0 0 auto;min-height:40px;padding:0 16px;border-radius:999px;border:2px solid ${on?'#F4632A':'#EFE3CF'};background:${on?'#F4632A':'transparent'};color:${on?'#14161A':'#FBF7EF'};font:900 14px Rubik;cursor:pointer;transform:rotate(${on?-3:0}deg)`;
+    const filters = ['الكل','التجمع','المعادي','زايد','بنات بس','رياضة','نيل','طبيعة','أكل','شغل'].map(label => ({
+      label, style: chip(label === active), pick: () => this.setState({ filter: label })
+    }));
+    const spotsLeft = this.props.spotsLeft ?? 3;
+    const primary = 'background:#F4632A;color:#14161A;border:0;border-radius:14px;min-height:48px;padding:0 20px;font:900 18px Rubik;cursor:pointer;flex:0 0 auto';
+    const wait = 'background:transparent;color:#14161A;border:2px solid #14161A;border-radius:14px;min-height:48px;padding:0 14px;font:900 15px Rubik;cursor:pointer;flex:0 0 auto';
+    const stk = (bg, fg, r) => `position:absolute;top:14px;right:14px;background:${bg};color:${fg};border-radius:999px;padding:5px 14px;font:900 16px Rubik;transform:rotate(${r}deg)`;
+    const raw = [
+      { name:'إحنا الرابع', meta:'بادل مبتدئين · الخميس 8 بالليل · التجمع', mood:'نشيط ومزحم', price:'300 جنيه', left:`فاضل ${spotsLeft} من 8`, img:'[صورة المجموعة الحقيقية — بادل التجمع]' },
+      { name:'فطار على النيل', meta:'كاياك + فطار · الجمعة 7 الصبح · المعادي', mood:'هادي وصباحي', price:'300 جنيه', left:'فاضل 5 من 8', img:'[صورة المجموعة الحقيقية — كاياك المعادي 7 الصبح]' },
+      { name:'بعد ما الشمس تغيب', meta:'هايك ليلي + شوي · الجمعة 6 المغرب · وادي دجلة', mood:'هادي وطالع نَفَس', price:'500 جنيه', left:'كامل', full:true, img:'[صورة المجموعة الحقيقية — شوي في وادي دجلة]' },
+      { name:'ترابيزة ستة', meta:'عشا مع 5 غرباء · الاتنين 8 بالليل · التجمع', mood:'كلام كتير وضحك', price:'150 جنيه', priceNote:'رسوم + الأكل', left:'فاضل 2 من 6', img:'[صورة المجموعة الحقيقية — ترابيزة عشا]' },
+      { name:'الملعب لينا', meta:'بادل بنات بس · التلات 7 بالليل · التجمع', mood:'نشيط وودود', price:'300 جنيه', left:'فاضل 4 من 8', girls:true, img:'[صورة المجموعة الحقيقية — ملعب بادل بالليل]' },
+    ];
+    const cards = raw.map((c,i) => ({
+      ...c, priceNote: c.priceNote ?? '', girls: !!c.girls,
+      leftStyle: c.full ? stk('#14161A','#FBF7EF',3) : stk('#F4632A','#14161A', i%2 ? 3 : -4),
+      btn: c.full ? 'سجلني في الانتظار' : 'أنا جاي',
+      btnStyle: c.full ? wait : primary,
+    }));
+    const picked = this.state.picked;
+    const interests = ['تصوير','أكل','بادل','جري','بحر','طبيعة','سفر','سينما','موسيقى','قراءة','ألعاب','طبخ','فن','تاريخ','تكنولوجيا','حيوانات','أنيمي','كرة','أعمال','يوجا'].map((label,i) => {
+      const on = picked.includes(label);
+      return { label,
+        style: `min-height:44px;padding:0 16px;border-radius:999px;border:2px solid #14161A;background:${on?'#F4632A':'transparent'};color:#14161A;font:900 15px Rubik;cursor:pointer;transform:rotate(${on?(i%2?3:-3):0}deg)`,
+        toggle: () => this.setState(s => ({ picked: s.picked.includes(label) ? s.picked.filter(x=>x!==label) : (s.picked.length<5 ? [...s.picked,label] : s.picked) }))
+      };
+    });
+    const tag = (bg,fg,r) => `background:${bg};color:${fg};border-radius:999px;padding:2px 10px;font:900 12px Rubik;transform:rotate(${r}deg)`;
+    const people = [
+      ['مريم','مستكشفة الإجازة','المرة التالتة · بتحب الشمس الصبح، مش بتحب الزحمة','#F4632A','#14161A'],
+      ['يوسف','الكابتن الاجتماعي','أول مرة · بيفتح الكلام مع أي حد','#2B4CFF','#FBF7EF'],
+      ['نور','الهادية اللي بتلاحظ','المرة التانية · بتسمع أكتر ما بتتكلم','#EFE3CF','#14161A'],
+      ['عمر','اللي بيجيب الطاقة','المرة الخامسة · مش بيقعد ساكت دقيقة','#D9A441','#14161A'],
+      ['سلمى','الراوية','أول مرة · معاها حكاية لكل موقف','#3E5C43','#FBF7EF'],
+      ['كريم','صاحب أول مرة','أول مرة · جرب البادل الأسبوع اللي فات وعجبه','#F4632A','#14161A'],
+      ['هنا','مستكشفة الإجازة','المرة التالتة · بتيجي بعجلتها','#2B4CFF','#FBF7EF'],
+    ].map(([name,t,line,bg,fg],i) => ({ name, initial:name[0], tag:t, line, tagStyle: tag(bg,fg,i%2?2:-2) }));
+    return { filters, cards, spotsLeft, interests, pickedCount: picked.length, people };
+  }
+}
+</script>
+</body>
+</html>
