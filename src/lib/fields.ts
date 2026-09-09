@@ -346,6 +346,41 @@ export async function getMapData(): Promise<MapData> {
  * الترتيب شبكة ثابتة جوه الكتلة (مش عشوائي) — نفس المدخلات = نفس الرسم،
  * وما فيش نقطة بتخرج بره الكتلة.
  */
+/** منطقة ومعاها سبوطاتها — أساس عرض الخريطة الجديد */
+export interface AreaGroup {
+  block: MapBlock
+  slugs: string[]
+}
+
+/**
+ * بيجمّع السبوطات على كتل المناطق.
+ *
+ * ليه ده بدل النقط: النقطة الصمّاء ما بتقولش حاجة — تلات نقط في التجمع
+ * معناها «فيه حاجة هنا» وخلاص، والمستخدم لازم يدوس على كل واحدة عشان يعرف.
+ * لما نجمّع بالمنطقة نقدر نكتب «٣ سبوطات» ونخلّي الكتلة نفسها هي الزرار.
+ */
+export function groupByArea(
+  blocks: MapBlock[],
+  sbotat: { slug: string; area: string; tags?: string[] }[]
+): AreaGroup[] {
+  const byKey = new Map<string, string[]>()
+
+  for (const s of sbotat) {
+    const labels = [s.area, ...(s.tags ?? [])].filter(Boolean)
+    const block =
+      blocks.find((b) => labels.some((l) => b.matchLabels.includes(l))) ??
+      blocks.find((b) => b.label === s.area)
+    if (!block) continue
+    const list = byKey.get(block.key) ?? []
+    list.push(s.slug)
+    byKey.set(block.key, list)
+  }
+
+  return blocks
+    .map((block) => ({ block, slugs: byKey.get(block.key) ?? [] }))
+    .filter((g) => g.slugs.length > 0)
+}
+
 export function placePins(
   blocks: MapBlock[],
   sbotat: { slug: string; area: string; tags?: string[] }[]

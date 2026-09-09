@@ -644,4 +644,8 @@ export const copyFallback: Record<string, string> = {
   "error.body": "مش منك — عندنا حاجة وقعت. جرّب تاني، ولو فضلت كده كلّمنا.",
   "error.retry": "جرّب تاني",
   "error.mark": "حصل غلط",
+  "map.area.one": "سبوطة واحدة",
+  "map.area.many": "{{n}} سبوطات",
+  "map.area.pick": "اختار سبوطة",
+  "map.area.empty": "لسه مفيش سبوطة هنا",
 }
