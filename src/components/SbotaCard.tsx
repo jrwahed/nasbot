@@ -56,6 +56,7 @@ export function SbotaCard({
         <div className="relative" style={{ aspectRatio: '4 / 3' }}>
           <PhotoPlaceholder
             label={sbota.img}
+            src={sbota.imgSrc}
             variant="sandDeep"
             className="h-full w-full"
           />

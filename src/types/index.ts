@@ -48,6 +48,9 @@ export interface Sbota {
   tags: string[]
   /** وصف الصورة بين قوسين مربعين */
   img: string
+  /** رابط الصورة الحقيقية لو اترفعت — null يعني `img` وصف نصي بس */
+  imgSrc?: string | null
+  gallerySrc?: string[]
   /** صور المعرض في صفحة السبوطة */
   gallery: string[]
   captainId: string

@@ -23,6 +23,7 @@ import type {
 } from '@/types'
 import { personas } from '@/data/personas'
 import { workScheduleDefaults, workSettingsDefaults } from '@/data/lists'
+import { publicMediaUrl } from '@/lib/supabase'
 
 /* ---------------------------------------------------------- الأنواع البسيطة */
 
@@ -201,7 +202,10 @@ export function sbotaFromDb(
     tags: [areaFromDb(r.area), r.area_label_ar ?? '', r.kind === 'work' ? 'شغل' : '']
       .filter(Boolean),
     img: r.hero_photos?.[0] ?? '[صورة]',
+    // الصورة الحقيقية لو اترفعت — null يعني القيمة لسه وصف بين قوسين مربعين
+    imgSrc: publicMediaUrl(r.hero_photos?.[0]),
     gallery: r.hero_photos ?? [],
+    gallerySrc: (r.hero_photos ?? []).map(publicMediaUrl).filter((u): u is string => !!u),
     captainId: r.captain_id ?? '',
     story: r.story_ar,
     when: whenLabel(r.starts_at),

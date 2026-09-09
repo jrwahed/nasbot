@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, type ReactNode } from 'react'
+import { supabase, publicMediaUrl, PUBLIC_MEDIA_BUCKET } from '@/lib/supabase'
 
 /**
  * قطع الواجهة المشتركة في اللوحة.
@@ -565,5 +566,155 @@ export function Stat({ label, value, hint }: { label: string; value: string; hin
         </div>
       )}
     </div>
+  )
+}
+
+/* ------------------------------------------------------------ صور */
+
+/**
+ * رفع صور — بيرفع في دلو `public-media` وبيرجّع **المسار** مش الرابط.
+ *
+ * ليه المسار؟ علشان لو عنوان مشروع سوبابيس اتغيّر، الصور ما تقعش —
+ * الرابط بيتبني وقت العرض من `publicMediaUrl`.
+ *
+ * القيم القديمة في `hero_photos` عبارة عن أوصاف بين قوسين مربعين
+ * («[صورة المجموعة الحقيقية — …]») — دي بتفضل زي ما هي وبتتعرض كنص مكان
+ * الصورة، لحد ما تتشال أو تتبدّل بصورة حقيقية.
+ *
+ * الرفع والمسح الاتنين بيمروا من سياسات Storage (هجرة 0073) — محتاج
+ * صلاحية `sbotat.edit`. لو القاعدة رفضت بتظهر رسالة، مش «اتحفظ ✓» كدابة.
+ */
+export function PhotosField({
+  label,
+  hint,
+  value,
+  folder,
+  onSave,
+}: {
+  label: string
+  hint?: string
+  /** المسارات أو الأوصاف المتخزّنة دلوقتي */
+  value: string[]
+  /** فولدر جوه الدلو — عادة `templates/<id>` */
+  folder: string
+  onSave: (next: string[]) => void | Promise<void>
+}) {
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState<string | null>(null)
+
+  async function add(files: FileList | null) {
+    if (!files?.length) return
+    setBusy(true)
+    setErr(null)
+    const added: string[] = []
+    for (const file of Array.from(files)) {
+      const ext = (file.name.split('.').pop() ?? 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '')
+      const path = `${folder}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`
+      const { error } = await supabase()
+        .storage.from(PUBLIC_MEDIA_BUCKET)
+        .upload(path, file, { cacheControl: '31536000', upsert: false })
+      if (error) {
+        setErr(`مرفوعش «${file.name}»: ${error.message}`)
+        break
+      }
+      added.push(path)
+    }
+    setBusy(false)
+    if (added.length) await onSave([...value, ...added])
+  }
+
+  async function remove(item: string) {
+    if (!confirm('نشيل الصورة دي؟')) return
+    setBusy(true)
+    setErr(null)
+    // الأوصاف النصية مالهاش ملف — بنشيلها من القايمة وخلاص
+    if (!item.startsWith('[')) {
+      const { error } = await supabase().storage.from(PUBLIC_MEDIA_BUCKET).remove([item])
+      if (error) {
+        setBusy(false)
+        setErr(`مااتشالتش: ${error.message}`)
+        return
+      }
+    }
+    setBusy(false)
+    await onSave(value.filter((v) => v !== item))
+  }
+
+  return (
+    <label className="flex flex-col gap-2">
+      <span className="font-body text-13" style={{ color: 'var(--muted)' }}>
+        {label}
+      </span>
+
+      <div className="flex flex-wrap gap-3">
+        {value.map((item) => {
+          const src = publicMediaUrl(item)
+          return (
+            <div
+              key={item}
+              className="relative overflow-hidden rounded-14"
+              style={{ width: 118, height: 88, border: '2px solid var(--line)', background: '#E2D2B4' }}
+            >
+              {src ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={src} alt="" className="h-full w-full object-cover" />
+              ) : (
+                <span
+                  className="grid h-full w-full place-items-center p-2 text-center font-body text-11"
+                  style={{ color: '#6B6455' }}
+                >
+                  {item}
+                </span>
+              )}
+              <button
+                type="button"
+                onClick={() => remove(item)}
+                disabled={busy}
+                aria-label="شيل الصورة"
+                className="absolute end-1 top-1 grid h-6 w-6 cursor-pointer place-items-center rounded-full font-body text-13 font-black"
+                style={{ background: '#8E2F1F', color: '#FBF7EF', border: 'none' }}
+              >
+                ×
+              </button>
+            </div>
+          )
+        })}
+
+        <label
+          className="grid cursor-pointer place-items-center rounded-14 text-center font-body text-13"
+          style={{
+            width: 118,
+            height: 88,
+            border: '2px dashed var(--line)',
+            color: 'var(--muted)',
+            opacity: busy ? 0.6 : 1,
+          }}
+        >
+          {busy ? 'بنرفع…' : '+ ضيف صورة'}
+          <input
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            multiple
+            disabled={busy}
+            className="hidden"
+            onChange={(e) => {
+              add(e.target.files)
+              e.target.value = ''
+            }}
+          />
+        </label>
+      </div>
+
+      {hint && (
+        <span className="font-body text-12" style={{ color: 'var(--muted)' }}>
+          {hint}
+        </span>
+      )}
+      {err && (
+        <span role="alert" className="font-body text-13 font-semibold" style={{ color: '#8E2F1F' }}>
+          {err}
+        </span>
+      )}
+    </label>
   )
 }

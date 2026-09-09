@@ -11,6 +11,7 @@ import {
   NumberField,
   Toggle,
   SelectField,
+  PhotosField,
   Empty,
   Loading,
   Tag,
@@ -52,6 +53,7 @@ interface Row {
   is_day: boolean
   girls_only: boolean
   overnight: boolean
+  hero_photos: string[]
   created_at: string
   updated_at: string
 }
@@ -387,6 +389,14 @@ function TemplatesEditor() {
                       onSave={(v) => patch(r.id, { max_group: Math.round(v) })}
                     />
                   </div>
+
+                  <PhotosField
+                    label="صور السبوطة"
+                    hint="أول صورة هي اللي بتظهر على الكارت في الرئيسية، والباقي في معرض صفحة السبوطة. JPG أو PNG أو WEBP، لحد 10 ميجا."
+                    value={r.hero_photos ?? []}
+                    folder={`templates/${r.id}`}
+                    onSave={(next) => patch(r.id, { hero_photos: next })}
+                  />
 
                   <div className="flex flex-wrap gap-6">
                     <Toggle

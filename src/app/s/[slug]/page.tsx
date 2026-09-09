@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { InnerHeader } from '@/components/Header'
 import { PhotoPlaceholder } from '@/components/PhotoPlaceholder'
+import { publicMediaUrl } from '@/lib/supabase'
 import { Sticker } from '@/components/Sticker'
 import { CaptainCard } from '@/components/CaptainCard'
 import { WhoBooked, GuaranteeBox } from '@/components/WhoBooked'
@@ -86,10 +87,11 @@ export default function SbotaPage() {
       {/* ===== المعرض + ستيكر «فاضل X من 8» ===== */}
       <div className="relative">
         <div className="nb-scroll-x gap-[10px] px-5 pt-[6px]">
-          {sbota.gallery.map((g) => (
+          {sbota.gallery.map((g, i) => (
             <PhotoPlaceholder
-              key={g}
+              key={`${g}-${i}`}
               label={g}
+              src={publicMediaUrl(g)}
               className="shrink-0"
               style={{ width: 300, aspectRatio: '1', borderRadius: 20, padding: 20 }}
             />
