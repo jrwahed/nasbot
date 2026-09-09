@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { AdminShell } from '@/components/AdminShell'
 import { supabase } from '@/lib/supabase'
+import { rejected } from '@/lib/admin'
 import { Card, Btn, SelectField, Table, Empty, Loading, Tag, useFlash, when } from '@/components/admin-ui'
 
 /**
@@ -125,7 +126,7 @@ function Team() {
       flash(`مقدرناش نضيف: ${error.message}`)
       return
     }
-    if (!data || (data as unknown[]).length === 0) {
+    if (rejected(data)) {
       flash('ما اتضافش — القاعدة رفضت، محتاج صلاحية admins.manage')
       return
     }
@@ -140,7 +141,7 @@ function Team() {
       flash(`مقدرناش نحفظ: ${error.message}`)
       return false
     }
-    if (!data || (data as unknown[]).length === 0) {
+    if (rejected(data)) {
       flash('مااتحفظش — القاعدة رفضت، محتاج صلاحية admins.manage')
       return false
     }
@@ -191,9 +192,13 @@ function Team() {
       return
     }
     if (!confirm(`نشيل ${nameOf(r)} من الفريق خالص؟ حسابه في الموقع بيفضل زي ما هو.`)) return
-    const { error } = await supabase().from('admin_users').delete().eq('id', r.id)
+    const { data, error } = await supabase().from('admin_users').delete().eq('id', r.id).select('id')
     if (error) {
       flash(`مقدرناش نشيل: ${error.message}`)
+      return
+    }
+    if (rejected(data)) {
+      flash('مااتشالش — القاعدة رفضت، محتاج صلاحية admins.manage')
       return
     }
     await reload()

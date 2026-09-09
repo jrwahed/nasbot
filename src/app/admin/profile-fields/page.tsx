@@ -18,7 +18,7 @@ import {
   when,
 } from '@/components/admin-ui'
 import { supabase } from '@/lib/supabase'
-import { revalidateSite, loadBannedWords, bannedIn } from '@/lib/admin'
+import { revalidateSite, loadBannedWords, bannedIn, rejected } from '@/lib/admin'
 
 /**
  * محرّر حقول التسجيل.
@@ -223,8 +223,13 @@ function FieldsTab({
   )
 
   async function patch(key: string, p: Partial<FieldRow>, msg?: string) {
-    const { error } = await supabase().from('profile_fields').update(p).eq('key', key)
+    const { data, error } = await supabase()
+      .from('profile_fields')
+      .update(p)
+      .eq('key', key)
+      .select('key')
     if (error) return flash(`مقدرناش نحفظ: ${error.message}`)
+    if (rejected(data)) return flash('مااتحفظش — القاعدة رفضت الكتابة، محتاج صلاحية fields.edit')
     await afterWrite(msg)
   }
 
@@ -233,12 +238,13 @@ function FieldsTab({
     const db = supabase()
     for (let i = 0; i < list.length; i++) {
       if (list[i].order === i + 1) continue
-      const { error } = await db
+      const { data, error } = await db
         .from('profile_fields')
         .update({ order: i + 1 })
         .eq('key', list[i].key)
-      if (error) {
-        flash(`مقدرناش نرتّب: ${error.message}`)
+        .select('key')
+      if (error || rejected(data)) {
+        flash(`مقدرناش نرتّب: ${error?.message ?? 'القاعدة رفضت الكتابة، محتاج صلاحية fields.edit'}`)
         return false
       }
     }
@@ -279,22 +285,26 @@ function FieldsTab({
     if (step === f.step) return
     const target = inStep(step)
     const db = supabase()
-    const { error } = await db
+    const { data, error } = await db
       .from('profile_fields')
       .update({ step, order: target.length + 1 })
       .eq('key', f.key)
+      .select('key')
     if (error) return flash(`مقدرناش ننقله: ${error.message}`)
+    if (rejected(data)) return flash('مااتنقلش — القاعدة رفضت الكتابة، محتاج صلاحية fields.edit')
     const rest = inStep(f.step).filter((x) => x.key !== f.key)
     await renumber(rest)
     await afterWrite(`الحقل راح ${stepLabel(step)} ✓`)
   }
 
   async function setValidation(f: FieldRow, next: Record<string, unknown>) {
-    const { error } = await supabase()
+    const { data, error } = await supabase()
       .from('profile_fields')
       .update({ validation: next })
       .eq('key', f.key)
+      .select('key')
     if (error) return flash(`مقدرناش نحفظ الشرط: ${error.message}`)
+    if (rejected(data)) return flash('مااتحفظش — القاعدة رفضت الكتابة، محتاج صلاحية fields.edit')
     await afterWrite('الشرط اتحفظ ✓')
   }
 
@@ -531,8 +541,13 @@ function OptionsTab({
   }, [fields, options])
 
   async function patch(id: string, p: Partial<OptionRow>) {
-    const { error } = await supabase().from('field_options').update(p).eq('id', id)
+    const { data, error } = await supabase()
+      .from('field_options')
+      .update(p)
+      .eq('id', id)
+      .select('id')
     if (error) return flash(`مقدرناش نحفظ: ${error.message}`)
+    if (rejected(data)) return flash('مااتحفظش — القاعدة رفضت الكتابة، محتاج صلاحية fields.edit')
     await afterWrite()
   }
 
@@ -540,12 +555,13 @@ function OptionsTab({
     const db = supabase()
     for (let i = 0; i < list.length; i++) {
       if (list[i].order === i + 1) continue
-      const { error } = await db
+      const { data, error } = await db
         .from('field_options')
         .update({ order: i + 1 })
         .eq('id', list[i].id)
-      if (error) {
-        flash(`مقدرناش نرتّب: ${error.message}`)
+        .select('id')
+      if (error || rejected(data)) {
+        flash(`مقدرناش نرتّب: ${error?.message ?? 'القاعدة رفضت الكتابة، محتاج صلاحية fields.edit'}`)
         return false
       }
     }
@@ -582,7 +598,7 @@ function OptionsTab({
 
   async function add(fieldKey: string) {
     const list = listOf(fieldKey)
-    const { error } = await supabase()
+    const { data, error } = await supabase()
       .from('field_options')
       .insert({
         field_key: fieldKey,
@@ -591,7 +607,9 @@ function OptionsTab({
         order: list.length + 1,
         is_active: true,
       })
+      .select('id')
     if (error) return flash(`مقدرناش نزوّد: ${error.message}`)
+    if (rejected(data)) return flash('مااتزادش — القاعدة رفضت الكتابة، محتاج صلاحية fields.edit')
     await afterWrite('اتزاد اختيار ✓')
   }
 
@@ -602,8 +620,13 @@ function OptionsTab({
       )
     )
       return
-    const { error } = await supabase().from('field_options').delete().eq('id', o.id)
+    const { data, error } = await supabase()
+      .from('field_options')
+      .delete()
+      .eq('id', o.id)
+      .select('id')
     if (error) return flash(`مقدرناش نمسح: ${error.message}`)
+    if (rejected(data)) return flash('مااتمسحش — القاعدة رفضت الكتابة، محتاج صلاحية fields.edit')
     await renumber(listOf(o.field_key).filter((x) => x.id !== o.id))
     await afterWrite('الاختيار اتمسح ✓')
   }
@@ -751,8 +774,13 @@ function SkillsTab({ skills, flash, afterWrite, guard }: Shared & { skills: Skil
   const list = useMemo(() => [...skills].sort((a, b) => a.order - b.order), [skills])
 
   async function patch(key: string, p: Partial<SkillRow>) {
-    const { error } = await supabase().from('skill_activities').update(p).eq('key', key)
+    const { data, error } = await supabase()
+      .from('skill_activities')
+      .update(p)
+      .eq('key', key)
+      .select('key')
     if (error) return flash(`مقدرناش نحفظ: ${error.message}`)
+    if (rejected(data)) return flash('مااتحفظش — القاعدة رفضت الكتابة، محتاج صلاحية fields.edit')
     await afterWrite()
   }
 
@@ -760,12 +788,13 @@ function SkillsTab({ skills, flash, afterWrite, guard }: Shared & { skills: Skil
     const db = supabase()
     for (let i = 0; i < rows.length; i++) {
       if (rows[i].order === i + 1) continue
-      const { error } = await db
+      const { data, error } = await db
         .from('skill_activities')
         .update({ order: i + 1 })
         .eq('key', rows[i].key)
-      if (error) {
-        flash(`مقدرناش نرتّب: ${error.message}`)
+        .select('key')
+      if (error || rejected(data)) {
+        flash(`مقدرناش نرتّب: ${error?.message ?? 'القاعدة رفضت الكتابة، محتاج صلاحية fields.edit'}`)
         return false
       }
     }
@@ -807,10 +836,12 @@ function SkillsTab({ skills, flash, afterWrite, guard }: Shared & { skills: Skil
     }
     if (!guard(label)) return
 
-    const { error } = await supabase()
+    const { data, error } = await supabase()
       .from('skill_activities')
       .insert({ key, label_ar: label, order: list.length + 1, is_active: true })
+      .select('key')
     if (error) return flash(`مقدرناش نزوّد: ${error.message}`)
+    if (rejected(data)) return flash('مااتزادش — القاعدة رفضت الكتابة، محتاج صلاحية fields.edit')
     setNewKey('')
     setNewLabel('')
     await afterWrite('اتزاد نشاط ✓')
@@ -823,8 +854,13 @@ function SkillsTab({ skills, flash, afterWrite, guard }: Shared & { skills: Skil
       )
     )
       return
-    const { error } = await supabase().from('skill_activities').delete().eq('key', s.key)
+    const { data, error } = await supabase()
+      .from('skill_activities')
+      .delete()
+      .eq('key', s.key)
+      .select('key')
     if (error) return flash(`مقدرناش نمسح: ${error.message}`)
+    if (rejected(data)) return flash('مااتمسحش — القاعدة رفضت الكتابة، محتاج صلاحية fields.edit')
     await renumber(list.filter((x) => x.key !== s.key))
     await afterWrite('النشاط اتمسح ✓')
   }
@@ -973,11 +1009,13 @@ function ConsentsTab({ consents, flash, afterWrite, guard }: Shared & { consents
   async function saveText(c: ConsentRow, text: string) {
     if (!text.trim()) return flash('نص الموافقة ما ينفعش يبقى فاضي.')
     if (!guard(text)) return
-    const { error } = await supabase()
+    const { data, error } = await supabase()
       .from('consents')
       .update({ text_ar: text })
       .eq('key', c.key)
+      .select('key')
     if (error) return flash(`مقدرناش نحفظ: ${error.message}`)
+    if (rejected(data)) return flash('مااتحفظش — القاعدة رفضت الكتابة، محتاج صلاحية fields.edit')
     await afterWrite('النص اتحفظ ✓ — من غير نسخة جديدة')
   }
 
@@ -989,7 +1027,7 @@ function ConsentsTab({ consents, flash, afterWrite, guard }: Shared & { consents
       )
     )
       return
-    const { error } = await supabase()
+    const { data, error } = await supabase()
       .from('consents')
       .update({
         version: c.version + 1,
@@ -997,18 +1035,22 @@ function ConsentsTab({ consents, flash, afterWrite, guard }: Shared & { consents
         requires_reconsent: true,
       })
       .eq('key', c.key)
+      .select('key')
     if (error) return flash(`مقدرناش ننشر: ${error.message}`)
+    if (rejected(data)) return flash('مااتنشرش — القاعدة رفضت الكتابة، محتاج صلاحية fields.edit')
     await afterWrite(`اتنشرت نسخة ${c.version + 1} ✓ — الناس هتوافق من تاني`)
   }
 
   async function stopReconsent(c: ConsentRow) {
     if (!confirm('هنبطّل طلب الموافقة من تاني. اللي ما وافقش على النسخة دي مش هيتسأل. تمام؟'))
       return
-    const { error } = await supabase()
+    const { data, error } = await supabase()
       .from('consents')
       .update({ requires_reconsent: false })
       .eq('key', c.key)
+      .select('key')
     if (error) return flash(`مقدرناش: ${error.message}`)
+    if (rejected(data)) return flash('مااتوقفش — القاعدة رفضت الكتابة، محتاج صلاحية fields.edit')
     await afterWrite('اتوقف طلب الموافقة ✓')
   }
 

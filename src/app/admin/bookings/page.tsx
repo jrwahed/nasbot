@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AdminShell } from '@/components/AdminShell'
 import { supabase } from '@/lib/supabase'
+import { rejected } from '@/lib/admin'
 import type { AdminMe } from '@/lib/admin'
 import {
   Btn,
@@ -585,16 +586,24 @@ function WaitlistTab({
       return
     }
 
-    const { error } = await db.from('bookings').insert({
-      sbota_id: w.sbota_id,
-      profile_id: w.profile_id,
-      status: 'pending_payment',
-      price_paid: 0,
-      expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-    })
+    const { data: ins, error } = await db
+      .from('bookings')
+      .insert({
+        sbota_id: w.sbota_id,
+        profile_id: w.profile_id,
+        status: 'pending_payment',
+        price_paid: 0,
+        expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+      })
+      .select('id')
     if (error) {
       setBusy(false)
       flash(`مقدرناش نعمل الحجز: ${error.message}`)
+      return
+    }
+    if (rejected(ins)) {
+      setBusy(false)
+      flash('مااتعملش — القاعدة رفضت الكتابة، محتاج صلاحية bookings.edit')
       return
     }
     const { error: delErr } = await db.from('waitlist').delete().eq('id', w.id)
@@ -611,10 +620,18 @@ function WaitlistTab({
     const name = personName(one(w.profiles))
     if (!confirm(`هنشيل ${name} من قايمة الانتظار خالص. تمام؟`)) return
     setBusy(true)
-    const { error } = await supabase().from('waitlist').delete().eq('id', w.id)
+    const { data: del, error } = await supabase()
+      .from('waitlist')
+      .delete()
+      .eq('id', w.id)
+      .select('id')
     setBusy(false)
     if (error) {
       flash(`مقدرناش نشيله: ${error.message}`)
+      return
+    }
+    if (rejected(del)) {
+      flash('مااتشالش — القاعدة رفضت الكتابة، محتاج صلاحية bookings.edit')
       return
     }
     flash('اتشال من القايمة ✓')
@@ -759,17 +776,22 @@ function CheckinTab({
     if (!on && !confirm(`هنشيل علامة الوصول عن ${personName(one(b.profiles))}. تمام؟`)) return
 
     setBusy((s) => ({ ...s, [b.id]: true }))
-    const { error } = await supabase()
+    const { data: ci, error } = await supabase()
       .from('bookings')
       .update({
         checked_in_at: on ? new Date().toISOString() : null,
         checked_in_by: on ? myId : null,
       })
       .eq('id', b.id)
+      .select('id')
     setBusy((s) => ({ ...s, [b.id]: false }))
 
     if (error) {
       flash(`مقدرناش نسجّل: ${error.message}`)
+      return
+    }
+    if (rejected(ci)) {
+      flash('مااتسجّلش — القاعدة رفضت الكتابة، محتاج صلاحية bookings.edit')
       return
     }
     setRows((rs) =>

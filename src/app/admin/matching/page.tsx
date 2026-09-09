@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AdminShell } from '@/components/AdminShell'
 import { supabase } from '@/lib/supabase'
-import { revalidateSite } from '@/lib/admin'
+import { revalidateSite, rejected } from '@/lib/admin'
 import type { AdminMe } from '@/lib/admin'
 import {
   Btn,
@@ -318,12 +318,17 @@ function WeightsTab({
   }, [flash])
 
   async function save(key: keyof SettingsRow, value: number) {
-    const { error } = await supabase()
+    const { data, error } = await supabase()
       .from('settings')
       .update({ [key]: value })
       .eq('id', true)
+      .select('id')
     if (error) {
       flash(`مقدرناش نحفظ: ${error.message}`)
+      return
+    }
+    if (rejected(data)) {
+      flash('مااتحفظش — القاعدة رفضت الكتابة، محتاج صلاحية matching.edit')
       return
     }
     setRow((r) => (r ? { ...r, [key]: value } : r))
@@ -735,13 +740,19 @@ function GroupsTab({
         return
       }
       const to = slots.find((s) => s.key === toKey) ?? null
-      const { error } = await db
+      const { data: mv, error } = await db
         .from('bookings')
         .update({ group_id: to?.groupId ?? null })
         .eq('id', booking.id)
+        .select('id')
       if (error) {
         setBusy(false)
         flash(`مقدرناش ننقّله: ${error.message}`)
+        return
+      }
+      if (rejected(mv)) {
+        setBusy(false)
+        flash('مااتنقلش — القاعدة رفضت الكتابة، محتاج صلاحية matching.edit')
         return
       }
       // غرفة الشات لازم تمشي مع الشخص، وإلا هيفضل بيتكلم مع مجموعته القديمة
@@ -773,13 +784,18 @@ function GroupsTab({
       }))
       const target = slots.findIndex((s) => s.key === toKey)
       if (target >= 0) next[target].members = [...next[target].members, profileId]
-      const { error } = await db
+      const { data: pr, error } = await db
         .from('matching_runs')
         .update({ proposal: { ...(run.proposal ?? {}), groups: next } })
         .eq('id', run.id)
+        .select('id')
       setBusy(false)
       if (error) {
         flash(`مقدرناش نعدّل الاقتراح: ${error.message}`)
+        return
+      }
+      if (rejected(pr)) {
+        flash('مااتعدّلش — القاعدة رفضت الكتابة، محتاج صلاحية matching.edit')
         return
       }
       flash('الاقتراح اتعدّل ✓ — لسه محتاج اعتماد')

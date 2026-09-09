@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { AdminShell } from '@/components/AdminShell'
 import { supabase } from '@/lib/supabase'
-import { revalidateSite } from '@/lib/admin'
+import { revalidateSite, rejected } from '@/lib/admin'
 import type { AdminMe } from '@/lib/admin'
 import {
   Btn,
@@ -298,9 +298,6 @@ function slugKey(name: string): string {
     .replace(/^_|_$/g, '')
     .slice(0, 40)
 }
-
-/** لو الـ select رجّع فاضي بعد التعديل، يبقى RLS رفض بصمت */
-const rejected = (data: unknown) => !data || (data as unknown[]).length === 0
 
 /** خانة محكومة للفورمات (الحقول المشتركة بتحفظ عند الخروج، ودي بتتحكم في state) */
 function Field({

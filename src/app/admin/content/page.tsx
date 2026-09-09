@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { AdminShell } from '@/components/AdminShell'
 import { supabase } from '@/lib/supabase'
-import { revalidateSite, loadBannedWords, bannedIn } from '@/lib/admin'
+import { revalidateSite, loadBannedWords, bannedIn, rejected } from '@/lib/admin'
 
 /**
  * محرّر نصوص الموقع.
@@ -100,14 +100,19 @@ function Editor() {
       return
     }
     setSaving((s) => ({ ...s, [key]: true }))
-    const { error } = await supabase()
+    const { data, error } = await supabase()
       .from('copy_strings')
       .update({ value_ar: value })
       .eq('key', key)
+      .select('key')
     setSaving((s) => ({ ...s, [key]: false }))
 
     if (error) {
       flash(`مقدرناش نحفظ: ${error.message}`)
+      return
+    }
+    if (rejected(data)) {
+      flash('مااتحفظش — القاعدة رفضت الكتابة، محتاج صلاحية copy.edit')
       return
     }
     setRows((rs) => rs.map((r) => (r.key === key ? { ...r, value_ar: value } : r)))
@@ -155,16 +160,18 @@ function Editor() {
     const db = supabase()
     let done = 0
     for (let i = 0; i < hits.length; i++) {
-      const { error } = await db
+      const { data, error } = await db
         .from('copy_strings')
         .update({ value_ar: preview[i] })
         .eq('key', hits[i].key)
-      if (!error) done++
+        .select('key')
+      if (!error && !rejected(data)) done++
     }
     setBusy(false)
     await reload()
     await revalidateSite()
-    flash(`اتغيّر ${done} من ${hits.length}`)
+    if (done === 0) flash(`مااتغيّرش ولا نص — القاعدة رفضت الكتابة، محتاج صلاحية copy.edit`)
+    else flash(`اتغيّر ${done} من ${hits.length}`)
   }
 
   function exportJson() {
@@ -208,13 +215,18 @@ function Editor() {
     const db = supabase()
     let done = 0
     for (const [k, v] of changes) {
-      const { error } = await db.from('copy_strings').update({ value_ar: v }).eq('key', k)
-      if (!error) done++
+      const { data, error } = await db
+        .from('copy_strings')
+        .update({ value_ar: v })
+        .eq('key', k)
+        .select('key')
+      if (!error && !rejected(data)) done++
     }
     setBusy(false)
     await reload()
     await revalidateSite()
-    flash(`اتغيّر ${done} من ${changes.length}`)
+    if (done === 0) flash(`مااتغيّرش ولا نص — القاعدة رفضت الكتابة، محتاج صلاحية copy.edit`)
+    else flash(`اتغيّر ${done} من ${changes.length}`)
   }
 
   return (

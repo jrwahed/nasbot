@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { AdminShell } from '@/components/AdminShell'
 import { GAME_ICON_LABELS, iconFor } from '@/components/game-icons'
 import { supabase } from '@/lib/supabase'
+import { rejected } from '@/lib/admin'
 import { scoreAnswers, type GameConfig } from '@/lib/game-config'
 import { getGameConfig } from '@/lib/api'
 import type { GameAnswers } from '@/types'
@@ -199,14 +200,24 @@ function Questions({
   const activeTypes = types.filter((t) => t.is_active)
 
   async function patchQuestion(id: string, patch: Partial<QRow>) {
-    const { error } = await supabase().from('game_questions').update(patch).eq('id', id)
+    const { data, error } = await supabase()
+      .from('game_questions')
+      .update(patch)
+      .eq('id', id)
+      .select('id')
     if (error) return flash(`مقدرناش: ${error.message}`)
+    if (rejected(data)) return flash('مااتحفظش — القاعدة رفضت الكتابة، محتاج صلاحية game.edit')
     await reload()
   }
 
   async function patchOption(id: string, patch: Partial<ORow>) {
-    const { error } = await supabase().from('game_options').update(patch).eq('id', id)
+    const { data, error } = await supabase()
+      .from('game_options')
+      .update(patch)
+      .eq('id', id)
+      .select('id')
     if (error) return flash(`مقدرناش: ${error.message}`)
+    if (rejected(data)) return flash('مااتحفظش — القاعدة رفضت الكتابة، محتاج صلاحية game.edit')
     await reload()
   }
 
@@ -223,7 +234,15 @@ function Questions({
     const db = supabase()
     for (let i = 0; i < list.length; i++) {
       if (list[i].order === i + 1) continue
-      await db.from('game_questions').update({ order: i + 1 }).eq('id', list[i].id)
+      const { data, error } = await db
+        .from('game_questions')
+        .update({ order: i + 1 })
+        .eq('id', list[i].id)
+        .select('id')
+      if (error || rejected(data)) {
+        await reload()
+        return flash(`الترتيب مااتحفظش: ${error?.message ?? 'القاعدة رفضت الكتابة، محتاج صلاحية game.edit'}`)
+      }
     }
     await reload()
     flash('الترتيب اتغيّر ✓')
@@ -237,7 +256,7 @@ function Questions({
   }
 
   async function addQuestion() {
-    const { error } = await supabase()
+    const { data, error } = await supabase()
       .from('game_questions')
       .insert({
         order: questions.length + 1,
@@ -247,22 +266,28 @@ function Questions({
         is_active: false,
         progress_label_ar: 'خلاص تقريبًا',
       })
+      .select('id')
     if (error) return flash(`مقدرناش: ${error.message}`)
+    if (rejected(data)) return flash('مااتزادش — القاعدة رفضت الكتابة، محتاج صلاحية game.edit')
     await reload()
     flash('اتزاد سؤال — مقفول لحد ما تكمّله')
   }
 
   async function addOption(questionId: string) {
     const count = options.filter((o) => o.question_id === questionId).length
-    const { error } = await supabase().from('game_options').insert({
-      question_id: questionId,
-      order: count + 1,
-      label_ar: 'اختيار جديد',
-      value: `اختيار ${count + 1}`,
-      icon_key: 'mood',
-      is_active: true,
-    })
+    const { data, error } = await supabase()
+      .from('game_options')
+      .insert({
+        question_id: questionId,
+        order: count + 1,
+        label_ar: 'اختيار جديد',
+        value: `اختيار ${count + 1}`,
+        icon_key: 'mood',
+        is_active: true,
+      })
+      .select('id')
     if (error) return flash(`مقدرناش: ${error.message}`)
+    if (rejected(data)) return flash('مااتزادش — القاعدة رفضت الكتابة، محتاج صلاحية game.edit')
     await reload()
   }
 
@@ -270,23 +295,29 @@ function Questions({
     if (!confirm('هنمسح الاختيار ده ونقطه. تمام؟')) return
     const db = supabase()
     await db.from('game_option_scores').delete().eq('option_id', id)
-    const { error } = await db.from('game_options').delete().eq('id', id)
+    const { data, error } = await db.from('game_options').delete().eq('id', id).select('id')
     if (error) return flash(`مقدرناش: ${error.message}`)
+    if (rejected(data)) return flash('مااتمسحش — القاعدة رفضت الكتابة، محتاج صلاحية game.edit')
     await reload()
   }
 
   async function setScore(optionId: string, typeKey: string, points: number | null) {
     const db = supabase()
     if (points === null) {
-      await db
+      const { error } = await db
         .from('game_option_scores')
         .delete()
         .eq('option_id', optionId)
         .eq('type_key', typeKey)
+      if (error) return flash(`مقدرناش: ${error.message}`)
+      // الحذف ممكن يرجّع فاضي لأن النقطة مش موجودة أصلًا — مش رفض. بنعيد التحميل بس.
     } else {
-      await db
+      const { data, error } = await db
         .from('game_option_scores')
         .upsert({ option_id: optionId, type_key: typeKey, points }, { onConflict: 'option_id,type_key' })
+        .select('option_id')
+      if (error) return flash(`مقدرناش: ${error.message}`)
+      if (rejected(data)) return flash('مااتحفظتش — القاعدة رفضت الكتابة، محتاج صلاحية game.edit')
     }
     await reload()
   }
@@ -588,8 +619,13 @@ function Types({
   flash: (m: string) => void
 }) {
   async function patch(key: string, p: Partial<TRow>) {
-    const { error } = await supabase().from('personality_types').update(p).eq('key', key)
+    const { data, error } = await supabase()
+      .from('personality_types')
+      .update(p)
+      .eq('key', key)
+      .select('key')
     if (error) return flash(`مقدرناش: ${error.message}`)
+    if (rejected(data)) return flash('مااتحفظش — القاعدة رفضت الكتابة، محتاج صلاحية game.edit')
     await reload()
   }
 

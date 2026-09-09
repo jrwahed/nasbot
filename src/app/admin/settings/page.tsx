@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { AdminShell } from '@/components/AdminShell'
 import { supabase } from '@/lib/supabase'
-import { revalidateSite } from '@/lib/admin'
+import { revalidateSite, rejected } from '@/lib/admin'
 import type { AdminMe } from '@/lib/admin'
 import {
   Card,
@@ -71,12 +71,15 @@ interface NumSpec {
   money?: boolean
   min?: number
   max?: number
+  /** العمود موجود في القاعدة بس محدش بيقراه — تعديله هنا ما بيأثرش على الموقع */
+  unwired?: boolean
 }
 
 interface TxtSpec {
   col: string
   label: string
   hint: string
+  unwired?: boolean
 }
 
 interface Group {
@@ -111,6 +114,7 @@ const GROUPS: Group[] = [
       },
       {
         col: 'refund_credit_hours',
+        unwired: true,
         label: 'رصيد محفظة بدل كاش قبل',
         suffix: 'ساعة',
         hint: 'الإلغاء المتأخر مبيرجّعش كاش — بيتحط رصيد في المحفظة لو باقي على السبوطة الساعات دي.',
@@ -131,6 +135,7 @@ const GROUPS: Group[] = [
     nums: [
       {
         col: 'commission_pct',
+        unwired: true,
         label: 'عمولتنا',
         suffix: '%',
         hint: 'نسبتنا من سعر السبوطة. الباقي مستحق للمكان.',
@@ -139,6 +144,7 @@ const GROUPS: Group[] = [
       },
       {
         col: 'gateway_fee_pct',
+        unwired: true,
         label: 'رسوم بوابة الدفع',
         suffix: '%',
         hint: 'اللي البوابة بتاخده من كل عملية، وبيتحسب في صافي المستحق. تقدر تكتب كسور زي 2.75.',
@@ -180,6 +186,7 @@ const GROUPS: Group[] = [
       },
       {
         col: 'emergency_phone',
+        unwired: true,
         label: 'رقم الطوارئ',
         hint: 'بيظهر للأعضاء في الشات ويوم السبوطة لو حصل أي حاجة.',
       },
@@ -206,6 +213,7 @@ const GROUPS: Group[] = [
       },
       {
         col: 'review_coupon_pct',
+        unwired: true,
         label: 'كوبون التقييم',
         suffix: '%',
         hint: 'الخصم اللي بياخده العضو لما يقيّم سبوطة حضرها.',
@@ -214,6 +222,7 @@ const GROUPS: Group[] = [
       },
       {
         col: 'first_time_work_discount_pct',
+        unwired: true,
         label: 'خصم أول سبوطة شغل',
         suffix: '%',
         hint: 'نسبة بتتخصم من أول سبوطة شغل للعضو. صفر يعني مفيش خصم.',
@@ -227,6 +236,7 @@ const GROUPS: Group[] = [
     nums: [
       {
         col: 'reveal_hour_cairo',
+        unwired: true,
         label: 'ساعة كشف المجموعة',
         suffix: 'بتوقيت القاهرة',
         hint: 'الساعة اللي بنكشف فيها تفاصيل المجموعة للأعضاء.',
@@ -235,6 +245,7 @@ const GROUPS: Group[] = [
       },
       {
         col: 'chat_open_hours',
+        unwired: true,
         label: 'الشات بيفتح قبل السبوطة بـ',
         suffix: 'ساعة',
         hint: 'قبل كده مفيش شات — المجموعة لسه مقفولة.',
@@ -242,6 +253,7 @@ const GROUPS: Group[] = [
       },
       {
         col: 'chat_close_hours',
+        unwired: true,
         label: 'الشات بيقفل بعد السبوطة بـ',
         suffix: 'ساعة',
         hint: 'بعد المدة دي الأوضة بتتقفل ومحدش يقدر يكتب فيها.',
@@ -249,6 +261,7 @@ const GROUPS: Group[] = [
       },
       {
         col: 'day_mode_start_hour',
+        unwired: true,
         label: 'وضع النهار بيبدأ الساعة',
         suffix: 'بتوقيت القاهرة',
         hint: 'الموقع بيقلب لشكل النهار من الساعة دي.',
@@ -257,6 +270,7 @@ const GROUPS: Group[] = [
       },
       {
         col: 'day_mode_end_hour',
+        unwired: true,
         label: 'وضع النهار بيخلص الساعة',
         suffix: 'بتوقيت القاهرة',
         hint: 'وبعدها بيرجع لشكل الليل.',
@@ -325,6 +339,7 @@ const GROUPS: Group[] = [
     nums: [
       {
         col: 'min_age',
+        unwired: true,
         label: 'أقل سن للتسجيل',
         suffix: 'سنة',
         hint: 'أصغر من كده مش هيقدر يكمّل تسجيل أصلًا.',
@@ -332,6 +347,7 @@ const GROUPS: Group[] = [
       },
       {
         col: 'min_age_overnight',
+        unwired: true,
         label: 'أقل سن للسبوطة اللي فيها مبيت',
         suffix: 'سنة',
         hint: 'الرحلات اللي بتبات بره بتطلب سن أكبر.',
@@ -339,6 +355,7 @@ const GROUPS: Group[] = [
       },
       {
         col: 'max_interests',
+        unwired: true,
         label: 'أقصى عدد اهتمامات',
         suffix: 'اهتمام',
         hint: 'العضو مش هيقدر يختار أكتر من كده في ملفه. أعلى = مطابقة أدق بس ملف أطول.',
@@ -368,14 +385,16 @@ const GROUPS: Group[] = [
 ]
 
 /** أعمدة JSON — ليها معاملة خاصة علشان لازم تتأكد إنها سليمة قبل الحفظ */
-const JSON_COLS: { col: string; label: string; hint: string }[] = [
+const JSON_COLS: { col: string; label: string; hint: string; unwired?: boolean }[] = [
   {
     col: 'weather_rules',
+        unwired: true,
     label: 'قواعد الجو',
     hint: 'لكل نشاط: إمتى نلغي أو ننقل بسبب الحر أو المطر. لازم يبقى JSON سليم وإلا مش هيتحفظ.',
   },
   {
     col: 'metric_thresholds',
+        unwired: true,
     label: 'حدود الأرقام',
     hint: 'الحدود اللي بتلوّن أرقام الرئيسية أخضر ولا أحمر. لازم يبقى JSON سليم وإلا مش هيتحفظ.',
   },
@@ -393,6 +412,14 @@ const FLAG_HINTS: Record<string, string> = {
 }
 
 /* ---------------------------------------------------------- مساعدات */
+
+/**
+ * تحذير الحقل غير الموصّل — بيتزاد قدام الشرح علشان المالك يعرف إن تعديله
+ * هنا ما بيأثرش على الموقع لسه (العمود موجود في القاعدة بس محدش بيقراه).
+ */
+const UNWIRED_NOTE = '⚠ مش موصّل بالموقع لسه — تعديله هنا ما بيأثرش. '
+const hintFor = (spec: { hint: string; unwired?: boolean }) =>
+  spec.unwired ? UNWIRED_NOTE + spec.hint : spec.hint
 
 const num = (row: Row | null, col: string) => Number(row?.[col] ?? 0)
 const txt = (row: Row | null, col: string) => String(row?.[col] ?? '')
@@ -468,12 +495,17 @@ function SettingsEditor({ me }: { me: AdminMe }) {
   /** بيحفظ عمود واحد في settings ويرجّع الموقع يقرا الجديد */
   async function saveSetting(col: string, value: unknown, label: string) {
     if (!canEdit) return
-    const { error } = await supabase()
+    const { data, error } = await supabase()
       .from('settings')
       .update({ [col]: value })
       .eq('id', true)
+      .select('id')
     if (error) {
       flash(`«${label}» مااتحفظش: ${error.message}`)
+      return
+    }
+    if (rejected(data)) {
+      flash(`«${label}» مااتحفظش — القاعدة رفضت الكتابة، محتاج صلاحية settings.edit`)
       return
     }
     setSettings((s) => (s ? { ...s, [col]: value } : s))
@@ -499,9 +531,17 @@ function SettingsEditor({ me }: { me: AdminMe }) {
 
   async function saveFlag(key: string, patch: Partial<FlagRow>, label: string) {
     if (!canEdit) return
-    const { error } = await supabase().from('feature_flags').update(patch).eq('key', key)
+    const { data, error } = await supabase()
+      .from('feature_flags')
+      .update(patch)
+      .eq('key', key)
+      .select('key')
     if (error) {
       flash(`«${label}» مااتحفظش: ${error.message}`)
+      return
+    }
+    if (rejected(data)) {
+      flash(`«${label}» مااتحفظش — القاعدة رفضت الكتابة، محتاج صلاحية settings.edit`)
       return
     }
     setFlags((fs) => fs.map((f) => (f.key === key ? { ...f, ...patch } : f)))
@@ -510,9 +550,17 @@ function SettingsEditor({ me }: { me: AdminMe }) {
   }
 
   async function saveMaint(patch: Row, note: string) {
-    const { error } = await supabase().from('maintenance').update(patch).eq('id', true)
+    const { data, error } = await supabase()
+      .from('maintenance')
+      .update(patch)
+      .eq('id', true)
+      .select('id')
     if (error) {
       flash(`مااتحفظش: ${error.message}`)
+      return
+    }
+    if (rejected(data)) {
+      flash('مااتحفظش — القاعدة رفضت الكتابة، محتاج صلاحية settings.edit')
       return
     }
     setMaint((m) => (m ? { ...m, ...patch } : m))
@@ -538,9 +586,16 @@ function SettingsEditor({ me }: { me: AdminMe }) {
       flash('الكلمة دي موجودة أصلًا.')
       return
     }
-    const { error } = await supabase().from('banned_words').insert({ word: w })
+    const { data, error } = await supabase()
+      .from('banned_words')
+      .insert({ word: w })
+      .select('word')
     if (error) {
       flash(`مقدرناش نضيفها: ${error.message}`)
+      return
+    }
+    if (rejected(data)) {
+      flash('مااتضافتش — القاعدة رفضت الكتابة، محتاج صلاحية settings.edit')
       return
     }
     setNewWord('')
@@ -550,9 +605,17 @@ function SettingsEditor({ me }: { me: AdminMe }) {
 
   async function removeWord(w: string) {
     if (!confirm(`هنشيل «${w}» من الممنوعات، ويبقى ينفع تتكتب في اللوحة. تمام؟`)) return
-    const { error } = await supabase().from('banned_words').delete().eq('word', w)
+    const { data, error } = await supabase()
+      .from('banned_words')
+      .delete()
+      .eq('word', w)
+      .select('word')
     if (error) {
       flash(`مقدرناش نشيلها: ${error.message}`)
+      return
+    }
+    if (rejected(data)) {
+      flash('مااتشالتش — القاعدة رفضت الكتابة، محتاج صلاحية settings.edit')
       return
     }
     setWords((ws) => ws.filter((x) => x.word !== w))
@@ -662,7 +725,7 @@ function NumbersTab({
                       key={f.col}
                       label={f.label}
                       value={`${shown.toLocaleString('ar-EG')}${f.suffix ? ` ${f.suffix}` : ''}`}
-                      hint={f.hint}
+                      hint={hintFor(f)}
                     />
                   )
                 }
@@ -674,7 +737,7 @@ function NumbersTab({
                     min={f.min}
                     max={f.max}
                     suffix={f.suffix}
-                    hint={f.hint}
+                    hint={hintFor(f)}
                     onSave={(v) => onSave(f.col, f.money ? Math.round(v * 100) : v, f.label)}
                   />
                 )
@@ -712,11 +775,11 @@ function NumbersTab({
                     key={f.col}
                     label={f.label}
                     value={txt(settings, f.col)}
-                    hint={f.hint}
+                    hint={hintFor(f)}
                     onSave={(v) => onSave(f.col, v, f.label)}
                   />
                 ) : (
-                  <ReadOnly key={f.col} label={f.label} value={txt(settings, f.col)} hint={f.hint} />
+                  <ReadOnly key={f.col} label={f.label} value={txt(settings, f.col)} hint={hintFor(f)} />
                 )
               )}
             </div>
@@ -734,7 +797,7 @@ function NumbersTab({
                   label={j.label}
                   multiline
                   value={pretty(settings[j.col])}
-                  hint={j.hint}
+                  hint={hintFor(j)}
                   onSave={(v) => onSaveJson(j.col, v, j.label)}
                 />
               ) : (
@@ -742,7 +805,7 @@ function NumbersTab({
                   key={j.col}
                   label={j.label}
                   value={pretty(settings[j.col])}
-                  hint={j.hint}
+                  hint={hintFor(j)}
                 />
               )
             )}
@@ -768,9 +831,18 @@ function FlagsTab({
 
   return (
     <Section title="مفاتيح المزايا">
+      <div
+        className="mb-3 rounded-2xl p-3 font-body text-14"
+        style={{ background: 'var(--surface)', color: 'var(--fg)', border: '1px solid var(--line)' }}
+      >
+        ⚠ <strong>المفاتيح دي لسه مش موصّلة بالموقع.</strong> القفل والفتح هنا بيتحفظ في القاعدة
+        بس الموقع العام لسه مش بيقراهم — يعني قفل «الحجز» مثلًا <strong>مش</strong> هيقفل الحجز فعلًا.
+        لو عايز تقفل الموقع كله دلوقتي، استعمل تبويب «الصيانة». هنشيل التحذير ده أول ما المفاتيح
+        تتوصّل بالمسارات (الحجز · اللعبة · الشات · الخريطة · الغامضة · الإحالة · الشغل).
+      </div>
       <div className="mb-3 font-body text-14" style={{ color: 'var(--muted)' }}>
-        كل مفتاح بيقفل حتة واحدة من الموقع من غير ما نقفل الموقع كله. لما تقفل حاجة،
-        العضو بيشوف الرسالة اللي إنت كاتبها مكانها — فاكتب حاجة تفهّمه، مش «عطل».
+        كل مفتاح المفروض يقفل حتة واحدة من الموقع من غير ما نقفل الموقع كله. لما تقفل حاجة،
+        العضو المفروض يشوف الرسالة اللي إنت كاتبها مكانها — فاكتب حاجة تفهّمه، مش «عطل».
       </div>
 
       <div className="flex flex-col gap-3">
