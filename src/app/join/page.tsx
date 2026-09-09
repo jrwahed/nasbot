@@ -27,6 +27,20 @@ import {
   getProfileForm,
   type AuthFail,
 } from '@/lib/api'
+import {
+  getProfessions,
+  getMyWorkProfile,
+  saveWorkProfile,
+  takePendingProfession,
+  WORK_STATUS_KEYS,
+  WORK_STYLE_KEYS,
+  EXPERIENCE_KEYS,
+  WORK_STEP_TRIGGERS,
+  type ProfessionOption,
+  type WorkStatusKey,
+  type WorkStyleKey,
+  type ExperienceKey,
+} from '@/lib/collab'
 import { setSession } from '@/lib/session'
 import { hasSupabase } from '@/lib/supabase'
 import type { Gender, SkillLevel } from '@/types'
@@ -101,6 +115,43 @@ function JoinForm() {
   const [budget, setBudget] = useState<string>('لحد 500')
   const [pickedDays, setPickedDays] = useState<string[]>(['تلات', 'خميس', 'جمعة'])
 
+  /**
+   * خطوة الشغل — **اختيارية وما بتظهرش لكل الناس** (WORK_PLAN §2).
+   * بتفتح في حالتين بس: جاي من /shoghl (‏?from=shoghl)، أو قال في السؤال
+   * الصغير إنه فريلانسر / موظف بيشتغل من البيت. أي حد تاني ما يشوفهاش —
+   * كل حقل زيادة في التسجيل بياكل من نسبة اللي بيكمّلوه.
+   */
+  const fromShoghl = search.get('from') === 'shoghl'
+  const [workStatus, setWorkStatus] = useState<WorkStatusKey | null>(null)
+  const [professionId, setProfessionId] = useState<string | null>(null)
+  const [workStyle, setWorkStyle] = useState<WorkStyleKey | null>(null)
+  const [yearsExp, setYearsExp] = useState<ExperienceKey | null>(null)
+  const [workDays, setWorkDays] = useState<string[]>([])
+  const [professions, setProfessions] = useState<ProfessionOption[]>([])
+
+  const showWork =
+    fromShoghl || (workStatus !== null && WORK_STEP_TRIGGERS.includes(workStatus))
+
+  // قايمة المجالات بتتجاب لما الخطوة تفتح بس — مش لكل واحد بيسجّل
+  useEffect(() => {
+    if (!showWork || professions.length) return
+    let alive = true
+    getProfessions().then((list) => {
+      if (alive) setProfessions(list)
+    })
+    return () => {
+      alive = false
+    }
+  }, [showWork, professions.length])
+
+  // اللي جاوب سؤال المجال في اللعبة وهو لسه مش مسجّل — إجابته مستنياه هنا
+  useEffect(() => {
+    const pending = takePendingProfession()
+    if (!pending) return
+    setProfessionId(pending)
+    setWorkStatus((cur) => cur ?? 'freelancer')
+  }, [])
+
   // 4 — صورتك: الملف من الجهاز + معاينة، والرفع بيحصل بعد إنشاء الحساب
   const [photoFile, setPhotoFile] = useState<File | null>(null)
   const [photoUrl, setPhotoUrl] = useState<string | null>(null)
@@ -143,6 +194,22 @@ function JoinForm() {
     }
   }, [])
 
+  // وضع التعديل: أعمدة الشغل بتتملى من الملف زي باقي الحقول
+  useEffect(() => {
+    let alive = true
+    getMyWorkProfile().then((w) => {
+      if (!alive || !w) return
+      if (w.workStatus) setWorkStatus(w.workStatus)
+      if (w.professionId) setProfessionId((cur) => cur ?? w.professionId)
+      if (w.workStyle) setWorkStyle(w.workStyle)
+      if (w.yearsExperience) setYearsExp(w.yearsExperience)
+      if (w.workDays.length) setWorkDays(w.workDays)
+    })
+    return () => {
+      alive = false
+    }
+  }, [])
+
   // 5 — موافقتك
   const [agreeRules, setAgreeRules] = useState(true)
   const [agreeData, setAgreeData] = useState(false)
@@ -162,6 +229,9 @@ function JoinForm() {
 
   const toggleDay = (d: string) =>
     setPickedDays((s) => (s.includes(d) ? s.filter((x) => x !== d) : [...s, d]))
+
+  const toggleWorkDay = (d: string) =>
+    setWorkDays((s) => (s.includes(d) ? s.filter((x) => x !== d) : [...s, d]))
 
   const submit = async () => {
     const e: Record<string, string> = {}
@@ -229,6 +299,18 @@ function JoinForm() {
       agreedRules: agreeRules,
       agreedData: agreeData,
     })
+    // أعمدة الشغل — بتتحفظ لوحدها علشان createAccount ما تعرفش عنها حاجة،
+    // ولو وقعت ما تكسرش التسجيل نفسه (الحساب اتعمل خلاص).
+    if (workStatus || professionId || workStyle || yearsExp || workDays.length) {
+      await saveWorkProfile({
+        workStatus,
+        professionId,
+        workStyle,
+        yearsExperience: yearsExp,
+        workDays,
+      })
+    }
+
     if (photoFile) {
       const up = await uploadAvatar(photoFile)
       if (!up.ok) {
@@ -504,8 +586,103 @@ function JoinForm() {
         </div>
       )}
 
-      {/* ===== 4 · صورتك ===== */}
-      <Step n={4} title={t('join.label.3')} rotate={3} />
+      {/* ===== السؤال الصغير: بتشتغل إيه؟ (اختياري) ===== */}
+      {/* ده اللي بيفتح خطوة الشغل — ومن غيره الخطوة ما بتظهرش لحد */}
+      <Label>{t('join.work.q')}</Label>
+      <div className="mt-[6px] flex flex-wrap gap-2">
+        {WORK_STATUS_KEYS.map((k) => (
+          <ChoicePill
+            key={k}
+            selected={workStatus === k}
+            onClick={() => setWorkStatus((cur) => (cur === k ? null : k))}
+            fontSize={14}
+          >
+            {t(`join.work.status.${k}`)}
+          </ChoicePill>
+        ))}
+      </div>
+
+      {/* ===== 4 · شغلك — بتظهر بس للي جاي من /shoghl أو قال فريلانسر ===== */}
+      {showWork && (
+        <>
+          <Step n={4} title={t('join.work.title')} rotate={-3} />
+          <div className="mt-1 font-body text-14" style={{ color: 'var(--muted)' }}>
+            {t('join.work.hint')}
+          </div>
+
+          <Label>{t('join.work.profession')}</Label>
+          {professions.length ? (
+            <div className="mt-[6px] flex flex-wrap gap-2">
+              {professions.map((pr) => (
+                <ChoicePill
+                  key={pr.id}
+                  selected={professionId === pr.id}
+                  onClick={() => setProfessionId((cur) => (cur === pr.id ? null : pr.id))}
+                  fontSize={14}
+                >
+                  {pr.nameAr}
+                </ChoicePill>
+              ))}
+            </div>
+          ) : (
+            <div className="mt-[6px] font-body text-14" style={{ color: 'var(--muted)' }}>
+              {t('join.work.noProfessions')}
+            </div>
+          )}
+
+          <Label>{t('join.work.style')}</Label>
+          <div className="mt-[6px] flex gap-[6px]">
+            {WORK_STYLE_KEYS.map((k) => (
+              <ChoicePill
+                key={k}
+                selected={workStyle === k}
+                onClick={() => setWorkStyle((cur) => (cur === k ? null : k))}
+                fontSize={13}
+                padding="8px 0"
+                className="flex-1"
+              >
+                {t(`join.work.style.${k}`)}
+              </ChoicePill>
+            ))}
+          </div>
+
+          <Label>{t('join.work.experience')}</Label>
+          <div className="mt-[6px] flex gap-[6px]">
+            {EXPERIENCE_KEYS.map((k) => (
+              <ChoicePill
+                key={k}
+                selected={yearsExp === k}
+                onClick={() => setYearsExp((cur) => (cur === k ? null : k))}
+                fontSize={12}
+                padding="8px 0"
+                className="flex-1"
+              >
+                {t(`join.work.exp.${k}`)}
+              </ChoicePill>
+            ))}
+          </div>
+
+          <Label>{t('join.work.days')}</Label>
+          <div className="mt-[6px] flex gap-[6px]">
+            {days.map((d) => (
+              <ChoicePill
+                key={d}
+                selected={workDays.includes(d)}
+                onClick={() => toggleWorkDay(d)}
+                radius={12}
+                fontSize={13}
+                padding="8px 0"
+                className="flex-1"
+              >
+                {d}
+              </ChoicePill>
+            ))}
+          </div>
+        </>
+      )}
+
+      {/* ===== صورتك ===== */}
+      <Step n={showWork ? 5 : 4} title={t('join.label.3')} rotate={3} />
       <div className="mt-[14px] flex flex-col items-center gap-3" data-err={errors.photo ? '1' : undefined}>
         <input
           ref={fileInput}
@@ -551,8 +728,8 @@ function JoinForm() {
         >{t('join.text.6')}</div>
       </div>
 
-      {/* ===== 5 · موافقتك ===== */}
-      <Step n={5} title={t('join.label.1')} rotate={-3} />
+      {/* ===== موافقتك ===== */}
+      <Step n={showWork ? 6 : 5} title={t('join.label.1')} rotate={-3} />
       <div className="mt-3" data-err={errors.agree ? '1' : undefined}>
         <Checkbox checked={agreeRules} onChange={setAgreeRules} error={!!errors.agree}>{t('join.text.5')}<b>{t('join.text.4')}</b>
         </Checkbox>

@@ -550,3 +550,68 @@ RLS على مستوى الصف كانت هتكشف التليفون والإيم
 
 `work_recurring_booked` · `work_no_pass_balance` · `work_pass_low` · `work_pass_expiring`
 · `work_collab_match` · `work_venue_changed` · `work_first_time_offer` · `work_pass_activated` (زيادة).
+
+---
+
+## 13. المطابقة والتعاون (المرحلة 5 — الهجرات 0047–0049)
+
+مجمّعة في `WORK_MIGRATION_3.sql` — ملف واحد يتلزق في SQL Editor **مرة واحدة**
+(مفيش أنواع `enum` جديدة فمفيش داعي يتقسّم). كله `create or replace` وآمن يتكرر.
+
+### 13.1 `fn_pair_want` — إصلاح عطل حقيقي في «عايز تشوف مين تاني؟»
+
+`submitReview` كانت بتعمل `select` على `pair_affinity` وبعدين `insert` أو `update`.
+سياسات 0009 مدّياش الأعضاء **أي** سياسة `select` على الجدول (`pair_admin_read` للإدارة بس)،
+وبوستجريس بتطبّق سياسة الـ `select` على الصفوف اللي الـ `UPDATE` بيقراها. النتيجة:
+
+* الـ `select` بيرجّع فاضي دايمًا → الكود بيروح على الـ `insert`
+* الـ `insert` بيضرب في `unique(a_id, b_id)` لو الطرف الأول سجّل قبله
+* الـ `update` (لو اتنادى) بيعدّي على **صفر صفوف**
+
+يعني **تاني واحد في أي زوج ما كانش بيقدر يسجّل رغبته أبدًا** — `mutual_at` عمره ما اتحط،
+ومحدش اتوصل بحد من أول يوم. `fn_pair_want(p_other, p_booking_id, p_want)` نسخة طبق الأصل
+من `fn_work_want` (0042): `security definer`، بترتّب الزوج `a_id < b_id`، بتكتب جهة اللي
+بينادي بس، وبترجّع `'mutual' | 'none'`. `execute` مسحوبة من `public`/`anon` وممنوحة لـ
+`authenticated`.
+
+> نظير `fn_work_collab_state` للأزواج العاديين موجود من 0007 وهو `fn_is_mutual(other_id) boolean`
+> — فما اتعملش `fn_pair_collab_state`، كانت هتبقى نفس الدالة باسم تاني.
+
+### 13.2 `fn_build_work_matching(p_sbota)` — `work_v1`
+
+نفس شكل مخرجات `fn_build_matching` بالحرف (`matching_runs.proposal` بـ `groups[].members`
+و`groups[].why`) علشان لوحة `/admin/matching` و`fn_reveal` يقروها من غير أي تعديل، بس
+`algorithm_version = 'work_v1'` ومفتاح زيادة `proposal->'deferred'`.
+
+| # | القاعدة (WORK_PLAN §3) | التنفيذ |
+|---|---|---|
+| 1 | أقصى `settings.work_profession_mix_max` (2) من نفس المجال | قيد صارم في التوزيع — اللي مالوش مكان بيتأجّل بـ `profession_cap` |
+| 2 | تجانس `work_style` | صارم: الأقلية بين `silent` و`chatty` صفر أو ≥ 2. `depends` حياد. التوزيع الجشع بياخد نقاط تجانس، وبعده **جولة إصلاح** بتبدّل واحد بواحد بين مجموعتين لحد ما مفيش مجموعة فيها واحد بس مختلف — ولو مفيش تبديل ممكن بيتأجّل بـ `style_alone` |
+| 3 | السن **مش معيار** | الدالة ما بتقراش `birth_year` خالص — مفيش قيد ولا نقاط ولا ترتيب بالسن |
+| 4 | بنات بس | نفس الفلتر الصارم ونفس رسالة الرفض بتاعة `fn_build_matching` |
+| 5 | سنين الخبرة | `+2` لو المستوى جديد على المجموعة — مكافأة بس |
+| 6 | الغياب | `work_no_show_count >= 2` بيمنع المقعد **إلا** لو `bookings.paid_with_pass` — بيتأجّل بـ `work_no_show` |
+| 7 | «ليه المجموعة دي؟» | بلغة الشغل: «{n} مجالات مختلفة، وكلكم قلتوا إنكم بتحبوا تشتغلوا في هدوء الصبح.» — مجالات وأسلوب، مفيش أعمار |
+
+اللي بيتأجّل ما بيتحطش في أي مجموعة، فبيظهر في تبويب «المجموعات» تحت **«من غير مجموعة»**
+واللي بيراجع بينقّله بإيده. `fn_reveal` ما بتلمسهوش (بيفضل `group_id = null`).
+
+**تحذير الصيانة (WORK_PLAN §8 #3):** الدالتين منفصلتين عن قصد. أي تعديل على
+`fn_build_matching` **مش** بيوصل لـ `fn_build_work_matching` — لازم يتنقل بإيدك.
+
+### 13.3 `test_pair_want()`
+
+`select * from test_pair_want();` — 8 اختبارات بتثبت العطل (الـ `update` بصفر صفوف والـ `insert`
+اللي بيضرب في القيد الفريد) وبتثبت الإصلاح (التبادل بيفتح، والسحب بيشيل جهة واحدة بس).
+بترمي استثناء لو حاجة رسبت. مستقلة تمامًا عن `test_rls()` و`test_work_rls()`.
+
+### 13.4 الواجهة
+
+| الملف | اللي اتعمل |
+|---|---|
+| `src/lib/collab.ts` (جديد) | المنفذ الوحيد للجدولين من العميل: `pairWant` · `workWant` · `workCollabState` · `getBookingCollab` · `getProfessions` · `getMyWorkProfile` · `saveWorkProfile`. كل قراءة بتعدّي على `safeCollab` بمهلة 8 ثواني (نفس `safeWork` في `api.ts`) |
+| `/my/[id]/review` | قسم «عايز تشتغل مع مين؟» بيظهر مع «عايز تشوف مين تاني؟» لما السبوطة `is_work` — نفس المكوّن ونفس السرية |
+| `/join` | خطوة الشغل الاختيارية — بتظهر بس مع `?from=shoghl` أو لما يقول فريلانسر/موظف من البيت |
+| `/game` | سؤال أخير اختياري للفريلانسرز → `profession_id` |
+| `/admin/matching` | لو `sbotat.is_work` بتنادي `fn_build_work_matching` بدل `fn_build_matching` — الباقي زي ما هو |
+| `scripts/check-work-matching.ts` | محاكاة TS لقواعد `work_v1` من غير قاعدة + خطة اختبار SQL مطبوعة (بعكس `check-matching.ts` اللي محتاج قاعدة) |

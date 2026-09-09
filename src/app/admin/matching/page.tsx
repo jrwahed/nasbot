@@ -45,6 +45,8 @@ interface SbotaRow {
   capacity: number
   status: string
   girls_only: boolean
+  /** سبوطة شغل؟ لو أيوه بتتشغّل عليها مطابقة work_v1 مش الأصلية */
+  is_work: boolean
   sbota_templates: TplRef | TplRef[] | null
 }
 
@@ -122,7 +124,8 @@ function one<T>(v: T | T[] | null | undefined): T | null {
 
 const tplName = (t: TplRef | TplRef[] | null | undefined) => one(t ?? null)?.name_ar ?? 'سبوطة'
 
-const sbotaLabel = (s: SbotaRow) => `${tplName(s.sbota_templates)} · ${day(s.starts_at)}`
+const sbotaLabel = (s: SbotaRow) =>
+  `${tplName(s.sbota_templates)} · ${day(s.starts_at)}${s.is_work ? ' · شغل' : ''}`
 
 const personName = (p: PersonRef | null) => p?.first_name?.trim() || 'من غير اسم'
 
@@ -249,7 +252,7 @@ function MatchingEditor({ me }: { me: AdminMe }) {
     ;(async () => {
       const { data, error } = await supabase()
         .from('sbotat')
-        .select('id, starts_at, capacity, status, girls_only, sbota_templates(name_ar)')
+        .select('id, starts_at, capacity, status, girls_only, is_work, sbota_templates(name_ar)')
         .order('starts_at', { ascending: false })
       if (error) setErr(error.message)
       setSbotat((data ?? []) as unknown as SbotaRow[])
@@ -432,24 +435,36 @@ function RunsTab({
     reload()
   }, [reload])
 
+  /** السبوطة المختارة — منها بنعرف نشغّل أنهي خوارزمية */
+  const picked = useMemo(() => sbotat.find((s) => s.id === pick) ?? null, [sbotat, pick])
+  const isWork = Boolean(picked?.is_work)
+
   /**
-   * التشغيلة نفسها في القاعدة: fn_build_matching.
+   * التشغيلة نفسها في القاعدة: fn_build_matching — أو fn_build_work_matching
+   * لو السبوطة سبوطة شغل.
    *
-   * اللوحة مش بتقسّم حد بإيدها — بتنادي الدالة وخلاص، علشان يفضل عندنا
-   * خوارزمية واحدة بس. الدالة بتسجّل صف في matching_runs وبترجّع رقمه،
-   * والاقتراح بيتراجع في تبويب «المجموعات» قبل ما يتعتمد بـ fn_reveal.
+   * اللوحة مش بتقسّم حد بإيدها — بتنادي الدالة وخلاص. الاتنين بيسجّلوا صف في
+   * matching_runs بنفس شكل الاقتراح بالظبط، والفرق إن نسخة الشغل بتكتب
+   * algorithm_version = 'work_v1' وقواعدها مختلفة (WORK_PLAN §3): سقف المجال،
+   * تجانس أسلوب الشغل، والسن مش معيار خالص. الاقتراح بيتراجع في تبويب
+   * «المجموعات» قبل ما يتعتمد بـ fn_reveal — زي ما هو.
    */
   async function run() {
     if (!pick || running) return
     setRunning(true)
-    const { error } = await supabase().rpc('fn_build_matching', { p_sbota: pick })
+    const fn = isWork ? 'fn_build_work_matching' : 'fn_build_matching'
+    const { error } = await supabase().rpc(fn, { p_sbota: pick })
     setRunning(false)
     if (error) {
       // بنوري رسالة القاعدة زي ما هي — هي اللي بتقول السبب بالظبط
       flash(`المطابقة مشتغلتش: ${error.message}`)
       return
     }
-    flash('المطابقة اتشغّلت ✓ — الاقتراح مستنيك في تبويب «المجموعات»')
+    flash(
+      isWork
+        ? 'مطابقة الشغل اتشغّلت ✓ — الاقتراح مستنيك في تبويب «المجموعات»'
+        : 'المطابقة اتشغّلت ✓ — الاقتراح مستنيك في تبويب «المجموعات»'
+    )
     await reload()
   }
 
@@ -494,6 +509,21 @@ function RunsTab({
         {!canRun && (
           <div className="mt-3 font-body text-14" style={{ color: 'var(--muted)' }}>
             التشغيل محتاج صلاحية matching.run.
+          </div>
+        )}
+
+        {isWork && (
+          <div
+            className="mt-3 rounded-16 p-3 font-body text-13"
+            style={{ background: 'var(--surface)', color: 'var(--fg)' }}
+          >
+            <b>دي سبوطة شغل</b> — هنشغّل عليها <code>fn_build_work_matching</code> (نسخة{' '}
+            <b>work_v1</b>) مش الخوارزمية العادية. القواعد مختلفة: أقصى{' '}
+            <b>work_profession_mix_max</b> من نفس المجال في المجموعة، وأسلوب الشغل لازم يبقى
+            متجانس (ممنوع واحد بس مختلف)، و<b>السن مش معيار خالص</b>، وسنين الخبرة مكافأة
+            تنويع بس، واللي غيابه في سبوطات الشغل وصل 2 ما بياخدش مقعد إلا لو حجزه بكارت.
+            و«ليه المجموعة دي؟» بتطلع بلغة الشغل — مجالات وأسلوب مش أعمار. اللي ما ينفعش
+            يتحط بيظهر تحت «من غير مجموعة» في تبويب المجموعات.
           </div>
         )}
         <div className="mt-2 font-body text-13" style={{ color: 'var(--muted)' }}>

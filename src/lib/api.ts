@@ -1061,30 +1061,18 @@ export async function submitReview(payload: ReviewPayload) {
       .map((p: { profile_id: string }) => p.profile_id)
   }
 
+  // ⚠ الكتابة عبر fn_pair_want بس (هجرة 0047). الطريقة القديمة (select ثم
+  // insert/update) كانت **مستحيل** تشتغل للطرف التاني: مفيش سياسة select
+  // للأعضاء على pair_affinity (سياسات 0009)، وبوستجرس بتطبّق سياسة الـ select
+  // على الصفوف اللي الـ UPDATE بيقراها — فالـ select بيرجّع فاضي دايمًا،
+  // والـ insert بيضرب في unique(a_id, b_id)، والـ update بيعدّي على صفر صفوف.
+  // النتيجة: mutual_at عمره ما اتحط ومحدش اتوصّل بحد.
   for (const other of ids) {
-    const [a, bId] = uid < other ? [uid, other] : [other, uid]
-    const iAmA = a === uid
-    const { data: existing } = await supabase()
-      .from('pair_affinity')
-      .select('id, a_wants_b, b_wants_a')
-      .eq('a_id', a)
-      .eq('b_id', bId)
-      .maybeSingle()
-
-    if (existing) {
-      await supabase()
-        .from('pair_affinity')
-        .update(iAmA ? { a_wants_b: true } : { b_wants_a: true })
-        .eq('id', (existing as { id: string }).id)
-    } else {
-      await supabase().from('pair_affinity').insert({
-        a_id: a,
-        b_id: bId,
-        a_wants_b: iAmA,
-        b_wants_a: !iAmA,
-        met_in_booking_id: payload.bookingId,
-      })
-    }
+    await supabase().rpc('fn_pair_want', {
+      p_other: other,
+      p_booking_id: payload.bookingId,
+      p_want: true,
+    })
   }
 
   return { ok: true as const, coupon: 10, payload }
