@@ -743,3 +743,399 @@ export async function saveMyWorkProfile(p: MyWorkProfile): Promise<WriteResult> 
   if (rejected(data)) return { ok: false as const, error: 'القاعدة رفضت الحفظ' }
   return { ok: true as const }
 }
+
+/* ============================================================================
+ *  المرحلة 6 — اللوحة: تقارير الأماكن · المؤشرات · الشركات
+ *
+ *  الكتلة دي بتتنادى من /admin/shoghl بس، ومحطوطة هنا مش في الصفحة علشان
+ *  تعدّي على نفس الحارسين اللي فوق: safeWork (مهلة 8 ثواني) في كل قراءة،
+ *  و.select('id') بعد كل كتابة. تبويب في اللوحة بيفضل على «ثانية واحدة…»
+ *  للأبد هو عطل زي أي عطل.
+ *
+ *  كل قراءة بترجّع { rows, error } بدل ما ترمي: الفرق بين «مفيش بيانات»
+ *  و«القاعدة رفضت» لازم يوصل للشاشة، مش يتلبّس في مصفوفة فاضية.
+ * ========================================================================== */
+
+/** نتيجة قراءة للوحة: صفوف + سبب لو القراءة نفسها وقعت */
+export interface WorkAdminLoad<T> {
+  rows: T[]
+  error: string | null
+}
+
+const loadFailed = <T,>(error: string): WorkAdminLoad<T> => ({ rows: [], error })
+
+/** تاريخ النهاردة بتوقيت القاهرة — yyyy-mm-dd */
+const cairoToday = (): string =>
+  new Date().toLocaleDateString('en-CA', { timeZone: 'Africa/Cairo' })
+
+/** yyyy-mm-dd → تاريخ ثابت الساعة (UTC) علشان الحساب ما يتأثرش بمنطقة المتصفح */
+const parseDay = (d: string) => new Date(`${d}T00:00:00Z`)
+
+const fmtDay = (d: Date) => d.toISOString().slice(0, 10)
+
+/**
+ * اتنين الأسبوع اللي التاريخ ده واقع فيه — **نفس** `date_trunc('week')`
+ * في بوستجرس (الأسبوع بيبدأ الاتنين)، وهي اللي `fn_venue_report` بتخزّن بيها.
+ * أي حساب تاني هنا هيخلّي اللوحة تدوّر على أسبوع مش موجود في الجدول.
+ */
+export function weekStartOf(day: string): string {
+  const d = parseDay(day)
+  const dow = d.getUTCDay() // 0 = الحد
+  const back = (dow + 6) % 7 // الاتنين = 0
+  d.setUTCDate(d.getUTCDate() - back)
+  return fmtDay(d)
+}
+
+/** آخر أسبوع **كامل** — الافتراضي في تبويب التقارير، ونفس اللي المهمة بتبنيه */
+export const lastCompletedWeekStart = (): string => {
+  const d = parseDay(cairoToday())
+  d.setUTCDate(d.getUTCDate() - 7)
+  return weekStartOf(fmtDay(d))
+}
+
+/** أسبوع قدام أو ورا */
+export function shiftWeek(weekStart: string, weeks: number): string {
+  const d = parseDay(weekStart)
+  d.setUTCDate(d.getUTCDate() + weeks * 7)
+  return fmtDay(d)
+}
+
+/** هل الأسبوع ده خلص فعلًا؟ (قبل كده التقرير بيبقى ناقص) */
+export const weekIsOver = (weekStart: string): boolean =>
+  shiftWeek(weekStart, 1) <= cairoToday()
+
+/* ---------------------------------------------------- تقارير الأماكن */
+
+/** صف تقرير مكان — `amountDue` بالقروش زي القاعدة (اللوحة بتعرضه بـ money) */
+export interface VenueReportRow {
+  id: string
+  venueId: string
+  venueName: string
+  area: string | null
+  weekStart: string
+  sessionsCount: number
+  attendeesCount: number
+  noShows: number
+  avgRating: number | null
+  amountDue: number
+  paidAt: string | null
+  notes: string | null
+}
+
+interface VenueReportRaw {
+  id: string
+  venue_id: string
+  week_start: string
+  sessions_count: number | null
+  attendees_count: number | null
+  no_shows: number | null
+  avg_rating: number | string | null
+  amount_due: number | null
+  paid_at: string | null
+  notes: string | null
+  venues: { name: string; area: string | null }[] | { name: string; area: string | null } | null
+}
+
+const oneRel = <T,>(v: T[] | T | null): T | null => (Array.isArray(v) ? (v[0] ?? null) : v)
+
+const VENUE_REPORT_COLS =
+  'id, venue_id, week_start, sessions_count, attendees_count, no_shows, ' +
+  'avg_rating, amount_due, paid_at, notes, venues(name, area)'
+
+function venueReportFromDb(r: VenueReportRaw): VenueReportRow {
+  const v = oneRel(r.venues)
+  const rating = r.avg_rating === null || r.avg_rating === undefined ? null : Number(r.avg_rating)
+  return {
+    id: r.id,
+    venueId: r.venue_id,
+    venueName: v?.name ?? 'مكان اتشال',
+    area: v?.area ?? null,
+    weekStart: r.week_start,
+    sessionsCount: r.sessions_count ?? 0,
+    attendeesCount: r.attendees_count ?? 0,
+    noShows: r.no_shows ?? 0,
+    avgRating: rating !== null && Number.isFinite(rating) ? rating : null,
+    amountDue: r.amount_due ?? 0,
+    paidAt: r.paid_at ?? null,
+    notes: r.notes ?? null,
+  }
+}
+
+/** تقارير أسبوع واحد — القراءة محتاجة payments.view (سياسة venue_reports_read) */
+export async function getVenueReports(weekStart: string): Promise<WorkAdminLoad<VenueReportRow>> {
+  if (!DB) return { rows: [], error: null }
+  return safeWork(
+    'getVenueReports',
+    async () => {
+      const { data, error } = await supabase()
+        .from('venue_reports')
+        .select(VENUE_REPORT_COLS)
+        .eq('week_start', weekStart)
+        .limit(200)
+      if (error) return loadFailed<VenueReportRow>(error.message)
+      const rows = ((data ?? []) as unknown as VenueReportRaw[]).map(venueReportFromDb)
+      rows.sort((a, b) => a.venueName.localeCompare(b.venueName, 'ar'))
+      return { rows, error: null }
+    },
+    loadFailed<VenueReportRow>('الطلب طوّل أكتر من ٨ ثواني — جرّب «حدّث» تاني')
+  )
+}
+
+/** الأسابيع اللي فيها تقارير فعلًا — علشان قايمة الاختيار */
+export async function getVenueReportWeeks(limit = 26): Promise<string[]> {
+  if (!DB) return []
+  return safeWork(
+    'getVenueReportWeeks',
+    async () => {
+      const { data, error } = await supabase()
+        .from('venue_reports')
+        .select('week_start')
+        .order('week_start', { ascending: false })
+        .limit(limit * 12)
+      if (error || !data) return []
+      const seen: string[] = []
+      for (const r of data as { week_start: string }[]) {
+        if (!seen.includes(r.week_start)) seen.push(r.week_start)
+        if (seen.length >= limit) break
+      }
+      return seen
+    },
+    []
+  )
+}
+
+/** «اتدفع» — بتحتاج payments.review (سياسة venue_reports_write) */
+export async function markVenueReportPaid(id: string): Promise<WriteResult> {
+  if (!DB) return { ok: true as const }
+  const uid = await myId()
+  const { data, error } = await supabase()
+    .from('venue_reports')
+    .update({ paid_at: new Date().toISOString(), paid_by: uid })
+    .eq('id', id)
+    .select('id')
+  if (error) return { ok: false as const, error: error.message }
+  if (rejected(data))
+    return { ok: false as const, error: 'القاعدة رفضت — محتاج صلاحية payments.review' }
+  return { ok: true as const }
+}
+
+/**
+ * «ابنِ تقرير الأسبوع» — الغلاف بتاع الهجرة 0050، مش `fn_venue_report`
+ * مباشرة: دي اتقفلت على الخادم والغلاف بس (0050 بند 4).
+ */
+export async function buildVenueReport(weekStart: string): Promise<WriteResult> {
+  if (!DB) return { ok: true as const }
+  const { error } = await supabase().rpc('fn_admin_build_venue_report', {
+    p_week_start: weekStart,
+  })
+  if (error) return { ok: false as const, error: error.message }
+  return { ok: true as const }
+}
+
+/* ---------------------------------------------------- المؤشرات */
+
+/** صف أسبوعي من `work_metrics` — الأرقام زي ما هي في العرض المادي */
+export interface WorkMetricRow {
+  week: string
+  workSbotat: number
+  workBookings: number
+  attended: number
+  noShowPct: number | null
+  passBookings: number
+  passesSold: number
+  passesRevenue: number
+  sessionsRedeemed: number
+  workFirstTimers: number
+  converted30d: number
+  conversion30dPct: number | null
+  collabMutualPct: number | null
+}
+
+interface WorkMetricRaw {
+  week: string
+  work_sbotat: number | null
+  work_bookings: number | null
+  attended: number | null
+  no_show_pct: number | string | null
+  pass_bookings: number | null
+  passes_sold: number | null
+  passes_revenue: number | null
+  sessions_redeemed: number | null
+  work_first_timers: number | null
+  converted_30d: number | null
+  conversion_30d_pct: number | string | null
+  collab_mutual_pct: number | string | null
+}
+
+const num = (v: number | string | null | undefined): number | null => {
+  if (v === null || v === undefined) return null
+  const n = Number(v)
+  return Number.isFinite(n) ? n : null
+}
+
+/**
+ * المؤشرات الأسبوعية عبر `fn_work_metrics` (settings.view).
+ * الدالة بترجّع صفر صفوف لو الصلاحية ناقصة — فالصفحة لازم تفحص الصلاحية
+ * بنفسها قبل ما تقول «مفيش بيانات».
+ */
+export async function getWorkMetrics(weeks = 12): Promise<WorkAdminLoad<WorkMetricRow>> {
+  if (!DB) return { rows: [], error: null }
+  return safeWork(
+    'getWorkMetrics',
+    async () => {
+      const { data, error } = await supabase().rpc('fn_work_metrics', { p_weeks: weeks })
+      if (error) return loadFailed<WorkMetricRow>(error.message)
+      const rows = ((data ?? []) as WorkMetricRaw[]).map((r) => ({
+        week: r.week,
+        workSbotat: r.work_sbotat ?? 0,
+        workBookings: r.work_bookings ?? 0,
+        attended: r.attended ?? 0,
+        noShowPct: num(r.no_show_pct),
+        passBookings: r.pass_bookings ?? 0,
+        passesSold: r.passes_sold ?? 0,
+        passesRevenue: r.passes_revenue ?? 0,
+        sessionsRedeemed: r.sessions_redeemed ?? 0,
+        workFirstTimers: r.work_first_timers ?? 0,
+        converted30d: r.converted_30d ?? 0,
+        conversion30dPct: num(r.conversion_30d_pct),
+        collabMutualPct: num(r.collab_mutual_pct),
+      }))
+      return { rows, error: null }
+    },
+    loadFailed<WorkMetricRow>('الطلب طوّل أكتر من ٨ ثواني — جرّب «حدّث الأرقام» تاني')
+  )
+}
+
+/** مستهدف التحوّل من `settings` — القراءة مفتوحة (سياسة settings_read) */
+export async function getConversionTarget(): Promise<number | null> {
+  if (!DB) return null
+  return safeWork(
+    'getConversionTarget',
+    async () => {
+      const { data, error } = await supabase()
+        .from('settings')
+        .select('work_conversion_target_pct')
+        .eq('id', true)
+        .maybeSingle()
+      if (error || !data) return null
+      return num((data as { work_conversion_target_pct: number | null }).work_conversion_target_pct)
+    },
+    null
+  )
+}
+
+/** «حدّث الأرقام» — غلاف 0050 على `job_work_metrics()` */
+export async function refreshWorkMetrics(): Promise<WriteResult> {
+  if (!DB) return { ok: true as const }
+  const { error } = await supabase().rpc('fn_admin_refresh_work_metrics')
+  if (error) return { ok: false as const, error: error.message }
+  return { ok: true as const }
+}
+
+/* ---------------------------------------------------- الأيام الثابتة */
+
+/** «ولّد دلوقتي» — غلاف 0050 على `job_work_recurring()` (bookings.edit) */
+export async function runWorkRecurringNow(): Promise<
+  { ok: true; count: number } | { ok: false; error: string }
+> {
+  if (!DB) return { ok: true as const, count: 0 }
+  const { data, error } = await supabase().rpc('fn_admin_run_work_recurring')
+  if (error) return { ok: false as const, error: error.message }
+  return { ok: true as const, count: Number(data ?? 0) || 0 }
+}
+
+/* ---------------------------------------------------- الشركات */
+
+export type LeadStatusCode = 'new' | 'contacted' | 'converted' | 'dropped'
+
+export const LEAD_STATUS_CODES: readonly LeadStatusCode[] = [
+  'new',
+  'contacted',
+  'converted',
+  'dropped',
+]
+
+export interface LeadRow {
+  id: string
+  company: string
+  contactName: string
+  phone: string
+  peopleCount: number | null
+  timesPerMonth: number | null
+  note: string | null
+  adminNote: string | null
+  status: LeadStatusCode
+  createdAt: string
+}
+
+interface LeadRaw {
+  id: string
+  company: string | null
+  contact_name: string | null
+  phone: string | null
+  people_count: number | null
+  times_per_month: number | null
+  note: string | null
+  admin_note: string | null
+  status: string
+  created_at: string
+}
+
+const LEAD_COLS =
+  'id, company, contact_name, phone, people_count, times_per_month, note, admin_note, status, created_at'
+
+/** طلبات الشركات — الأحدث الأول. القراءة محتاجة people.view (سياسة leads_read) */
+export async function getLeads(limit = 300): Promise<WorkAdminLoad<LeadRow>> {
+  if (!DB) return { rows: [], error: null }
+  return safeWork(
+    'getLeads',
+    async () => {
+      const { data, error } = await supabase()
+        .from('leads')
+        .select(LEAD_COLS)
+        .order('created_at', { ascending: false })
+        .limit(limit)
+      if (error) return loadFailed<LeadRow>(error.message)
+      const rows = ((data ?? []) as LeadRaw[]).map((r) => ({
+        id: r.id,
+        company: r.company ?? '—',
+        contactName: r.contact_name ?? '—',
+        phone: r.phone ?? '',
+        peopleCount: r.people_count ?? null,
+        timesPerMonth: r.times_per_month ?? null,
+        note: r.note ?? null,
+        adminNote: r.admin_note ?? null,
+        status: LEAD_STATUS_CODES.find((s) => s === r.status) ?? 'new',
+        createdAt: r.created_at,
+      }))
+      return { rows, error: null }
+    },
+    loadFailed<LeadRow>('الطلب طوّل أكتر من ٨ ثواني — جرّب «حدّث» تاني')
+  )
+}
+
+/**
+ * تعديل طلب شركة — الحالة أو ملاحظة الإدارة.
+ * سياسة `leads_write` في 0043 هي **update بس** ومحتاجة `people.view`
+ * (مش صلاحية كتابة منفصلة) — فالفحص في اللوحة لازم يبقى على `people.view`.
+ * وبنكتب `handled_by` مع أول تغيير حالة علشان نعرف مين بيتابع الطلب.
+ */
+export async function updateLead(
+  id: string,
+  patch: { status?: LeadStatusCode; adminNote?: string | null }
+): Promise<WriteResult> {
+  if (!DB) return { ok: true as const }
+  const body: Record<string, unknown> = {}
+  if (patch.status !== undefined) {
+    body.status = patch.status
+    body.handled_by = await myId()
+  }
+  if (patch.adminNote !== undefined) body.admin_note = patch.adminNote
+  if (Object.keys(body).length === 0) return { ok: true as const }
+
+  const { data, error } = await supabase().from('leads').update(body).eq('id', id).select('id')
+  if (error) return { ok: false as const, error: error.message }
+  if (rejected(data))
+    return { ok: false as const, error: 'القاعدة رفضت — محتاج صلاحية people.view' }
+  return { ok: true as const }
+}

@@ -434,3 +434,105 @@ where status in ('open','full') and reveal_at < now() + interval '2 hours'
 | واتساب أعمال + 12 قالب | إرسال حقيقي | وضع محاكاة — بيطبع في السجل |
 | ~~حساب بايموب/كاشير~~ | — | **مش مطلوب** — الدفع يدوي |
 | ترخيص نقل البيانات | الإطلاق التجاري | — |
+
+---
+
+## 15. إشعارات الشغل بالإيميل — `/api/cron/work-notify`
+
+مهام الشغل ومحفّز التبادل بيكتبوا في `notifications` بقناة `whatsapp` وحالة `queued`.
+واتساب لسه مقفول (مفيش مفاتيح Meta)، فالصفوف دي كانت بتقف للأبد.
+المسار ده بياخد **لحد 20 صف** مفتاحهم بيبدأ بـ `work_`، يركّب نص
+`notification_templates.body_ar` بالـ `payload`، ويبعته إيميل، ويقفل الصف
+(`status='sent'` + `sent_at`). الفشل بيتسجّل في `error` وبيتحاول 3 مرات بالكتير
+وبعدها `status='failed'`. باقي الإشعارات (غير `work_`) ما بتتلمسش.
+
+**الفحص اليدوي:**
+
+```bash
+curl -s -H "x-nasbot-secret: $CRON_SECRET" https://nasbot.vercel.app/api/cron/work-notify | jq
+# {"ok":true,"picked":3,"sent":3,"failed":0,"left":0,"errors":[]}
+```
+
+```sql
+-- إيه اللي لسه واقف
+select template_key, count(*) from notifications
+where status = 'queued' and template_key like 'work\_%' group by 1;
+
+-- اللي فشل وليه
+select id, template_key, attempts, error from notifications
+where status = 'failed' and template_key like 'work\_%' order by created_at desc limit 20;
+```
+
+### الجدولة — pg_cron + `net.http_post` (المسار المعتمد)
+
+> **الأسرع:** الزق `WORK_CRON.sql` (في جذر المستودع) في SQL Editor بعد ما تبدّل
+> `<CRON_SECRET>` بقيمته من Vercel. بيعمل كل اللي تحت، وبينده المسار مرة فورًا
+> للتجربة، وآمن يتكرر. اللي تحت هو نفس الخطوات مشروحة.
+
+الامتدادين مفعّلين من هجرة 0026 (`pg_cron` و`pg_net`)، وباقي المهام كلها هنا
+(§9). الفرق الوحيد إن المهمة دي بتنده مسار على Vercel مش دالة في القاعدة.
+السر بيتحط في Vault مرة واحدة علشان ما يتكتبش في `cron.job` بالنص الصريح:
+
+```sql
+-- مرة واحدة: خزّن السر
+select vault.create_secret('<CRON_SECRET نفسه اللي في Vercel>', 'nasbot_cron_secret');
+
+-- المهمة: كل ساعة عند الدقيقة 5
+select cron.schedule(
+  'nasbot-work-notify',
+  '5 * * * *',
+  $$
+  select net.http_post(
+    url     := 'https://nasbot.vercel.app/api/cron/work-notify',
+    headers := jsonb_build_object(
+                 'content-type',    'application/json',
+                 'x-nasbot-secret', (select decrypted_secret from vault.decrypted_secrets
+                                      where name = 'nasbot_cron_secret')
+               ),
+    body    := '{}'::jsonb,
+    timeout_milliseconds := 30000
+  );
+  $$
+);
+```
+
+`net.http_post` **غير متزامنة**: بترجّع `request_id` على طول، والرد بيتسجّل في
+`net._http_response`. يعني لو المسار رجّع 401 المهمة تفضل «ناجحة» في
+`cron.job_run_details` — الفحص الصح:
+
+```sql
+select r.status_code, r.error_msg, r.created
+from net._http_response r order by r.created desc limit 10;
+```
+
+للإلغاء: `select cron.unschedule('nasbot-work-notify');`
+
+### البديل — Vercel Cron
+
+`DEPLOY_CHECKLIST §2` بتقول «متضيفش crons في vercel.json»، والسبب إن Hobby
+بتسمح بمهمتين يوميًا بس (يعني مرة كل 24 ساعة — الإشعار ممكن يوصل متأخر يوم).
+لو المشروع بقى Pro أو حبيت تستهلك واحدة من المهمتين، **أنا ما لمستش
+`vercel.json`** — ده اللي يتزوّد فيه:
+
+```json
+{
+  "crons": [{ "path": "/api/cron/work-notify", "schedule": "5 * * * *" }]
+}
+```
+
+Vercel Cron بيبعت `Authorization: Bearer $CRON_SECRET` من متغيّر البيئة
+`CRON_SECRET` نفسه، وما بيعرفش يبعت هيدر باسم من عندنا — عشان كده المسار
+بيقبل الشكلين (`x-nasbot-secret` أو `Authorization: Bearer`)، بنفس السر.
+
+### البديل التالت — نداء من بره
+
+أي خدمة بتنده رابط بجدول (cron-job.org مثلًا) وبتسمح بهيدر مخصص:
+`GET https://nasbot.vercel.app/api/cron/work-notify` بهيدر `x-nasbot-secret`.
+عيبه إنه طرف تالت زيادة، وميزته إنه بيديك سجل بالردود الحقيقية (بعكس
+`net.http_post` غير المتزامنة).
+
+| الاختيار | التكرار | بيشوف رد المسار؟ | ملاحظة |
+|---|---|---|---|
+| pg_cron + `net.http_post` | أي تكرار | لأ — من `net._http_response` بس | نفس نمط باقي المهام، صفر خدمات زيادة |
+| Vercel Cron | مرتين يوميًا على Hobby | أيوه في سجل Vercel | بيكسر قاعدة `DEPLOY_CHECKLIST §2` |
+| نداء من بره | أي تكرار | أيوه | طرف تالت |

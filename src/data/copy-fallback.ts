@@ -632,4 +632,12 @@ export const copyFallback: Record<string, string> = {
   "me.delete.confirm": "متأكد إنك عايز تمسح حسابك؟ هنخفي بياناتك دلوقتي، وتتمسح نهائي بعد 30 يوم.",
   "me.delete.progress": "بنمسح…",
   "me.delete.failed": "مقدرناش نمسح الحساب دلوقتي. جرّب تاني أو كلّمنا.",
+
+  /* ===== شغالين معاك في /me/shoghl — المرحلة 5 (WORK_PLAN §2) ===== */
+  "shoghl.me.collab.note": "دول اللي انتوا اخترتوا بعض. محدش تاني بيشوف الليستة دي.",
+  "shoghl.me.collab.met": "اتقابلنا في: {{sbota}} — {{venue}}",
+  "shoghl.me.collab.metSbota": "اتقابلنا في: {{sbota}}",
+  "shoghl.me.collab.metWork": "اتقابلنا في سبوطة شغل",
+  "shoghl.me.collab.dm": "ابعتله",
+  "shoghl.me.collab.opening": "ثانية…",
 }
