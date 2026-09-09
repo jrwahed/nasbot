@@ -6,8 +6,16 @@
 --
 -- بيصلّح: تزوير التبادل (S1/S2) · تسريب صف profiles كامل (S3) · الحجز المجاني (S4)
 --         · captains المكشوف (S5) · صلاحيات الفلوس الواسعة (S8/A10/A11) · الكشف
---         المكسور (A1) · job_purge (D4) · إلغاء الحجز تحت المراجعة (D6) · الفلوس السالبة (D7).
+--         المكسور (A1) · job_purge (D4) · إلغاء الحجز تحت المراجعة (D6) · الفلوس
+--         السالبة (D7) · fn_reveal المفتوح للزائر المجهول · وحراس definer اللي
+--         كانوا ديكور (0063).
+--
+-- بعد ما يخلص، شغّل السطرين دول علشان تتأكد بنفسك:
+--     select * from test_review_fixes();
+--     select * from test_caller_guards();
+-- المفروض كل الصفوف تقول «نجح». أي «فشل» ابعتهولي بالحرف.
 -- ============================================================================
+
 
 -- ############################################################################
 -- # 20260909160000_0052_forge_mutual_match_fix.sql
@@ -582,3 +590,429 @@ begin
     alter table coupons add constraint coupons_value_positive check (value > 0);
   end if;
 end $$;
+
+
+-- ############################################################################
+-- # 20260909161000_0061_test_review_fixes.sql
+-- ############################################################################
+
+-- ============================================================================
+-- 0061 — دالة اختبار تصليحات المراجعة (0052..0060)
+--
+-- كل هجرة في الدفعة دي معاها سطر هنا بيتأكد إن التصليح فعلًا واقع في القاعدة،
+-- مش إن الملف اتشغّل وخلاص. شغّلها بعد ما تلزق WORK_MIGRATION_5.sql:
+--
+--   select * from test_review_fixes();
+--
+-- المفروض كل الصفوف تقول «نجح». أي «فشل» معناه إن الهجرة دي ما وصلتش —
+-- ابعتلي السطر بالحرف.
+--
+-- ملحوظة: الفحص هنا على **شكل** القاعدة (السياسات · المنح · المحفّزات ·
+-- القيود)، مش على سلوك الأعضاء — علشان يشتغل من غير ما نعمل حسابات وهمية
+-- ولا نلمس بيانات حقيقية. الاختبار السلوكي بيتعمل من الموقع نفسه.
+-- ============================================================================
+
+create or replace function test_review_fixes()
+returns table (test text, result text)
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  n int;
+begin
+  -- ===== 0052 — التبادل المزيّف (S1/S2) =====
+  test := '0052 · مفيش كتابة مباشرة على pair_affinity';
+  select count(*) into n from pg_policies
+   where tablename = 'pair_affinity' and cmd in ('INSERT', 'UPDATE', 'ALL');
+  if n > 0 then
+    result := format('فشل — لسه فيه %s سياسة كتابة', n);
+  elsif has_table_privilege('authenticated', 'pair_affinity', 'insert')
+     or has_table_privilege('authenticated', 'pair_affinity', 'update') then
+    result := 'فشل — منحة الكتابة لسه موجودة لـ authenticated';
+  else
+    result := 'نجح';
+  end if;
+  return next;
+
+  test := '0052 · مفيش كتابة مباشرة على work_affinity';
+  select count(*) into n from pg_policies
+   where tablename = 'work_affinity' and cmd in ('INSERT', 'UPDATE', 'ALL');
+  if n > 0 then
+    result := format('فشل — لسه فيه %s سياسة كتابة', n);
+  elsif has_table_privilege('authenticated', 'work_affinity', 'insert')
+     or has_table_privilege('authenticated', 'work_affinity', 'update') then
+    result := 'فشل — منحة الكتابة لسه موجودة لـ authenticated';
+  else
+    result := 'نجح';
+  end if;
+  return next;
+
+  test := '0052 · الطريق الصح (fn_pair_want / fn_work_want) لسه مفتوح للعضو';
+  if has_function_privilege('authenticated', 'fn_pair_want(uuid, uuid, boolean)', 'execute')
+ and has_function_privilege('authenticated', 'fn_work_want(uuid, uuid, boolean)', 'execute') then
+    result := 'نجح';
+  else
+    result := 'فشل — العضو مش هيعرف يختار حد خالص';
+  end if;
+  return next;
+
+  -- ===== 0053 — قراية profiles =====
+  test := '0053 · سياسة profiles_mutual_read اتشالت';
+  if exists (
+    select 1 from pg_policies
+     where tablename = 'profiles' and policyname = 'profiles_mutual_read'
+  ) then
+    result := 'فشل — السياسة لسه موجودة';
+  else
+    result := 'نجح';
+  end if;
+  return next;
+
+  -- ===== 0054 — الحجز المجاني المؤكد (S4) =====
+  test := '0054 · سياسة إدراج الحجز بتلزم pending_payment بفلوس صفر';
+  if (select with_check from pg_policies
+       where tablename = 'bookings' and policyname = 'bookings_own_insert')
+     like '%pending_payment%' then
+    result := 'نجح';
+  else
+    result := 'فشل — السياسة لسه بتتحقق من profile_id بس';
+  end if;
+  return next;
+
+  test := '0054 · محفّز حارس أعمدة الحجز شغّال';
+  if exists (
+    select 1 from pg_trigger
+     where tgname = 't_guard_booking_columns' and not tgisinternal
+  ) then
+    result := 'نجح';
+  else
+    result := 'فشل — المحفّز مش متركّب';
+  end if;
+  return next;
+
+  -- ===== 0055 — الكباتن =====
+  test := '0055 · عرض الكباتن العام موجود';
+  if exists (select 1 from pg_views where viewname = 'captains_public') then
+    result := 'نجح';
+  else
+    result := 'فشل — العرض مش موجود';
+  end if;
+  return next;
+
+  -- ===== 0056 — سياسات الكتابة الحساسة =====
+  -- القراية للإدارة سايبينها على fn_is_admin عن قصد (أي أدمن يشوف)، الكتابة بس
+  -- هي اللي لازم تبقى على الصلاحية المحددة.
+  test := '0056 · كتابة الإعدادات والفلوس بقت على fn_has_permission';
+  select count(*) into n from pg_policies
+   where tablename in ('settings', 'bookings', 'sbotat', 'venues',
+                       'captains', 'coupons', 'reports')
+     and cmd in ('ALL', 'INSERT', 'UPDATE', 'DELETE')
+     and coalesce(qual, '') || coalesce(with_check, '') like '%fn_is_admin%';
+  if n = 0 then
+    result := 'نجح';
+  else
+    result := format('فشل — لسه %s سياسة كتابة بتستخدم fn_is_admin', n);
+  end if;
+  return next;
+
+  -- ===== 0057 — fn_reveal =====
+  test := '0057 · fn_reveal موجودة ومقفولة على anon';
+  if not exists (select 1 from pg_proc where proname = 'fn_reveal') then
+    result := 'فشل — الدالة مش موجودة';
+  elsif has_function_privilege('anon', 'fn_reveal(uuid)', 'execute') then
+    result := 'فشل — anon يقدر ينفّذها';
+  else
+    result := 'نجح';
+  end if;
+  return next;
+
+  -- ===== 0058 / 0059 — المهام المجدولة =====
+  test := '0058 · job_purge موجودة';
+  if exists (select 1 from pg_proc where proname = 'job_purge') then
+    result := 'نجح';
+  else
+    result := 'فشل — الدالة مش موجودة';
+  end if;
+  return next;
+
+  test := '0059 · job_expire_bookings موجودة';
+  if exists (select 1 from pg_proc where proname = 'job_expire_bookings') then
+    result := 'نجح';
+  else
+    result := 'فشل — الدالة مش موجودة';
+  end if;
+  return next;
+
+  -- ===== 0060 — قيود الفلوس =====
+  test := '0060 · قيود check على أعمدة الفلوس';
+  select count(*) into n from pg_constraint
+   where contype = 'c'
+     and conname in ('payments_amount_nonneg', 'payments_fee_nonneg',
+                     'refunds_amount_nonneg', 'bookings_money_nonneg',
+                     'work_passes_price_nonneg', 'sbotat_money_nonneg',
+                     'coupons_value_positive');
+  if n = 7 then
+    result := 'نجح — ٧ قيود';
+  else
+    result := format('فشل — %s قيد من ٧ بس', n);
+  end if;
+  return next;
+end;
+$$;
+
+comment on function test_review_fixes() is
+  'بتتأكد إن تصليحات المراجعة (0052..0060) واقعة فعلًا في القاعدة. select * from test_review_fixes();';
+
+revoke execute on function test_review_fixes() from public, anon, authenticated;
+
+
+-- ############################################################################
+-- # 20260909161100_0062_fn_reveal_close_anon.sql
+-- ############################################################################
+
+-- ============================================================================
+-- 0062 — سدّ ثغرة فتحها 0057 في fn_reveal
+--
+-- المشكلة: 0057 منح fn_reveal لـ authenticated بس ما سحبهاش من public، وفي
+-- بوستجرس أي دالة جديدة بتبقى منفّذة لـ PUBLIC افتراضيًا — يعني anon كمان.
+-- وأسوأ من كده، الحارس جوّه الدالة كان:
+--
+--     if auth.uid() is not null and not fn_has_permission('matching.approve')
+--
+-- والزائر المجهول (anon من غير جلسة) auth.uid() بتاعه **null** — فالشرط بيبقى
+-- false والحارس بيعدّيه. النتيجة: أي حد على النت يقدر ينده
+-- fn_reveal('<أي سبوطة>') ويكشف المجموعة قبل ميعادها لكل الناس.
+--
+-- (الاختبار test_review_fixes() هو اللي مسك دي — السطر «0057 · fn_reveal
+-- موجودة ومقفولة على anon» كان بيقول «فشل — anon يقدر ينفّذها».)
+--
+-- الحل، طبقتين:
+--   1) نسحب التنفيذ من public و anon — الطبقة اللي المفروض كانت من الأول.
+--   2) نصلّح الحارس نفسه يبقى على `current_user` زي fn_guard_booking_columns
+--      (0054) بدل auth.uid(): أي نداء جاي من المتصفح (anon/authenticated)
+--      لازم معاه matching.approve. النداء الداخلي (الكرون job_reveal_due وهو
+--      definer مملوك لـ postgres، ومسارات مفتاح الخدمة) current_user بتاعه
+--      postgres/service_role فبيعدّي زي ما هو.
+-- ============================================================================
+
+-- ===== 1) سحب التنفيذ من الزائر المجهول =====
+revoke execute on function fn_reveal(uuid) from public;
+revoke execute on function fn_reveal(uuid) from anon;
+grant  execute on function fn_reveal(uuid) to authenticated;
+
+-- ===== 2) تصليح الحارس جوّه الدالة =====
+-- بنعدّل أول سطرين الحارس بس؛ باقي جسم الدالة زي ما 0057 سابه بالحرف.
+do $$
+declare
+  src  text;
+  new_src text;
+begin
+  select prosrc into src from pg_proc
+   where proname = 'fn_reveal' and pronamespace = 'public'::regnamespace;
+
+  if src is null then
+    raise exception 'fn_reveal مش موجودة — طبّق 0057 الأول';
+  end if;
+
+  new_src := replace(
+    src,
+    'if auth.uid() is not null and not fn_has_permission(''matching.approve'') then',
+    'if current_user in (''anon'', ''authenticated'') and not fn_has_permission(''matching.approve'') then'
+  );
+
+  if new_src = src then
+    -- إما الملف اتشغّل قبل كده (الحالة الطبيعية لو بتعيده)، وإما الحارس
+    -- اتكتب بشكل تاني — في الحالتين منعملش حاجة على العمياني.
+    if src like '%current_user in (''anon'', ''authenticated'')%' then
+      raise notice '0062: حارس fn_reveal متصلّح أصلًا — عدّينا';
+    else
+      raise notice '0062: ⚠ حارس fn_reveal مش على الشكل المتوقع — اتأكد منه بإيدك';
+    end if;
+  else
+    execute format(
+      'create or replace function fn_reveal(p_sbota uuid) returns int language plpgsql security definer set search_path = public as %L',
+      new_src
+    );
+    -- create or replace بيحافظ على الصلاحيات، بس نأكد تاني للاطمئنان
+    revoke execute on function fn_reveal(uuid) from public, anon;
+    grant  execute on function fn_reveal(uuid) to authenticated;
+  end if;
+end $$;
+
+comment on function fn_reveal(uuid) is
+  'بينشئ المجموعات والغرف وبيبعت رسالة الكشف. مرة واحدة لكل سبوطة. النداء من المتصفح محتاج matching.approve، والزائر المجهول ممنوع خالص.';
+
+-- ===== 3) نفس المراجعة على باقي دوال الكشف/المطابقة =====
+-- أي دالة حساسة تانية اتعملت في الدفعة دي من غير revoke — نقفلها هنا كمان.
+do $$
+declare
+  f record;
+begin
+  for f in
+    select p.oid::regprocedure as sig
+      from pg_proc p
+     where p.pronamespace = 'public'::regnamespace
+       and p.proname in ('fn_build_matching', 'fn_build_work_matching')
+       and has_function_privilege('anon', p.oid, 'execute')
+  loop
+    execute format('revoke execute on function %s from public, anon', f.sig);
+    raise notice '0062: اتقفلت على anon — %', f.sig;
+  end loop;
+end $$;
+
+
+-- ############################################################################
+-- # 20260909161200_0063_caller_is_browser.sql
+-- ############################################################################
+
+-- ============================================================================
+-- 0063 — الحراس اللي كانوا بيعتمدوا على current_user ما كانوش بيشتغلوا خالص
+--
+-- المشكلة (مسكناها بالاختبار السلوكي، مش بالقراية):
+--   جوّه أي دالة `security definer`، بوستجرس بيخلّي `current_user` =
+--   **صاحب الدالة** (postgres)، مش اللي بينادي. يعني الشرط:
+--
+--       if current_user in ('anon', 'authenticated') then ... end if;
+--
+--   عمره ما بيبقى true — فجسم الحارس كله ما بيتنفّذش أبدًا. التلات دوال دي
+--   كانوا على النمط ده:
+--       · fn_guard_booking_columns  (0054)
+--       · fn_guard_pass_columns     (0042)
+--       · fn_reveal                 (0062)
+--
+--   ⚠ مهم للتوضيح: الحماية الحقيقية لسه واقفة — سياسات RLS هي اللي بترفض
+--   فعلًا (مفيش سياسة update للعضو على bookings ولا work_passes، وسياسة
+--   الإدراج متضيّقة في 0054). الحراس دول كانوا **طبقة تانية** المفروض تمسك
+--   لو حد وسّع سياسة بعدين. الطبقة دي كانت ديكور — دلوقتي بقت شغّالة.
+--
+-- الحل: نعرف اللي بينادي من **ادعاء الدور في التوكن** (request.jwt.claims)
+-- مش من current_user:
+--   · مفتاح anon    → role = 'anon'
+--   · عضو داخل      → role = 'authenticated'
+--   · مفتاح الخدمة  → role = 'service_role'   ← بيعدّي
+--   · pg_cron داخلي → مفيش claims خالص        ← بيعدّي
+-- ============================================================================
+
+create or replace function fn_caller_is_browser()
+returns boolean
+language sql
+stable
+set search_path = public
+as $$
+  select coalesce(
+    nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'role',
+    ''
+  ) in ('anon', 'authenticated');
+$$;
+
+comment on function fn_caller_is_browser() is
+  'true لو النداء جاي من المتصفح (مفتاح anon أو عضو داخل). مفتاح الخدمة والكرون بيرجّعوا false. بديل current_user اللي ما بيشتغلش جوه security definer.';
+
+grant execute on function fn_caller_is_browser() to anon, authenticated, service_role;
+
+-- ===== نبدّل الشرط المكسور في كل دالة عندها =====
+do $$
+declare
+  f       record;
+  new_src text;
+  fixed   int := 0;
+begin
+  for f in
+    select p.oid,
+           p.oid::regprocedure as sig,
+           p.proname,
+           p.prosrc,
+           pg_get_function_identity_arguments(p.oid) as args,
+           pg_get_function_result(p.oid)             as ret,
+           l.lanname
+      from pg_proc p
+      join pg_language l on l.oid = p.prolang
+     where p.pronamespace = 'public'::regnamespace
+       and p.prosecdef
+       and p.prosrc like '%current_user in (''anon'', ''authenticated'')%'
+  loop
+    new_src := replace(
+      f.prosrc,
+      'current_user in (''anon'', ''authenticated'')',
+      'fn_caller_is_browser()'
+    );
+
+    execute format(
+      'create or replace function public.%I(%s) returns %s language %s security definer set search_path = public as %L',
+      f.proname, f.args, f.ret, f.lanname, new_src
+    );
+
+    fixed := fixed + 1;
+    raise notice '0063: اتصلّح حارس %', f.sig;
+  end loop;
+
+  if fixed = 0 then
+    raise notice '0063: مفيش حاجة محتاجة تصليح — يا إما اتعمل قبل كده يا إما الدوال اتغيّرت';
+  else
+    raise notice '0063: إجمالي المتصلّح = %', fixed;
+  end if;
+end $$;
+
+-- create or replace بيحافظ على الصلاحيات، بس نأكد على الحساس فيهم
+revoke execute on function fn_guard_booking_columns() from public, anon, authenticated;
+revoke execute on function fn_guard_pass_columns()    from public, anon, authenticated;
+revoke execute on function fn_reveal(uuid)            from public, anon;
+grant  execute on function fn_reveal(uuid)            to authenticated;
+
+-- ===== اختبار الدفعة دي =====
+create or replace function test_caller_guards()
+returns table (test text, result text)
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  n int;
+begin
+  test := '0063 · مفيش حارس definer لسه بيعتمد على current_user';
+  select count(*) into n from pg_proc
+   where pronamespace = 'public'::regnamespace and prosecdef
+     and prosrc like '%current_user in (''anon'', ''authenticated'')%';
+  if n = 0 then
+    result := 'نجح';
+  else
+    result := format('فشل — لسه %s دالة على الشرط المكسور', n);
+  end if;
+  return next;
+
+  test := '0063 · التلات حراس بقوا على fn_caller_is_browser';
+  select count(*) into n from pg_proc
+   where pronamespace = 'public'::regnamespace
+     and proname in ('fn_guard_booking_columns', 'fn_guard_pass_columns', 'fn_reveal')
+     and prosrc like '%fn_caller_is_browser()%';
+  if n = 3 then
+    result := 'نجح — ٣ من ٣';
+  else
+    result := format('فشل — %s من ٣ بس', n);
+  end if;
+  return next;
+
+  test := '0063 · fn_caller_is_browser بترجّع false للكرون (من غير توكن)';
+  if fn_caller_is_browser() then
+    result := 'فشل — بترجّع true وإحنا منادينها من SQL Editor من غير claims';
+  else
+    result := 'نجح';
+  end if;
+  return next;
+end;
+$$;
+
+comment on function test_caller_guards() is
+  'بتتأكد إن حراس definer بقوا بيعرفوا اللي بينادي صح. select * from test_caller_guards();';
+revoke execute on function test_caller_guards() from public, anon, authenticated;
+
+
+-- ============================================================================
+-- خلصنا. دلوقتي شغّل السطرين دول (كل واحد لوحده) وابعتلي النتيجة:
+--
+--   select * from test_review_fixes();
+--   select * from test_caller_guards();
+--
+-- المفروض كل الصفوف تقول «نجح».
+-- ============================================================================
