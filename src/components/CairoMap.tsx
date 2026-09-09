@@ -68,8 +68,16 @@ export function CairoMap({
 
         {map.blocks.map((a) => {
           const visited = !!a.area && map.visitedAreas.includes(a.area)
+          /**
+           * «لسه» والبهتان معناهم «المنطقة دي انت لسه مارحتهاش» — وده مالوش
+           * معنى غير لما يكون فيه مناطق **راحها** نقارن بيها. للزائر الجديد
+           * كل الكتل كانت بتبقى باهتة ومكتوب عليها «لسه»، فالخريطة كلها كانت
+           * شكلها مقفولة ومكررة. دلوقتي المقارنة بتظهر بس لما يكون ليها معنى.
+           */
+          const compare = map.visitedAreas.length > 0
+          const dim = compare && !visited
           return (
-            <g key={a.key} opacity={visited ? 1 : 0.45}>
+            <g key={a.key} opacity={dim ? 0.45 : 1}>
               <rect
                 x={a.x}
                 y={a.y}
@@ -90,7 +98,7 @@ export function CairoMap({
               >
                 {a.label}
               </text>
-              {!visited && (
+              {dim && (
                 <text
                   x={a.lx}
                   y={a.ly + 18}

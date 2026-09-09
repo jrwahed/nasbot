@@ -365,15 +365,50 @@ export function placePins(
 
   const pins: PlacedPin[] = []
   const PAD = 22
+  /** المساحة اللي اسم المنطقة وسطر «لسه» بياخدوها حوالين (lx, ly) */
+  const LABEL_UP = 16
+  const LABEL_DOWN = 28
+  /** أقل ارتفاع يستاهل نحط فيه صف نقط */
+  const MIN_BAND = 16
 
   for (const block of blocks) {
     const list = byBlock.get(block.key)
     if (!list?.length) continue
 
-    const cols = Math.ceil(Math.sqrt(list.length))
-    const rows = Math.ceil(list.length / cols)
     const innerW = Math.max(block.w - PAD * 2, 0)
-    const innerH = Math.max(block.h - PAD * 2, 0)
+
+    /**
+     * ⚠ النقط **لازم** تبعد عن اسم المنطقة.
+     * الإصدار الأول كان بيوزّعهم في نص الكتلة — والاسم كمان في نص الكتلة،
+     * فالنقطة كانت بتقع على الاسم بالظبط (المعادي: النقطة 235,334 والاسم
+     * 235,338). النتيجة إن المستخدم يشوف «الم●ي» ويفتكر الخريطة بايظة.
+     *
+     * فبنقسم الكتلة لشريطين — فوق الاسم وتحت سطر «لسه» — وناخد الأوسع.
+     */
+    const topBand = { from: block.y + PAD, to: block.ly - LABEL_UP }
+    const botBand = { from: block.ly + LABEL_DOWN, to: block.y + block.h - PAD }
+    const topH = topBand.to - topBand.from
+    const botH = botBand.to - botBand.from
+    const band = topH >= botH ? topBand : botBand
+    const bandH = Math.max(band.to - band.from, 0)
+
+    if (bandH < MIN_BAND) {
+      // كتلة قصيرة أوي — صف واحد فوق الاسم على طول، أحسن من إنه يقع عليه
+      const y = Math.round(Math.max(block.y + 12, block.ly - LABEL_UP))
+      list.forEach((item, i) => {
+        pins.push({
+          slug: item.slug,
+          x: Math.round(block.x + PAD + (innerW * (i + 0.5)) / list.length),
+          y,
+        })
+      })
+      continue
+    }
+
+    // أعمدة بعدد النقط، وصفوف بس لو الشريط يسع
+    const maxRows = Math.max(1, Math.floor(bandH / MIN_BAND))
+    const cols = Math.ceil(list.length / Math.min(maxRows, Math.ceil(Math.sqrt(list.length))))
+    const rows = Math.ceil(list.length / cols)
 
     list.forEach((item, i) => {
       const col = i % cols
@@ -381,7 +416,7 @@ export function placePins(
       pins.push({
         slug: item.slug,
         x: Math.round(block.x + PAD + (innerW * (col + 0.5)) / cols),
-        y: Math.round(block.y + PAD + (innerH * (row + 0.5)) / rows),
+        y: Math.round(band.from + (bandH * (row + 0.5)) / rows),
       })
     })
   }
