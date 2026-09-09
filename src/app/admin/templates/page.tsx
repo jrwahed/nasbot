@@ -1,12 +1,14 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { AdminShell } from '@/components/AdminShell'
 import { supabase } from '@/lib/supabase'
 import { revalidateSite, loadBannedWords, bannedIn } from '@/lib/admin'
 import {
+  ADMIN_PAGE_SIZE,
   Card,
   Btn,
+  Pager,
   TextField,
   NumberField,
   Toggle,
@@ -32,6 +34,10 @@ import {
  *
  * ملاحظة على القاعدة: جدول sbota_templates مفيهوش عمود is_active،
  * يعني مفيش «تشغيل/إيقاف» للقالب. اللي بيتحكم في الظهور هو حالة الموعد نفسه.
+ *
+ * الترقيم من القاعدة (مراجعة A17): الصفحة كانت بتجيب كل القوالب وتفلتر في
+ * المتصفح. دلوقتي الفلتر بالنوع `eq` والبحث `or(ilike)` بيتنفّذوا في القاعدة،
+ * والصفوف بتيجي بـ `.range()` مع `{ count: 'exact' }` — نفس نمط /admin/people.
  */
 
 interface Row {
@@ -89,6 +95,12 @@ function textsOf(patch: Record<string, unknown>): string {
   return out.join(' ')
 }
 
+/** بنستنى ثانية تلت بعد آخر حرف قبل ما نروح للقاعدة */
+const SEARCH_DELAY_MS = 300
+
+/** بننضّف اللي المستخدم كتبه من الرموز اللي بتكسر فلتر postgrest */
+const safeLike = (s: string) => s.replace(/[,()*%".:\\]/g, ' ').trim()
+
 /** اسم لطيف للـ slug من الاسم العربي */
 const slugify = (name: string) =>
   name
@@ -108,44 +120,75 @@ export default function AdminTemplatesPage() {
 
 function TemplatesEditor() {
   const [rows, setRows] = useState<Row[]>([])
+  const [total, setTotal] = useState<number | null>(null)
+  const [all, setAll] = useState<number | null>(null)
+  const [page, setPage] = useState(0)
   const [banned, setBanned] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
+  const [busy, setBusy] = useState(false)
   const [q, setQ] = useState('')
+  /** اللي راح للقاعدة فعلًا — بيتأخر شوية عن اللي بتكتبه */
+  const [needle, setNeedle] = useState('')
   const [kind, setKind] = useState('الكل')
   const [openId, setOpenId] = useState<string | null>(null)
   const [adding, setAdding] = useState(false)
   const { flash, node: flashNode } = useFlash()
 
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setPage(0)
+      setNeedle(safeLike(q))
+    }, SEARCH_DELAY_MS)
+    return () => clearTimeout(t)
+  }, [q])
+
   const reload = useCallback(async () => {
-    const { data, error } = await supabase()
+    setBusy(true)
+    let query = supabase()
       .from('sbota_templates')
-      .select('*')
+      .select('*', { count: 'exact' })
       .order('name_ar')
+    if (kind !== 'الكل') query = query.eq('kind', kind)
+    if (needle) {
+      query = query.or(
+        `name_ar.ilike.*${needle}*,slug.ilike.*${needle}*,story_ar.ilike.*${needle}*`
+      )
+    }
+    const { data, count, error } = await query.range(
+      page * ADMIN_PAGE_SIZE,
+      page * ADMIN_PAGE_SIZE + ADMIN_PAGE_SIZE - 1
+    )
+    setLoading(false)
+    setBusy(false)
     if (error) {
-      setLoading(false)
+      flash(`مقدرناش نجيب القوالب: ${error.message}`)
+      setRows([])
+      setTotal(0)
       return
     }
     setRows((data ?? []) as Row[])
-    setLoading(false)
+    setTotal(count ?? null)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [kind, needle, page])
+
+  /** العدد الكلي من غير فلتر — عدّ من القاعدة مش من صفوف محمّلة */
+  const loadAll = useCallback(async () => {
+    const { count } = await supabase()
+      .from('sbota_templates')
+      .select('id', { count: 'exact', head: true })
+    setAll(count ?? 0)
   }, [])
 
   useEffect(() => {
     reload()
-    loadBannedWords().then(setBanned)
   }, [reload])
 
-  const shown = useMemo(() => {
-    const needle = q.trim().toLowerCase()
-    return rows.filter((r) => {
-      if (kind !== 'الكل' && r.kind !== kind) return false
-      if (!needle) return true
-      return (
-        r.name_ar.toLowerCase().includes(needle) ||
-        r.slug.toLowerCase().includes(needle) ||
-        r.story_ar.toLowerCase().includes(needle)
-      )
-    })
-  }, [rows, q, kind])
+  useEffect(() => {
+    loadAll()
+    loadBannedWords().then(setBanned)
+  }, [loadAll])
+
+  const shown = rows
 
   /** أي تعديل على قالب بيعدي من هنا: فحص كلام، حفظ، وتحديث الموقع */
   async function patch(id: string, p: Record<string, unknown>) {
@@ -188,7 +231,7 @@ function TemplatesEditor() {
       flash('مااتمسحش — القاعدة رافضة المسح من القوالب')
       return
     }
-    await reload()
+    await Promise.all([reload(), loadAll()])
     await revalidateSite()
     flash('القالب اتمسح ✓')
   }
@@ -223,7 +266,7 @@ function TemplatesEditor() {
         />
 
         <div className="font-body text-14" style={{ color: 'var(--muted)' }}>
-          {shown.length} من {rows.length}
+          {total === null ? '…' : total} بالفلتر ده من {all === null ? '…' : all}
         </div>
 
         <div className="ms-auto">
@@ -247,7 +290,7 @@ function TemplatesEditor() {
             flash={flash}
             onDone={async () => {
               setAdding(false)
-              await reload()
+              await Promise.all([reload(), loadAll()])
               await revalidateSite()
             }}
           />
@@ -430,6 +473,8 @@ function TemplatesEditor() {
           )
         })}
       </div>
+
+      <Pager page={page} shown={rows.length} total={total} onPage={setPage} busy={busy} />
     </div>
   )
 }

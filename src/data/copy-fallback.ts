@@ -648,4 +648,8 @@ export const copyFallback: Record<string, string> = {
   "map.area.many": "{{n}} سبوطات",
   "map.area.pick": "اختار سبوطة",
   "map.area.empty": "لسه مفيش سبوطة هنا",
+  "flags.closed.title": "القسم ده مقفول دلوقتي",
+  "flags.closed.body": "بنظبط حاجة صغيرة هنا. ارجعلنا كمان شوية.",
+  "flags.closed.mark": "نسبوط",
+  "flags.off.note": "مقفول دلوقتي",
 }

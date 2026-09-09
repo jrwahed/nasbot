@@ -19,6 +19,7 @@ import { isLoggedIn } from '@/lib/session'
 import { useTheme } from '@/lib/use-theme'
 import type { Captain, Sbota } from '@/types'
 import { useT } from '@/components/CopyProvider'
+import { useFlag } from '@/components/FlagsProvider'
 
 /**
  * صفحة السبوطة — منقولة بالحرف من شاشة 7 في design/نسبوط.dc.html.
@@ -27,6 +28,9 @@ import { useT } from '@/components/CopyProvider'
  */
 export default function SbotaPage() {
   const t = useT()
+  // مفتاح «booking» من /admin/settings — قفل الحجز بيشيل الزرار هنا
+  // وبيقفل /s/[slug]/pay نفسها كمان (مراجعة A2)
+  const booking = useFlag('booking')
   const params = useParams<{ slug: string }>()
   const search = useSearchParams()
   const router = useRouter()
@@ -221,7 +225,11 @@ export default function SbotaPage() {
       {/* ===== الزر اللاصق ===== */}
       <div className="mt-6 px-5">
         <StickyCTA>
-          {sbota.full ? (
+          {!booking.on ? (
+            <PrimaryButton size="lg" className="w-full" disabled>
+              {t('flags.off.note')}
+            </PrimaryButton>
+          ) : sbota.full ? (
             <SecondaryButton
               onClick={onBook}
               className="w-full"
@@ -236,9 +244,12 @@ export default function SbotaPage() {
             className="mt-[6px] text-center font-body text-13"
             style={{ color: 'var(--muted)' }}
           >
-            {waiting
-              ? t('sbota.waitlistNote')
-              : t('sbota.label.2')}
+            {/* رسالة القفل من feature_flags.off_message_ar */}
+            {!booking.on
+              ? booking.off || t('flags.closed.body')
+              : waiting
+                ? t('sbota.waitlistNote')
+                : t('sbota.label.2')}
           </div>
         </StickyCTA>
       </div>

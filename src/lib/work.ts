@@ -1084,6 +1084,19 @@ interface LeadRaw {
 const LEAD_COLS =
   'id, company, contact_name, phone, people_count, times_per_month, note, admin_note, status, created_at'
 
+const leadFromDb = (r: LeadRaw): LeadRow => ({
+  id: r.id,
+  company: r.company ?? '—',
+  contactName: r.contact_name ?? '—',
+  phone: r.phone ?? '',
+  peopleCount: r.people_count ?? null,
+  timesPerMonth: r.times_per_month ?? null,
+  note: r.note ?? null,
+  adminNote: r.admin_note ?? null,
+  status: LEAD_STATUS_CODES.find((s) => s === r.status) ?? 'new',
+  createdAt: r.created_at,
+})
+
 /** طلبات الشركات — الأحدث الأول. القراءة محتاجة people.view (سياسة leads_read) */
 export async function getLeads(limit = 300): Promise<WorkAdminLoad<LeadRow>> {
   if (!DB) return { rows: [], error: null }
@@ -1096,22 +1109,43 @@ export async function getLeads(limit = 300): Promise<WorkAdminLoad<LeadRow>> {
         .order('created_at', { ascending: false })
         .limit(limit)
       if (error) return loadFailed<LeadRow>(error.message)
-      const rows = ((data ?? []) as LeadRaw[]).map((r) => ({
-        id: r.id,
-        company: r.company ?? '—',
-        contactName: r.contact_name ?? '—',
-        phone: r.phone ?? '',
-        peopleCount: r.people_count ?? null,
-        timesPerMonth: r.times_per_month ?? null,
-        note: r.note ?? null,
-        adminNote: r.admin_note ?? null,
-        status: LEAD_STATUS_CODES.find((s) => s === r.status) ?? 'new',
-        createdAt: r.created_at,
-      }))
-      return { rows, error: null }
+      return { rows: ((data ?? []) as LeadRaw[]).map(leadFromDb), error: null }
     },
     loadFailed<LeadRow>('الطلب طوّل أكتر من ٨ ثواني — جرّب «حدّث» تاني')
   )
+}
+
+/**
+ * صفحة واحدة من طلبات الشركات + العدد الكلي بعد الفلتر (مراجعة A17).
+ * الفلتر والترقيم بيتنفّذوا **في القاعدة** — نفس نمط /admin/people.
+ * `status` فاضية أو 'all' يعني كل الحالات.
+ */
+export async function getLeadsPage(opts: {
+  page: number
+  pageSize: number
+  status?: string
+}): Promise<WorkAdminLoad<LeadRow> & { total: number | null }> {
+  if (!DB) return { rows: [], error: null, total: 0 }
+  const from = opts.page * opts.pageSize
+  const res = await safeWork(
+    'getLeadsPage',
+    async () => {
+      let q = supabase()
+        .from('leads')
+        .select(LEAD_COLS, { count: 'exact' })
+        .order('created_at', { ascending: false })
+      if (opts.status && opts.status !== 'all') q = q.eq('status', opts.status)
+      const { data, error, count } = await q.range(from, from + opts.pageSize - 1)
+      if (error) return { ...loadFailed<LeadRow>(error.message), total: 0 }
+      return {
+        rows: ((data ?? []) as LeadRaw[]).map(leadFromDb),
+        error: null,
+        total: count ?? null,
+      }
+    },
+    { ...loadFailed<LeadRow>('الطلب طوّل أكتر من ٨ ثواني — جرّب «حدّث» تاني'), total: 0 }
+  )
+  return res
 }
 
 /**

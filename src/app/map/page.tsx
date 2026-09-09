@@ -8,13 +8,14 @@ import { mapFilters, mapFilterOptions } from '@/data/areas'
 import { getSbotat } from '@/lib/api'
 import type { Sbota } from '@/types'
 import { useT } from '@/components/CopyProvider'
+import { FeatureGate } from '@/components/FlagsProvider'
 
 /**
  * الخريطة كاملة — كتل المناطق SVG والنقط بتنبض.
  * الكتل والنقط بقت من القاعدة — الشغل ده كله جوه CairoMap و src/lib/fields.ts
  * (مراجعة A5). الصفحة دي مسؤولة عن الفلاتر بس.
  */
-export default function MapPage() {
+function MapPage() {
   const t = useT()
   const [all, setAll] = useState<Sbota[]>([])
   const [filter, setFilter] = useState<string>(mapFilterOptions[0].label)
@@ -63,5 +64,17 @@ export default function MapPage() {
         <span style={{ color: 'var(--muted)' }}>{t('map.text.1')}</span>
       </div>
     </main>
+  )
+}
+
+/**
+ * القفل من اللوحة: مفتاح «map» في /admin/settings ← مفاتيح المزايا.
+ * مقفول = شاشة «مقفول» برسالة المالك بدل الصفحة (مراجعة A2).
+ */
+export default function MapPageRoute() {
+  return (
+    <FeatureGate flag="map">
+      <MapPage />
+    </FeatureGate>
   )
 }

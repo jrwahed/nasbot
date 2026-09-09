@@ -9,15 +9,29 @@ import { themeInitScript } from '@/lib/theme'
  *      وتحويل غير الداخلين لـ /admin/login. مفيش فحص صلاحيات هنا —
  *      ده بيحصل على السيرفر في `requirePermission`.
  *
- *   2. وضع الصيانة على باقي الموقع: بيقرا `maintenance.is_on` (قراءة عامة
- *      بسياسة mt_read) عبر REST بمفتاح anon، وبيخزّنها في كاش خفيف على
- *      الحافة لمدة قصيرة. لو الصيانة شغّالة، أي زائر **مش** معاه كوكي جلسة
- *      لوحة بيشوف صفحة صيانة (503) — والأدمن (اللي معاه الكوكي) و`/admin/*`
- *      بيعدّوا عادي علشان يقفلوا/يفتحوا الموقع.
+ *   2. وضع الصيانة على باقي الموقع: بيقرا `maintenance` (قراءة عامة بسياسة
+ *      mt_read) عبر REST بمفتاح anon، وبيخزّنها في كاش خفيف على الحافة لمدة
+ *      قصيرة. لو الصيانة شغّالة، الزائر بيشوف صفحة صيانة (503).
  *
- * كله edge-safe: مفيش استيراد node-only، ومفيش مفتاح خدمة. القراءة الوحيدة
- * للقاعدة هي جدول `maintenance` المتاح للقراءة العامة، وبكاش علشان ما نضربش
- * القاعدة كل طلب.
+ *      **مين بيعدّي؟ اللي دوره في `maintenance.allow_roles`** — العمود ده كان
+ *      بيتعدّل من `/admin/settings` ومحدش بيقراه، والميدل وير كان بيسيب أي حد
+ *      **معاه كوكي `nb_admin`** يعدّي. والكوكي ده وجوده لوحده مش إثبات حاجة:
+ *      أي زائر يقدر يكتبه من الـ console. دلوقتي البوابة تلات طبقات:
+ *
+ *        أ) كوكي `nb_admin` موجود   → فحص رخيص بيوفّر النداءات على الزوار.
+ *        ب) جلسة سوبابيس صالحة      → `getUser()` بتتأكد منها على سيرفر سوبابيس.
+ *        ج) صف `admin_users` نشط لنفس الشخص ودوره جوه `allow_roles`
+ *           → القراية دي بتمشي بتوكن العضو نفسه، يعني **RLS** (سياسة `au_read`:
+ *             `profile_id = auth.uid()`) هي اللي بتقرر، مش إحنا.
+ *
+ *      يعني الانتحال محتاج جلسة سوبابيس حقيقية لصف admin نشط — مش كوكي مكتوب
+ *      بالإيد. (ب) و(ج) بيتنفّذوا وقت الصيانة بس، ولما الكوكي موجود بس.
+ *
+ *      `/admin/*` **بيفضل مفتوح** وقت الصيانة عن قصد: هو محمي أصلًا بجلسة
+ *      لوحة + TOTP + `requirePermission` على السيرفر، وقفله ورا الصيانة كان
+ *      هيخلق خطر إن المالك يقفل على نفسه من غير مكسب أمني.
+ *
+ * كله edge-safe: مفيش استيراد node-only، ومفيش مفتاح خدمة.
  */
 
 /** لازم يطابق ADMIN_COOKIE في src/lib/server/admin-auth.ts */
@@ -32,6 +46,8 @@ interface MaintState {
   at: number
   on: boolean
   message: string
+  /** أدوار اللوحة اللي بتفضل تشوف الموقع وهو مقفول — من `maintenance.allow_roles` */
+  allow: string[]
 }
 
 /** بيعيش في نطاق الموديول — بيفضل بين الطلبات في نفس الـ isolate */
@@ -46,22 +62,84 @@ async function readMaintenance(url: string, key: string): Promise<MaintState> {
   const now = Date.now()
   if (maintCache && now - maintCache.at < MAINT_TTL_MS) return maintCache
   try {
-    const r = await fetch(`${url}/rest/v1/maintenance?select=is_on,message_ar&id=eq.true`, {
-      headers: { apikey: key, authorization: `Bearer ${key}` },
-      cache: 'no-store',
-    })
+    const r = await fetch(
+      `${url}/rest/v1/maintenance?select=is_on,message_ar,allow_roles&id=eq.true`,
+      {
+        headers: { apikey: key, authorization: `Bearer ${key}` },
+        cache: 'no-store',
+      }
+    )
     if (r.ok) {
-      const rows = (await r.json()) as { is_on: boolean; message_ar: string }[]
+      const rows = (await r.json()) as {
+        is_on: boolean
+        message_ar: string
+        allow_roles: string[] | null
+      }[]
       const row = rows[0]
-      maintCache = { at: now, on: Boolean(row?.is_on), message: row?.message_ar ?? '' }
+      maintCache = {
+        at: now,
+        on: Boolean(row?.is_on),
+        message: row?.message_ar ?? '',
+        allow: Array.isArray(row?.allow_roles) ? row.allow_roles : [],
+      }
       return maintCache
     }
   } catch {
     // نسيبها زي ما هي تحت
   }
   // فشل القراءة: نحافظ على آخر حالة معروفة، وإلا نفترض شغّال
-  maintCache = { at: now, on: maintCache?.on ?? false, message: maintCache?.message ?? '' }
+  maintCache = {
+    at: now,
+    on: maintCache?.on ?? false,
+    message: maintCache?.message ?? '',
+    allow: maintCache?.allow ?? [],
+  }
   return maintCache
+}
+
+/**
+ * هل الطلب ده لواحد دوره مسموح له يعدّي وقت الصيانة؟
+ *
+ * الترتيب مقصود: الفحص الرخيص الأول (الكوكي) علشان الزائر العادي ما يكلّفناش
+ * نداءين. الفحوصات اللي بعده هي اللي بتحكم فعلًا — وكلها بتوكن العضو نفسه،
+ * فـ RLS هي الحكم مش الكود اللي هنا.
+ *
+ * أي وقوع = **مش مسموح**. الفشل مقفول، زي `requirePermission`.
+ */
+async function allowedThroughMaintenance(
+  req: NextRequest,
+  url: string,
+  key: string,
+  allow: string[]
+): Promise<boolean> {
+  if (!allow.length) return false
+  if (!req.cookies.get(ADMIN_COOKIE)?.value) return false
+
+  try {
+    const supabase = createServerClient(url, key, {
+      cookies: {
+        getAll: () => req.cookies.getAll(),
+        // مفيش تجديد كوكيز في الفرع ده — إحنا بنقرا بس
+        setAll: () => {},
+      },
+    })
+
+    const { data: auth } = await supabase.auth.getUser()
+    const uid = auth.user?.id
+    if (!uid) return false
+
+    const { data } = await supabase
+      .from('admin_users')
+      .select('role_key')
+      .eq('profile_id', uid)
+      .eq('is_active', true)
+      .maybeSingle()
+
+    const role = (data as { role_key: string } | null)?.role_key
+    return Boolean(role && allow.includes(role))
+  } catch {
+    return false
+  }
 }
 
 function escapeHtml(s: string): string {
@@ -184,11 +262,14 @@ export async function middleware(req: NextRequest) {
   if (!url || !key) return NextResponse.next()
 
   const maint = await readMaintenance(url, key)
-  // الأدمن (معاه كوكي جلسة اللوحة) بيتفرّج على الموقع عادي وقت الصيانة
-  const isAdmin = Boolean(req.cookies.get(ADMIN_COOKIE)?.value)
-  if (maint.on && !isAdmin) return maintenanceResponse(maint.message)
+  if (!maint.on) return NextResponse.next()
 
-  return NextResponse.next()
+  // الأدوار اللي في allow_roles بس هي اللي بتتفرّج على الموقع وهو مقفول
+  if (await allowedThroughMaintenance(req, url, key, maint.allow)) {
+    return NextResponse.next()
+  }
+
+  return maintenanceResponse(maint.message)
 }
 
 function toLogin(req: NextRequest) {

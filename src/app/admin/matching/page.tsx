@@ -6,11 +6,14 @@ import { supabase } from '@/lib/supabase'
 import { revalidateSite, rejected } from '@/lib/admin'
 import type { AdminMe } from '@/lib/admin'
 import {
+  ADMIN_PAGE_SIZE,
+  ADMIN_SCAN_MAX,
   Btn,
   Card,
   Empty,
   Loading,
   NumberField,
+  Pager,
   SelectField,
   Stat,
   Table,
@@ -31,6 +34,14 @@ import {
  *
  * الاعتماد بيتنادى بـ fn_reveal في القاعدة — هي اللي بتعمل المجموعات وغرف
  * الشات وبتبعت رسايل الكشف. ممنوع نعمل ده بإيدينا.
+ *
+ * الترقيم من القاعدة (مراجعة A17): جدول «اللي اتشغّل قبل كده» كان بيجيب ٢٠٠
+ * تشغيلة و٥٠٠ نتيجة مرة واحدة. دلوقتي بصفحة `.range()` مع `{ count: 'exact' }`
+ * وفلتر سبوطة بيتنفّذ في القاعدة، والنتايج بتتجاب **للصفحة دي بس** بفلتر
+ * `!inner` على السبوطة. تبويب «المجموعات» بيشتغل على سبوطة واحدة (٨ في
+ * المجموعة) فمالوش لازمة ترقيم.
+ *
+ * قايمة السبوطات في الـ dropdown فهرس — أعمدة قليلة ومسقوفة بـ ADMIN_SCAN_MAX.
  */
 
 /* ---------------------------------------------------------- أنواع */
@@ -254,6 +265,7 @@ function MatchingEditor({ me }: { me: AdminMe }) {
         .from('sbotat')
         .select('id, starts_at, capacity, status, girls_only, is_work, sbota_templates(name_ar)')
         .order('starts_at', { ascending: false })
+        .range(0, ADMIN_SCAN_MAX - 1)
       if (error) setErr(error.message)
       setSbotat((data ?? []) as unknown as SbotaRow[])
       setLoading(false)
@@ -408,33 +420,55 @@ function RunsTab({
   const flash = useSay(rawFlash)
   const [runs, setRuns] = useState<RunRow[] | null>(null)
   const [outcomes, setOutcomes] = useState<OutcomeRow[]>([])
+  const [total, setTotal] = useState<number | null>(null)
+  const [page, setPage] = useState(0)
+  const [busy, setBusy] = useState(false)
+  /** فلتر جدول التشغيلات — مستقل عن السبوطة اللي هتتشغّل عليها المطابقة */
+  const [only, setOnly] = useState('all')
   const [pick, setPick] = useState(sbotat[0]?.id ?? '')
   const [running, setRunning] = useState(false)
 
   const reload = useCallback(async () => {
     setRuns(null)
+    setBusy(true)
     const db = supabase()
-    const [r, o] = await Promise.all([
-      db
-        .from('matching_runs')
-        .select(
-          'id, sbota_id, ran_at, ran_by, algorithm_version, proposal, approved_at, approved_by, sbotat(starts_at, sbota_templates(name_ar))'
-        )
-        .order('ran_at', { ascending: false })
-        .limit(200),
-      db
-        .from('matching_outcomes')
-        .select('group_id, avg_group_score, attendance_rate, computed_at, sbota_groups(sbota_id)')
-        .limit(500),
-    ])
+    let query = db
+      .from('matching_runs')
+      .select(
+        'id, sbota_id, ran_at, ran_by, algorithm_version, proposal, approved_at, approved_by, sbotat(starts_at, sbota_templates(name_ar))',
+        { count: 'exact' }
+      )
+      .order('ran_at', { ascending: false })
+    if (only !== 'all') query = query.eq('sbota_id', only)
+
+    const r = await query.range(
+      page * ADMIN_PAGE_SIZE,
+      page * ADMIN_PAGE_SIZE + ADMIN_PAGE_SIZE - 1
+    )
+    setBusy(false)
     if (r.error) {
       flash(`مقدرناش نجيب التشغيلات: ${r.error.message}`)
       setRuns([])
+      setTotal(0)
       return
     }
-    setRuns((r.data ?? []) as unknown as RunRow[])
-    setOutcomes((o.data ?? []) as unknown as OutcomeRow[])
-  }, [flash])
+    const list = (r.data ?? []) as unknown as RunRow[]
+    setRuns(list)
+    setTotal(r.count ?? null)
+
+    // النتايج بتاعت سبوطات الصفحة دي بس — `!inner` بيخلي الفلتر يتنفّذ في القاعدة
+    const ids = Array.from(new Set(list.map((x) => x.sbota_id).filter(Boolean)))
+    if (!ids.length) return setOutcomes([])
+    const { data: o } = await db
+      .from('matching_outcomes')
+      .select(
+        'group_id, avg_group_score, attendance_rate, computed_at, sbota_groups!inner(sbota_id)'
+      )
+      .in('sbota_groups.sbota_id', ids)
+      .range(0, ADMIN_SCAN_MAX - 1)
+    setOutcomes((o ?? []) as unknown as OutcomeRow[])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [flash, only, page])
 
   useEffect(() => {
     reload()
@@ -539,8 +573,23 @@ function RunsTab({
       </Card>
 
       <div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <span className="font-display text-22 font-black">اللي اتشغّل قبل كده</span>
+          <SelectField
+            label="سبوطة معيّنة"
+            value={only}
+            onChange={(v) => {
+              setPage(0)
+              setOnly(v)
+            }}
+            options={[
+              { value: 'all', label: 'كل السبوطات' },
+              ...sbotat.map((x) => ({ value: x.id, label: sbotaLabel(x) })),
+            ]}
+          />
+          <span className="font-body text-13" style={{ color: 'var(--muted)' }}>
+            {total === null ? '…' : total} تشغيلة
+          </span>
           <Btn onClick={() => reload()}>حدّث</Btn>
         </div>
 
@@ -607,6 +656,14 @@ function RunsTab({
               })}
             </Table>
           )}
+
+          <Pager
+            page={page}
+            shown={runs?.length ?? 0}
+            total={total}
+            onPage={setPage}
+            busy={busy}
+          />
         </div>
       </div>
     </div>

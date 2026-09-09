@@ -9,13 +9,14 @@ import { loadRoom, appendMessage } from '@/lib/chat-store'
 import { getSession } from '@/lib/session'
 import type { ChatMessage } from '@/types'
 import { useT } from '@/components/CopyProvider'
+import { FeatureGate } from '@/components/FlagsProvider'
 
 /**
  * شات خاص واحد لواحد.
  * بيتفتح بس بين اتنين اختاروا بعض في التقييم — عشان كده
  * المسار ده جوه /me ومش متاح من شات السبوطة.
  */
-export default function PrivateChatPage() {
+function PrivateChatPage() {
   const t = useT()
   const params = useParams<{ name: string }>()
   const name = decodeURIComponent(params.name)
@@ -115,5 +116,17 @@ export default function PrivateChatPage() {
         >{t('dm.text.1')}</button>
       </form>
     </main>
+  )
+}
+
+/**
+ * القفل من اللوحة: مفتاح «chat» في /admin/settings ← مفاتيح المزايا.
+ * مقفول = شاشة «مقفول» برسالة المالك بدل الصفحة (مراجعة A2).
+ */
+export default function PrivateChatPageRoute() {
+  return (
+    <FeatureGate flag="chat">
+      <PrivateChatPage />
+    </FeatureGate>
   )
 }

@@ -3,13 +3,16 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { AdminShell } from '@/components/AdminShell'
 import { supabase } from '@/lib/supabase'
-import { revalidateSite, loadBannedWords, bannedIn } from '@/lib/admin'
+import { revalidateSite, loadBannedWords, bannedIn, rejected } from '@/lib/admin'
 import {
+  ADMIN_PAGE_SIZE,
+  ADMIN_SCAN_MAX,
   Btn,
   Card,
   Empty,
   Loading,
   NumberField,
+  Pager,
   SelectField,
   Stat,
   Table,
@@ -33,6 +36,15 @@ import {
  * فبنعدّي عليه الكلمات الممنوعة وبنعمل revalidate بعد الحفظ.
  *
  * تليفونات الكباتن وأصحاب الأماكن مقنّعة وبتتفتح بضغطة لما تحتاج تكلّمهم.
+ *
+ * الترقيم من القاعدة (مراجعة A17): الصفحة كانت بتجيب ٦ جداول كاملة مرة واحدة
+ * (كباتن + ٥٠٠ طلب + ٥٠٠ تقرير + كل الأماكن + ٥٠٠ بلاغ + ١٠٠٠ سبوطة) وتفلتر
+ * في المتصفح. دلوقتي **كل تبويب بيجيب صفحته لوحده** بـ `.range()` و
+ * `{ count: 'exact' }`، والفلاتر بتتنفّذ في القاعدة — نفس نمط /admin/people.
+ *
+ * الاستثناء الوحيد: القوايم اللي بتملا الـ dropdown وبتترجم id → اسم
+ * (فهرس الكباتن وفهرس الأماكن). دي أعمدة قليلة ومسقوفة بـ ADMIN_SCAN_MAX،
+ * وده بالظبط اللي الثابت ده موجود له.
  */
 
 /* ---------------------------------------------------------- الأنواع */
@@ -99,6 +111,18 @@ interface AlertRow {
   resolved_at: string | null
 }
 
+/** فهرس خفيف — الاسم بس، للـ dropdown وترجمة id → اسم */
+interface CaptainName {
+  id: string
+  display_name: string | null
+  profiles: { first_name: string | null } | null
+}
+
+interface VenueName {
+  id: string
+  name: string
+}
+
 interface SbotaRow {
   id: string
   captain_id: string | null
@@ -151,6 +175,12 @@ const TABS = [
 ]
 type TabId = (typeof TABS)[number]['id']
 
+/** بنستنى ثانية تلت بعد آخر حرف قبل ما نروح للقاعدة */
+const SEARCH_DELAY_MS = 300
+
+/** بننضّف اللي المستخدم كتبه من الرموز اللي بتكسر فلتر postgrest */
+const safeLike = (s: string) => s.replace(/[,()*%".:\\]/g, ' ').trim()
+
 /** 01012345299 → 010••••299 */
 function maskPhone(p: string | null | undefined) {
   const s = (p ?? '').replace(/\s+/g, '')
@@ -183,80 +213,57 @@ export default function AdminCaptainsPage() {
 
 function Captains() {
   const [tab, setTab] = useState<TabId>('captains')
-  const [captains, setCaptains] = useState<CaptainRow[]>([])
-  const [apps, setApps] = useState<AppRow[]>([])
-  const [reports, setReports] = useState<ReportRow[]>([])
-  const [venues, setVenues] = useState<VenueRow[]>([])
-  const [alerts, setAlerts] = useState<AlertRow[]>([])
-  const [sbotat, setSbotat] = useState<SbotaRow[]>([])
   const [banned, setBanned] = useState<string[]>([])
   const [myId, setMyId] = useState<string | null>(null)
+  /** فهرس أسماء الكباتن — للـ dropdown في التقارير وترجمة id → اسم */
+  const [captainIndex, setCaptainIndex] = useState<CaptainName[]>([])
+  /** فهرس الأماكن — للـ dropdown في البلاغات وترجمة id → اسم */
+  const [venueIndex, setVenueIndex] = useState<VenueName[]>([])
+  /** عدّادات شارات التبويبات — عدّ من القاعدة مش من صفوف محمّلة */
+  const [badges, setBadges] = useState<{ pending: number; alerts: number } | null>(null)
   const [loading, setLoading] = useState(true)
 
   const { flash, node } = useFlash()
 
-  const reload = useCallback(async () => {
+  /** الفهارس والعدّادات بس — الصفوف نفسها كل تبويب بيجيبها لوحده */
+  const loadShared = useCallback(async () => {
     const db = supabase()
-    const [c, a, r, v, pa, s] = await Promise.all([
+    const [ci, vi, pend, alr] = await Promise.all([
       db
         .from('captains')
-        .select(
-          'id, profile_id, display_name, craft_ar, bio_line, activities, is_active, rating_avg, sbota_count, created_at, profiles(first_name, phone)'
-        )
-        .order('created_at', { ascending: false }),
+        .select('id, display_name, profiles(first_name)')
+        .order('display_name')
+        .range(0, ADMIN_SCAN_MAX - 1),
+      db.from('venues').select('id, name').order('name').range(0, ADMIN_SCAN_MAX - 1),
       db
         .from('captain_applications')
-        .select('id, name, phone, job, why, handled_at, handled_by, created_at')
-        .order('created_at', { ascending: false })
-        .limit(500),
-      db
-        .from('captain_reports')
-        .select(
-          'id, sbota_id, captain_id, attendance_json, what_worked, what_didnt, incident, suggestion, created_at, sbotat(starts_at, sbota_templates(name_ar))'
-        )
-        .order('created_at', { ascending: false })
-        .limit(500),
-      db
-        .from('venues')
-        .select(
-          'id, name, kind, area, address, contact_phone, contract_notes, wholesale_price, verified_at, is_active, rating_avg, created_at'
-        )
-        .order('name'),
+        .select('id', { count: 'exact', head: true })
+        .is('handled_at', null),
       db
         .from('provider_alerts')
-        .select('id, venue_id, reason, note, created_at, resolved_at')
-        .order('created_at', { ascending: false })
-        .limit(500),
-      db
-        .from('sbotat')
-        .select('id, captain_id, starts_at, status, sbota_templates(name_ar)')
-        .not('captain_id', 'is', null)
-        .order('starts_at', { ascending: false })
-        .limit(1000),
+        .select('id', { count: 'exact', head: true })
+        .is('resolved_at', null),
     ])
-    setCaptains((c.data ?? []) as CaptainRow[])
-    setApps((a.data ?? []) as AppRow[])
-    setReports((r.data ?? []) as ReportRow[])
-    setVenues((v.data ?? []) as VenueRow[])
-    setAlerts((pa.data ?? []) as AlertRow[])
-    setSbotat((s.data ?? []) as SbotaRow[])
+    setCaptainIndex((ci.data ?? []) as unknown as CaptainName[])
+    setVenueIndex((vi.data ?? []) as VenueName[])
+    setBadges({ pending: pend.count ?? 0, alerts: alr.count ?? 0 })
     setLoading(false)
   }, [])
 
   useEffect(() => {
-    reload()
+    loadShared()
     loadBannedWords().then(setBanned)
     supabase()
       .auth.getUser()
       .then((res: { data: { user: { id: string } | null } }) =>
         setMyId(res.data.user?.id ?? null)
       )
-  }, [reload])
-
-  const pending = apps.filter((a) => !a.handled_at)
-  const openAlerts = alerts.filter((a) => !a.resolved_at)
+  }, [loadShared])
 
   if (loading) return <Loading />
+
+  const pending = badges?.pending ?? 0
+  const openAlerts = badges?.alerts ?? 0
 
   return (
     <div>
@@ -264,10 +271,10 @@ function Captains() {
         tabs={TABS.map((t) => ({
           id: t.id,
           label:
-            t.id === 'apps' && pending.length
-              ? `${t.label} (${pending.length})`
-              : t.id === 'venues' && openAlerts.length
-                ? `${t.label} (${openAlerts.length} مشكلة)`
+            t.id === 'apps' && pending
+              ? `${t.label} (${pending})`
+              : t.id === 'venues' && openAlerts
+                ? `${t.label} (${openAlerts} مشكلة)`
                 : t.label,
         }))}
         value={tab}
@@ -276,25 +283,16 @@ function Captains() {
 
       {node}
 
-      {tab === 'captains' && (
-        <CaptainsTab
-          captains={captains}
-          sbotat={sbotat}
-          banned={banned}
-          reload={reload}
-          flash={flash}
-        />
-      )}
+      {tab === 'captains' && <CaptainsTab banned={banned} flash={flash} />}
       {tab === 'apps' && (
-        <AppsTab apps={apps} captains={captains} myId={myId} reload={reload} flash={flash} />
+        <AppsTab myId={myId} onChanged={loadShared} flash={flash} />
       )}
-      {tab === 'reports' && <ReportsTab reports={reports} captains={captains} />}
+      {tab === 'reports' && <ReportsTab captains={captainIndex} />}
       {tab === 'venues' && (
         <VenuesTab
-          venues={venues}
-          alerts={alerts}
+          venueIndex={venueIndex}
           myId={myId}
-          reload={reload}
+          onChanged={loadShared}
           flash={flash}
         />
       )}
@@ -304,27 +302,89 @@ function Captains() {
 
 /* ============================================================ الكباتن */
 
-function CaptainsTab({
-  captains,
-  sbotat,
-  banned,
-  reload,
-  flash,
-}: {
-  captains: CaptainRow[]
-  sbotat: SbotaRow[]
-  banned: string[]
-  reload: () => Promise<void>
-  flash: (m: string) => void
-}) {
+function CaptainsTab({ banned, flash }: { banned: string[]; flash: (m: string) => void }) {
+  const [rows, setRows] = useState<CaptainRow[]>([])
+  const [total, setTotal] = useState<number | null>(null)
+  const [sums, setSums] = useState<{ all: number; active: number } | null>(null)
+  const [page, setPage] = useState(0)
+  const [active, setActive] = useState('all')
+  const [q, setQ] = useState('')
+  const [needle, setNeedle] = useState('')
   const [open, setOpen] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [loading, setLoading] = useState(true)
+  /** سبوطات الكباتن اللي على الشاشة بس — مش ألف صف */
+  const [byCaptain, setByCaptain] = useState<Record<string, SbotaRow[]>>({})
 
-  const byCaptain = useMemo(() => {
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setPage(0)
+      setNeedle(safeLike(q))
+    }, SEARCH_DELAY_MS)
+    return () => clearTimeout(t)
+  }, [q])
+
+  const reload = useCallback(async () => {
+    setBusy(true)
+    const db = supabase()
+    let query = db
+      .from('captains')
+      .select(
+        'id, profile_id, display_name, craft_ar, bio_line, activities, is_active, rating_avg, sbota_count, created_at, profiles(first_name, phone)',
+        { count: 'exact' }
+      )
+      .order('created_at', { ascending: false })
+    if (active !== 'all') query = query.eq('is_active', active === 'yes')
+    if (needle) query = query.ilike('display_name', `%${needle}%`)
+
+    const { data, count, error } = await query.range(
+      page * ADMIN_PAGE_SIZE,
+      page * ADMIN_PAGE_SIZE + ADMIN_PAGE_SIZE - 1
+    )
+    setLoading(false)
+    setBusy(false)
+    if (error) {
+      flash(`مقدرناش نجيب الكباتن: ${error.message}`)
+      setRows([])
+      setTotal(0)
+      return
+    }
+    const list = (data ?? []) as unknown as CaptainRow[]
+    setRows(list)
+    setTotal(count ?? null)
+
+    // سبوطات الصفحة دي بس
+    const ids = list.map((c) => c.id)
+    if (!ids.length) return setByCaptain({})
+    const { data: sb } = await db
+      .from('sbotat')
+      .select('id, captain_id, starts_at, status, sbota_templates(name_ar)')
+      .in('captain_id', ids)
+      .order('starts_at', { ascending: false })
+      .range(0, ADMIN_SCAN_MAX - 1)
     const m: Record<string, SbotaRow[]> = {}
-    for (const s of sbotat) if (s.captain_id) (m[s.captain_id] ??= []).push(s)
-    return m
-  }, [sbotat])
+    for (const row of (sb ?? []) as unknown as SbotaRow[]) {
+      if (row.captain_id) (m[row.captain_id] ??= []).push(row)
+    }
+    setByCaptain(m)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active, needle, page])
+
+  const loadSums = useCallback(async () => {
+    const db = supabase()
+    const [all, on] = await Promise.all([
+      db.from('captains').select('id', { count: 'exact', head: true }),
+      db.from('captains').select('id', { count: 'exact', head: true }).eq('is_active', true),
+    ])
+    setSums({ all: all.count ?? 0, active: on.count ?? 0 })
+  }, [])
+
+  useEffect(() => {
+    reload()
+  }, [reload])
+  useEffect(() => {
+    loadSums()
+  }, [loadSums])
 
   /** أي تعديل — والكلام اللي بيبان للناس بيتفحص الأول وبيتعمله revalidate بعدين */
   async function patch(id: string, p: Record<string, unknown>, isPublic: boolean) {
@@ -336,10 +396,15 @@ function CaptainsTab({
       if (bad.length) return flash(`الكلام فيه كلمة ممنوعة: ${bad.join('، ')}`)
     }
     setBusy(true)
-    const { error } = await supabase().from('captains').update(p).eq('id', id)
+    const { data, error } = await supabase()
+      .from('captains')
+      .update(p)
+      .eq('id', id)
+      .select('id')
     setBusy(false)
     if (error) return flash(`مقدرناش نحفظ: ${error.message}`)
-    await reload()
+    if (rejected(data)) return flash('مااتحفظش — القاعدة رفضت، محتاج صلاحية captains.edit')
+    await Promise.all([reload(), loadSums()])
     if (isPublic) {
       const ok = await revalidateSite()
       flash(ok ? 'اتحفظ ✓ وبان في الموقع' : 'اتحفظ ✓ — هيبان خلال أقل من دقيقة')
@@ -348,18 +413,55 @@ function CaptainsTab({
     }
   }
 
+  if (loading) return <Loading />
+
   return (
     <div className="mt-5">
       <div className="flex flex-wrap gap-3">
-        <Stat label="كل الكباتن" value={String(captains.length)} />
-        <Stat label="شغّالين" value={String(captains.filter((c) => c.is_active).length)} />
+        <Stat label="كل الكباتن" value={sums ? String(sums.all) : '…'} />
+        <Stat label="شغّالين" value={sums ? String(sums.active) : '…'} />
+        <Stat label="بالفلتر ده" value={total === null ? '…' : String(total)} />
       </div>
 
-      {captains.length === 0 ? (
-        <Empty>مفيش كباتن لسه. الطلبات في التبويب اللي جنبه.</Empty>
+      <div className="mt-4 flex flex-wrap items-end gap-3">
+        <label className="flex flex-col gap-1">
+          <span className="font-body text-13" style={{ color: 'var(--muted)' }}>
+            دوّر بالاسم
+          </span>
+          <input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="مثلًا: نور"
+            className="min-w-[220px] rounded-14 px-4 py-2 font-body text-16"
+            style={{
+              background: 'var(--surface)',
+              color: 'var(--fg)',
+              border: '2px solid var(--line)',
+            }}
+          />
+        </label>
+        <SelectField
+          label="الحالة"
+          value={active}
+          onChange={(v) => {
+            setPage(0)
+            setActive(v)
+          }}
+          options={[
+            { value: 'all', label: 'الكل' },
+            { value: 'yes', label: 'شغّالين' },
+            { value: 'no', label: 'مقفولين' },
+          ]}
+        />
+      </div>
+
+      {rows.length === 0 ? (
+        <div className="mt-4">
+          <Empty>مفيش كباتن بالفلتر ده. الطلبات في التبويب اللي جنبه.</Empty>
+        </div>
       ) : (
         <div className="mt-4 flex flex-col gap-4">
-          {captains.map((c) => {
+          {rows.map((c) => {
             const mine = byCaptain[c.id] ?? []
             const isOpen = open === c.id
             return (
@@ -472,6 +574,8 @@ function CaptainsTab({
           })}
         </div>
       )}
+
+      <Pager page={page} shown={rows.length} total={total} onPage={setPage} busy={busy} />
     </div>
   )
 }
@@ -479,21 +583,61 @@ function CaptainsTab({
 /* ============================================================ الطلبات */
 
 function AppsTab({
-  apps,
-  captains,
   myId,
-  reload,
+  onChanged,
   flash,
 }: {
-  apps: AppRow[]
-  captains: CaptainRow[]
   myId: string | null
-  reload: () => Promise<void>
+  /** بينده الأب علشان شارة التبويب تتحدّث */
+  onChanged: () => Promise<void>
   flash: (m: string) => void
 }) {
   const [busy, setBusy] = useState(false)
-  const pending = apps.filter((a) => !a.handled_at)
-  const handled = apps.filter((a) => a.handled_at)
+  const [rows, setRows] = useState<AppRow[]>([])
+  const [total, setTotal] = useState<number | null>(null)
+  const [page, setPage] = useState(0)
+  const [loading, setLoading] = useState(true)
+  /** التبويب بقى قايمة واحدة بفلتر حالة بدل كارتين بيحمّلوا كل الطلبات */
+  const [state, setState] = useState<'pending' | 'handled'>('pending')
+
+  const reload = useCallback(async () => {
+    setBusy(true)
+    let query = supabase()
+      .from('captain_applications')
+      .select('id, name, phone, job, why, handled_at, handled_by, created_at', {
+        count: 'exact',
+      })
+      .order('created_at', { ascending: false })
+    query =
+      state === 'pending'
+        ? query.is('handled_at', null)
+        : query.not('handled_at', 'is', null)
+
+    const { data, count, error } = await query.range(
+      page * ADMIN_PAGE_SIZE,
+      page * ADMIN_PAGE_SIZE + ADMIN_PAGE_SIZE - 1
+    )
+    setLoading(false)
+    setBusy(false)
+    if (error) {
+      flash(`مقدرناش نجيب الطلبات: ${error.message}`)
+      setRows([])
+      setTotal(0)
+      return
+    }
+    setRows((data ?? []) as AppRow[])
+    setTotal(count ?? null)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state, page])
+
+  useEffect(() => {
+    reload()
+  }, [reload])
+
+  /** بعد أي قبول/رفض: الصفحة والشارة مع بعض */
+  const refresh = async () => {
+    await Promise.all([reload(), onChanged()])
+  }
 
   /** بنعلّم الطلب إنه اتعامل معاه — الجدول مفيهوش عمود حالة، فده اللي موجود */
   async function markHandled(id: string) {
@@ -530,7 +674,13 @@ function AppsTab({
       return flash('مفيش حساب بالرقم ده — قوله يسجّل في نسبوط الأول وبعدين اقبله.')
     }
 
-    const existing = captains.find((c) => c.profile_id === profile.id)
+    // بندوّر على الكابتن في القاعدة — قبل كده كان بيدوّر في مصفوفة محمّلة كلها
+    const { data: exRow } = await db
+      .from('captains')
+      .select('id')
+      .eq('profile_id', profile.id)
+      .maybeSingle()
+    const existing = exRow as { id: string } | null
     if (existing) {
       const { error } = await db
         .from('captains')
@@ -557,7 +707,7 @@ function AppsTab({
 
     const problem = await markHandled(a.id)
     setBusy(false)
-    await reload()
+    await refresh()
     await revalidateSite()
     flash(problem ? `الكابتن اتعمل ✓ بس ${problem}` : 'اتقبل وبقى كابتن شغّال ✓')
   }
@@ -570,21 +720,41 @@ function AppsTab({
     const problem = await markHandled(a.id)
     setBusy(false)
     if (problem) return flash(problem)
-    await reload()
+    await refresh()
     flash('الطلب اتقفل ✓')
   }
 
+  if (loading) return <Loading />
+
   return (
     <div className="mt-5 flex flex-col gap-4">
+      <div className="flex flex-wrap items-end gap-3">
+        <SelectField
+          label="الحالة"
+          value={state}
+          onChange={(v) => {
+            setPage(0)
+            setState(v as 'pending' | 'handled')
+          }}
+          options={[
+            { value: 'pending', label: 'مستنية' },
+            { value: 'handled', label: 'اتعامل معاها' },
+          ]}
+        />
+        <span className="font-body text-13" style={{ color: 'var(--muted)' }}>
+          {total === null ? '…' : total} طلب
+        </span>
+      </div>
+
       <Card
-        title={`طلبات مستنية (${pending.length})`}
+        title={state === 'pending' ? 'طلبات مستنية' : 'طلبات اتعامل معاها'}
         hint="القبول بيدوّر على حساب بنفس الرقم وبيعمله كابتن شغّال."
       >
-        {pending.length === 0 ? (
-          <Empty>مفيش طلبات مستنية.</Empty>
-        ) : (
+        {rows.length === 0 ? (
+          <Empty>{state === 'pending' ? 'مفيش طلبات مستنية.' : 'لسه مفيش.'}</Empty>
+        ) : state === 'pending' ? (
           <div className="mt-3 flex flex-col gap-3">
-            {pending.map((a) => (
+            {rows.map((a) => (
               <div key={a.id} className="rounded-16 p-3" style={{ background: 'var(--bg)' }}>
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="font-display text-16 font-black">{a.name}</span>
@@ -611,15 +781,9 @@ function AppsTab({
               </div>
             ))}
           </div>
-        )}
-      </Card>
-
-      <Card title={`طلبات اتعامل معاها (${handled.length})`}>
-        {handled.length === 0 ? (
-          <Empty>لسه مفيش.</Empty>
         ) : (
           <Table head={['الاسم', 'الشغلانة', 'التليفون', 'قدّم', 'اتقفل']}>
-            {handled.map((a) => (
+            {rows.map((a) => (
               <tr key={a.id}>
                 <td className="p-2">{a.name}</td>
                 <td className="p-2">{a.job || '—'}</td>
@@ -632,6 +796,8 @@ function AppsTab({
             ))}
           </Table>
         )}
+
+        <Pager page={page} shown={rows.length} total={total} onPage={setPage} busy={busy} />
       </Card>
     </div>
   )
@@ -639,15 +805,53 @@ function AppsTab({
 
 /* ============================================================ التقارير */
 
-function ReportsTab({ reports, captains }: { reports: ReportRow[]; captains: CaptainRow[] }) {
+function ReportsTab({ captains }: { captains: CaptainName[] }) {
   const [who, setWho] = useState('all')
+  const [rows, setRows] = useState<ReportRow[]>([])
+  const [total, setTotal] = useState<number | null>(null)
+  const [page, setPage] = useState(0)
+  const [busy, setBusy] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [err, setErr] = useState<string | null>(null)
 
   const nameOf = (id: string) => {
     const c = captains.find((x) => x.id === id)
     return c?.display_name || c?.profiles?.first_name || 'كابتن'
   }
 
-  const shown = reports.filter((r) => who === 'all' || r.captain_id === who)
+  const reload = useCallback(async () => {
+    setBusy(true)
+    let query = supabase()
+      .from('captain_reports')
+      .select(
+        'id, sbota_id, captain_id, attendance_json, what_worked, what_didnt, incident, suggestion, created_at, sbotat(starts_at, sbota_templates(name_ar))',
+        { count: 'exact' }
+      )
+      .order('created_at', { ascending: false })
+    if (who !== 'all') query = query.eq('captain_id', who)
+
+    const { data, count, error } = await query.range(
+      page * ADMIN_PAGE_SIZE,
+      page * ADMIN_PAGE_SIZE + ADMIN_PAGE_SIZE - 1
+    )
+    setLoading(false)
+    setBusy(false)
+    if (error) {
+      setErr(error.message)
+      setRows([])
+      setTotal(0)
+      return
+    }
+    setErr(null)
+    setRows((data ?? []) as unknown as ReportRow[])
+    setTotal(count ?? null)
+  }, [who, page])
+
+  useEffect(() => {
+    reload()
+  }, [reload])
+
+  if (loading) return <Loading />
 
   return (
     <div className="mt-5">
@@ -655,22 +859,31 @@ function ReportsTab({ reports, captains }: { reports: ReportRow[]; captains: Cap
         <SelectField
           label="مين كتبه"
           value={who}
-          onChange={setWho}
+          onChange={(v) => {
+            setPage(0)
+            setWho(v)
+          }}
           options={[
             { value: 'all', label: 'كل الكباتن' },
             ...captains.map((c) => ({ value: c.id, label: nameOf(c.id) })),
           ]}
         />
         <span className="font-body text-13" style={{ color: 'var(--muted)' }}>
-          {shown.length} تقرير
+          {total === null ? '…' : total} تقرير
         </span>
       </div>
 
-      {shown.length === 0 ? (
+      {err && (
+        <div className="mt-3 font-body text-14" style={{ color: 'var(--err-text)' }}>
+          مقدرناش نجيب التقارير: {err}
+        </div>
+      )}
+
+      {rows.length === 0 ? (
         <Empty>مفيش تقارير لسه — الكباتن بيكتبوها بعد ما السبوطة تخلص.</Empty>
       ) : (
         <div className="mt-4 flex flex-col gap-3">
-          {shown.map((r) => {
+          {rows.map((r) => {
             const att = r.attendance_json ?? {}
             const count = Object.keys(att).length
             return (
@@ -701,6 +914,8 @@ function ReportsTab({ reports, captains }: { reports: ReportRow[]; captains: Cap
           })}
         </div>
       )}
+
+      <Pager page={page} shown={rows.length} total={total} onPage={setPage} busy={busy} />
     </div>
   )
 }
@@ -722,16 +937,15 @@ function Line({ label, text, danger }: { label: string; text: string | null; dan
 /* ============================================================ الأماكن */
 
 function VenuesTab({
-  venues,
-  alerts,
+  venueIndex,
   myId,
-  reload,
+  onChanged,
   flash,
 }: {
-  venues: VenueRow[]
-  alerts: AlertRow[]
+  /** فهرس الأسماء للـ dropdown وترجمة id → اسم (مسقوف بـ ADMIN_SCAN_MAX) */
+  venueIndex: VenueName[]
   myId: string | null
-  reload: () => Promise<void>
+  onChanged: () => Promise<void>
   flash: (m: string) => void
 }) {
   const [busy, setBusy] = useState(false)
@@ -745,9 +959,111 @@ function VenuesTab({
   const [alertReason, setAlertReason] = useState('')
   const [alertNote, setAlertNote] = useState('')
 
-  const open = alerts.filter((a) => !a.resolved_at)
-  const done = alerts.filter((a) => a.resolved_at)
-  const venueName = (id: string | null) => venues.find((v) => v.id === id)?.name ?? 'مكان اتشال'
+  const [venues, setVenues] = useState<VenueRow[]>([])
+  const [total, setTotal] = useState<number | null>(null)
+  const [sums, setSums] = useState<{ all: number; active: number; verified: number } | null>(
+    null
+  )
+  const [page, setPage] = useState(0)
+  const [areaFilter, setAreaFilter] = useState('all')
+  const [q, setQ] = useState('')
+  const [needle, setNeedle] = useState('')
+  const [loading, setLoading] = useState(true)
+
+  /** البلاغات المفتوحة قايمة شغل قصيرة — بتتجاب كاملة بسقف، والمقفولة بصفحة */
+  const [open, setOpen] = useState<AlertRow[]>([])
+  const [done, setDone] = useState<AlertRow[]>([])
+  const [donePage, setDonePage] = useState(0)
+  const [doneTotal, setDoneTotal] = useState<number | null>(null)
+
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setPage(0)
+      setNeedle(safeLike(q))
+    }, SEARCH_DELAY_MS)
+    return () => clearTimeout(t)
+  }, [q])
+
+  const reload = useCallback(async () => {
+    setBusy(true)
+    let query = supabase()
+      .from('venues')
+      .select(
+        'id, name, kind, area, address, contact_phone, contract_notes, wholesale_price, verified_at, is_active, rating_avg, created_at',
+        { count: 'exact' }
+      )
+      .order('name')
+    if (areaFilter !== 'all') query = query.eq('area', areaFilter)
+    if (needle) query = query.ilike('name', `%${needle}%`)
+
+    const { data, count, error } = await query.range(
+      page * ADMIN_PAGE_SIZE,
+      page * ADMIN_PAGE_SIZE + ADMIN_PAGE_SIZE - 1
+    )
+    setLoading(false)
+    setBusy(false)
+    if (error) {
+      flash(`مقدرناش نجيب الأماكن: ${error.message}`)
+      setVenues([])
+      setTotal(0)
+      return
+    }
+    setVenues((data ?? []) as VenueRow[])
+    setTotal(count ?? null)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [areaFilter, needle, page])
+
+  const loadSums = useCallback(async () => {
+    const db = supabase()
+    const [all, on, ver] = await Promise.all([
+      db.from('venues').select('id', { count: 'exact', head: true }),
+      db.from('venues').select('id', { count: 'exact', head: true }).eq('is_active', true),
+      db
+        .from('venues')
+        .select('id', { count: 'exact', head: true })
+        .not('verified_at', 'is', null),
+    ])
+    setSums({ all: all.count ?? 0, active: on.count ?? 0, verified: ver.count ?? 0 })
+  }, [])
+
+  const loadAlerts = useCallback(async () => {
+    const db = supabase()
+    const [o, d] = await Promise.all([
+      db
+        .from('provider_alerts')
+        .select('id, venue_id, reason, note, created_at, resolved_at')
+        .is('resolved_at', null)
+        .order('created_at', { ascending: false })
+        .range(0, ADMIN_SCAN_MAX - 1),
+      db
+        .from('provider_alerts')
+        .select('id, venue_id, reason, note, created_at, resolved_at', { count: 'exact' })
+        .not('resolved_at', 'is', null)
+        .order('resolved_at', { ascending: false })
+        .range(
+          donePage * ADMIN_PAGE_SIZE,
+          donePage * ADMIN_PAGE_SIZE + ADMIN_PAGE_SIZE - 1
+        ),
+    ])
+    setOpen((o.data ?? []) as AlertRow[])
+    setDone((d.data ?? []) as AlertRow[])
+    setDoneTotal(d.count ?? null)
+  }, [donePage])
+
+  useEffect(() => {
+    reload()
+  }, [reload])
+  useEffect(() => {
+    loadSums()
+  }, [loadSums])
+  useEffect(() => {
+    loadAlerts()
+  }, [loadAlerts])
+
+  const venueName = (id: string | null) =>
+    venueIndex.find((v) => v.id === id)?.name ??
+    venues.find((v) => v.id === id)?.name ??
+    'مكان اتشال'
 
   const alertsByVenue = useMemo(() => {
     const m: Record<string, number> = {}
@@ -755,12 +1071,18 @@ function VenuesTab({
     return m
   }, [open])
 
+  /** بعد أي كتابة: الصفحة والعدّادات والفهرس فوق */
+  const refresh = async () => {
+    await Promise.all([reload(), loadSums(), loadAlerts(), onChanged()])
+  }
+
   async function patch(id: string, p: Record<string, unknown>) {
     setBusy(true)
-    const { error } = await supabase().from('venues').update(p).eq('id', id)
+    const { data, error } = await supabase().from('venues').update(p).eq('id', id).select('id')
     setBusy(false)
     if (error) return flash(`مقدرناش نحفظ: ${error.message}`)
-    await reload()
+    if (rejected(data)) return flash('مااتحفظش — القاعدة رفضت، صلاحيتك مش كفاية.')
+    await refresh()
     flash('اتحفظ ✓')
   }
 
@@ -779,7 +1101,7 @@ function VenuesTab({
     setNName('')
     setNAddress('')
     setAdding(false)
-    await reload()
+    await refresh()
     flash('المكان اتزاد ✓')
   }
 
@@ -790,7 +1112,7 @@ function VenuesTab({
     const { error } = await supabase().from('venues').delete().eq('id', v.id)
     setBusy(false)
     if (error) return flash(`مقدرناش نمسحه: ${error.message}`)
-    await reload()
+    await refresh()
     flash('المكان اتمسح ✓')
   }
 
@@ -807,7 +1129,7 @@ function VenuesTab({
     if (error) return flash(`مقدرناش نسجّل المشكلة: ${error.message}`)
     setAlertReason('')
     setAlertNote('')
-    await reload()
+    await refresh()
     flash('المشكلة اتسجّلت ✓')
   }
 
@@ -820,16 +1142,18 @@ function VenuesTab({
       .eq('id', id)
     setBusy(false)
     if (error) return flash(`مقدرناش نقفلها: ${error.message}`)
-    await reload()
+    await refresh()
     flash('اتقفلت ✓')
   }
+
+  if (loading) return <Loading />
 
   return (
     <div className="mt-5 flex flex-col gap-5">
       <div className="flex flex-wrap gap-3">
-        <Stat label="الأماكن" value={String(venues.length)} />
-        <Stat label="شغّالة" value={String(venues.filter((v) => v.is_active).length)} />
-        <Stat label="متأكدين منها" value={String(venues.filter((v) => v.verified_at).length)} />
+        <Stat label="الأماكن" value={sums ? String(sums.all) : '…'} />
+        <Stat label="شغّالة" value={sums ? String(sums.active) : '…'} />
+        <Stat label="متأكدين منها" value={sums ? String(sums.verified) : '…'} />
         <Stat label="مشاكل مفتوحة" value={String(open.length)} />
       </div>
 
@@ -888,8 +1212,39 @@ function VenuesTab({
       </Card>
 
       {/* الأماكن */}
+      <div className="flex flex-wrap items-end gap-3">
+        <label className="flex flex-col gap-1">
+          <span className="font-body text-13" style={{ color: 'var(--muted)' }}>
+            دوّر بالاسم
+          </span>
+          <input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="مثلًا: كافيه"
+            className="min-w-[220px] rounded-14 px-4 py-2 font-body text-16"
+            style={{
+              background: 'var(--surface)',
+              color: 'var(--fg)',
+              border: '2px solid var(--line)',
+            }}
+          />
+        </label>
+        <SelectField
+          label="المنطقة"
+          value={areaFilter}
+          onChange={(v) => {
+            setPage(0)
+            setAreaFilter(v)
+          }}
+          options={[{ value: 'all', label: 'كل المناطق' }, ...AREAS]}
+        />
+        <span className="font-body text-13" style={{ color: 'var(--muted)' }}>
+          {total === null ? '…' : total} بالفلتر ده
+        </span>
+      </div>
+
       {venues.length === 0 ? (
-        <Empty>مفيش أماكن لسه.</Empty>
+        <Empty>مفيش أماكن بالفلتر ده.</Empty>
       ) : (
         <div className="flex flex-col gap-4">
           {venues.map((v) => (
@@ -988,6 +1343,8 @@ function VenuesTab({
         </div>
       )}
 
+      <Pager page={page} shown={venues.length} total={total} onPage={setPage} busy={busy} />
+
       {/* مشاكل الأماكن */}
       <Card title="مشاكل الأماكن" hint="سجّل المشكلة هنا علشان محدش يحجز في مكان فيه مشكلة وإحنا ناسيين.">
         <div className="mt-3 flex flex-wrap items-end gap-3">
@@ -997,7 +1354,7 @@ function VenuesTab({
             onChange={setAlertVenue}
             options={[
               { value: '', label: 'اختار مكان' },
-              ...venues.map((v) => ({ value: v.id, label: v.name })),
+              ...venueIndex.map((v) => ({ value: v.id, label: v.name })),
             ]}
           />
           <label className="flex flex-col gap-1">
@@ -1069,10 +1426,10 @@ function VenuesTab({
           </div>
         )}
 
-        {done.length > 0 && (
+        {(done.length > 0 || donePage > 0) && (
           <>
             <div className="mt-4 font-body text-13" style={{ color: 'var(--muted)' }}>
-              اتحلّت ({done.length})
+              اتحلّت ({doneTotal === null ? '…' : doneTotal})
             </div>
             <Table head={['المكان', 'المشكلة', 'اتسجّلت', 'اتحلّت']}>
               {done.map((a) => (
@@ -1084,6 +1441,13 @@ function VenuesTab({
                 </tr>
               ))}
             </Table>
+            <Pager
+              page={donePage}
+              shown={done.length}
+              total={doneTotal}
+              onPage={setDonePage}
+              busy={busy}
+            />
           </>
         )}
       </Card>

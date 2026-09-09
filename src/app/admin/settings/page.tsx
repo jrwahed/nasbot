@@ -607,7 +607,8 @@ function SettingsEditor({ me }: { me: AdminMe }) {
       return
     }
     if (rejected(data)) {
-      flash('مااتحفظش — القاعدة رفضت الكتابة، محتاج صلاحية settings.edit')
+      // سياسة mt_write على settings.danger مش settings.edit
+      flash('مااتحفظش — القاعدة رفضت الكتابة، محتاج صلاحية settings.danger')
       return
     }
     setMaint((m) => (m ? { ...m, ...patch } : m))
@@ -1022,8 +1023,10 @@ function MaintTab({
         <div className="mt-4">
           <div className="font-display text-16 font-black">مين يفضل داخل وقت الصيانة</div>
           <div className="mt-1 font-body text-13" style={{ color: 'var(--muted)' }}>
-            الأدوار دي بتفضل تقدر تفتح الموقع واللوحة والصيانة شغالة. سيب «owner»
-            على الأقل، وإلا مش هتعرف تقفل الصيانة تاني.
+            الأدوار دي بتفضل تقدر تتفرّج على الموقع والصيانة شغالة — الميدل وير
+            بيتأكد من جلسة اللوحة الحقيقية، مش من وجود الكوكي. اللوحة نفسها
+            (‎/admin) بتفضل مفتوحة لكل الفريق وقت الصيانة علشان محدش يقفل على
+            نفسه؛ اللي بيقفل ويفتح الصيانة هو صاحب صلاحية settings.danger.
           </div>
           <div className="mt-2 flex flex-wrap gap-4">
             {ROLE_KEYS.map((role) => {
@@ -1034,7 +1037,8 @@ function MaintTab({
                   label={role}
                   value={allowed.includes(role)}
                   onChange={(v) => {
-                    if (!canEdit) return
+                    // الكتابة على maintenance محتاجة settings.danger زي القفل نفسه
+                    if (!canDanger) return
                     const next = v
                       ? [...allowed, role]
                       : allowed.filter((r) => r !== role)

@@ -11,11 +11,14 @@ import { getMe, getBookings, getMetBefore, signOut, deleteMyAccount } from '@/li
 import { useTheme } from '@/lib/use-theme'
 import type { Booking, Me, Person } from '@/types'
 import { useT } from '@/components/CopyProvider'
+import { useFlag } from '@/components/FlagsProvider'
 
 const BADGES = [3, 10, 25]
 
 export default function MePage() {
   const t = useT()
+  // مفتاح «referral» من /admin/settings بيخفي كود الدعوة (مراجعة A2)
+  const referral = useFlag('referral')
   const router = useRouter()
   const [theme, setTheme] = useTheme()
   const [me, setMe] = useState<Me | null>(null)
@@ -113,24 +116,33 @@ export default function MePage() {
             <span className="font-display text-28 font-black">{t('shared.egp', { n: me.credit })}</span>
           </div>
           <div className="mt-4 font-display text-20 font-black">{t('me.text.15')}</div>
-          <div className="mt-2 flex items-center gap-2">
-            <span
-              className="flex-1 rounded-14 px-4 py-3 font-display text-20 font-black"
-              style={{ background: '#FBF7EF', border: '2px solid #14161A' }}
-              dir="ltr"
-            >
-              {me.referralCode}
-            </span>
-            <button
-              type="button"
-              onClick={copy}
-              className="shrink-0 cursor-pointer rounded-14 px-4 font-display text-15 font-black"
-              style={{ minHeight: 52, background: '#14161A', color: '#FBF7EF', border: 0 }}
-            >
-              {copied ? t('shared.copied') : t('me.label.5')}
-            </button>
-          </div>
-          <div className="mt-2 font-body text-14" style={{ color: '#55575C' }}>{t('me.text.14')}</div>
+          {referral.on ? (
+            <>
+              <div className="mt-2 flex items-center gap-2">
+                <span
+                  className="flex-1 rounded-14 px-4 py-3 font-display text-20 font-black"
+                  style={{ background: '#FBF7EF', border: '2px solid #14161A' }}
+                  dir="ltr"
+                >
+                  {me.referralCode}
+                </span>
+                <button
+                  type="button"
+                  onClick={copy}
+                  className="shrink-0 cursor-pointer rounded-14 px-4 font-display text-15 font-black"
+                  style={{ minHeight: 52, background: '#14161A', color: '#FBF7EF', border: 0 }}
+                >
+                  {copied ? t('shared.copied') : t('me.label.5')}
+                </button>
+              </div>
+              <div className="mt-2 font-body text-14" style={{ color: '#55575C' }}>{t('me.text.14')}</div>
+            </>
+          ) : (
+            /* الرسالة نفسها من feature_flags.off_message_ar — مش مكتوبة هنا */
+            <div className="mt-2 font-body text-14" style={{ color: '#55575C' }}>
+              {referral.off || t('flags.closed.body')}
+            </div>
+          )}
         </div>
 
         {/* ===== رايحين معاك ===== */}

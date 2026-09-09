@@ -21,6 +21,7 @@ import { saveAnswers, loadAnswers } from '@/lib/type'
 import { track } from '@/lib/track'
 import type { GameAnswers } from '@/types'
 import { useT } from '@/components/CopyProvider'
+import { FeatureGate } from '@/components/FlagsProvider'
 
 /**
  * لعبة «مين جاي؟» — سؤال واحد في كل شاشة، وشريط تقدم مكتوب بالكلام مش بالأرقام.
@@ -30,7 +31,7 @@ import { useT } from '@/components/CopyProvider'
  *   «بتشتغل في إيه؟» → بيكتب profession_id (WORK_PLAN §2).
  *   اللي لسه مش مسجّل، إجابته بتستنى في المتصفح وصفحة الانضمام بتاخدها.
  */
-export default function GamePage() {
+function GamePage() {
   const t = useT()
   const router = useRouter()
   const [cfg, setCfg] = useState<GameConfig>(gameFallback)
@@ -234,5 +235,17 @@ export default function GamePage() {
         </StickyCTA>
       </div>
     </main>
+  )
+}
+
+/**
+ * القفل من اللوحة: مفتاح «game» في /admin/settings ← مفاتيح المزايا.
+ * مقفول = شاشة «مقفول» برسالة المالك بدل الصفحة (مراجعة A2).
+ */
+export default function GamePageRoute() {
+  return (
+    <FeatureGate flag="game">
+      <GamePage />
+    </FeatureGate>
   )
 }

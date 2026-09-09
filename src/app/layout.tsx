@@ -4,7 +4,9 @@ import './globals.css'
 import { themeInitScript } from '@/lib/theme'
 import { LiveQ } from '@/components/LiveQ'
 import { CopyProvider } from '@/components/CopyProvider'
+import { FlagsProvider } from '@/components/FlagsProvider'
 import { getCopy } from '@/lib/copy'
+import { getFlags } from '@/lib/flags'
 
 const rubik = Rubik({
   subsets: ['arabic', 'latin'],
@@ -37,8 +39,9 @@ export const viewport: Viewport = {
 }
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  // النصوص بتتحمّل مرة واحدة على الخادم بكاش موسوم، وبتتمرر للعميل
-  const copy = await getCopy()
+  // النصوص ومفاتيح المزايا بيتحمّلوا مرة واحدة على الخادم بكاش موسوم،
+  // وبيتمرروا للعميل — نفس النمط للاتنين (مراجعة A2)
+  const [copy, flags] = await Promise.all([getCopy(), getFlags()])
 
   return (
     // data-theme بيتحط بسكريبت قبل الترطيب — الفرق ده مقصود
@@ -54,8 +57,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       </head>
       <body>
         <CopyProvider value={copy}>
-          {children}
-          <LiveQ />
+          <FlagsProvider value={flags}>
+            {children}
+            <LiveQ />
+          </FlagsProvider>
         </CopyProvider>
       </body>
     </html>

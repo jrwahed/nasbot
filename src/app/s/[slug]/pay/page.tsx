@@ -15,6 +15,7 @@ import { track } from '@/lib/track'
 import { qJump } from '@/lib/liveq'
 import type { Sbota } from '@/types'
 import { useT } from '@/components/CopyProvider'
+import { FeatureGate } from '@/components/FlagsProvider'
 
 /**
  * الدفع — **تحويل يدوي بس**.
@@ -24,7 +25,7 @@ import { useT } from '@/components/CopyProvider'
 
 type Method = 'vodafone_cash' | 'instapay'
 
-export default function PayPage() {
+function PayPage() {
   const t = useT()
   // جوه المكوّن علشان النصوص تيجي من قاعدة البيانات
   const METHODS: { id: Method; label: string; note: string }[] = [
@@ -340,5 +341,17 @@ export default function PayPage() {
         </StickyCTA>
       </div>
     </main>
+  )
+}
+
+/**
+ * القفل من اللوحة: مفتاح «booking» في /admin/settings ← مفاتيح المزايا.
+ * مقفول = شاشة «مقفول» برسالة المالك بدل الصفحة (مراجعة A2).
+ */
+export default function PayPageRoute() {
+  return (
+    <FeatureGate flag="booking">
+      <PayPage />
+    </FeatureGate>
   )
 }

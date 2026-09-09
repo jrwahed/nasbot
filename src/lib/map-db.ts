@@ -58,9 +58,52 @@ const AREA_FROM_DB: Record<string, string> = Object.fromEntries(
 export const areaToDb = (a?: string | null) => (a ? (AREA_TO_DB[a] ?? 'other') : null)
 export const areaFromDb = (a?: string | null) => (a ? (AREA_FROM_DB[a] ?? 'غير كده') : '')
 
-/** بادل + جري + سباحة → أسماء القاعدة */
-export const activityToDb = (a: string) =>
-  a === 'بادل' ? 'padel' : a === 'جري' ? 'running' : 'swimming'
+/* ------------------------------------------------ نشاطات المهارة (skill_activities)
+ *
+ * المصدر الحقيقي هو جدول `skill_activities` (key = كود القاعدة · label_ar =
+ * المعروض). الجدول اللي تحت **بذرة احتياطية** بس — نفس نمط copy-fallback:
+ * لو القاعدة مش متاحة الترجمة تفضل شغالة.
+ *
+ * قبل كده الدالة كانت `a === 'بادل' ? 'padel' : a === 'جري' ? 'running' :
+ * 'swimming'` — يعني أي نشاط جديد المالك يضيفه من اللوحة كان بيتحفظ **سباحة**
+ * بالصمت، وعشان كده 0065 اضطرت تقفل «عجل». دلوقتي الترجمة بحث حقيقي، والمجهول
+ * بيرجّع `null` علشان طبقة البيانات تتخطاه بدل ما تكتب حاجة غلط.
+ */
+
+const ACTIVITY_SEED: Record<string, string> = {
+  بادل: 'padel',
+  جري: 'running',
+  سباحة: 'swimming',
+  عجل: 'cycling',
+}
+
+let ACTIVITY_TO_DB: Record<string, string> = { ...ACTIVITY_SEED }
+let ACTIVITY_FROM_DB: Record<string, string> = Object.fromEntries(
+  Object.entries(ACTIVITY_SEED).map(([ar, en]) => [en, ar])
+)
+
+/**
+ * بتتنده من طبقة البيانات بعد ما تقرا `skill_activities`.
+ * الصفوف الجاية من القاعدة بتغلب البذرة، والبذرة بتفضل تحتها كاحتياطي
+ * علشان صف اتقفل من اللوحة ما يخليش بيانات قديمة تتقرا غلط.
+ */
+export function setActivityMap(rows: { key: string; label_ar: string | null }[]): void {
+  const toDb: Record<string, string> = { ...ACTIVITY_SEED }
+  const fromDb: Record<string, string> = Object.fromEntries(
+    Object.entries(ACTIVITY_SEED).map(([ar, en]) => [en, ar])
+  )
+  for (const r of rows) {
+    if (!r.key) continue
+    const label = (r.label_ar ?? '').trim()
+    if (label) toDb[label] = r.key
+    fromDb[r.key] = label || r.key
+  }
+  ACTIVITY_TO_DB = toDb
+  ACTIVITY_FROM_DB = fromDb
+}
+
+/** المعروض → كود القاعدة. `null` = نشاط مش معروف، متكتبوش. */
+export const activityToDb = (a: string): string | null => ACTIVITY_TO_DB[a] ?? null
 
 /** الميزانية «لحد 500» → 500 */
 export const budgetToDb = (b?: string | null) => {
@@ -100,8 +143,8 @@ const SKILL_FROM_DB: Record<string, SkillLevel> = Object.fromEntries(
 )
 export const skillFromDb = (s?: string | null): SkillLevel | undefined =>
   s ? SKILL_FROM_DB[s] : undefined
-export const activityFromDb = (a: string) =>
-  a === 'padel' ? 'بادل' : a === 'running' ? 'جري' : 'سباحة'
+/** كود القاعدة → المعروض. المجهول بيرجّع نفسه — أحسن من ما نسمّيه «سباحة» بالغلط. */
+export const activityFromDb = (a: string): string => ACTIVITY_FROM_DB[a] ?? a
 
 /** 500 → «لحد 500». null في القاعدة = «مفيش مشكلة» (القيد بيسمح بـ 250/500/1000 بس) */
 export const budgetFromDb = (n?: number | null): string =>

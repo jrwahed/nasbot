@@ -3604,5 +3604,29 @@
     "value_ar": "لسه مفيش سبوطة هنا",
     "screen": "الخريطة",
     "context_ar": "المناطق اللي مفيهاش حاجة دلوقتي"
+  },
+  {
+    "key": "flags.closed.title",
+    "value_ar": "القسم ده مقفول دلوقتي",
+    "screen": "مفاتيح المزايا",
+    "context_ar": "FlagsProvider.tsx"
+  },
+  {
+    "key": "flags.closed.body",
+    "value_ar": "بنظبط حاجة صغيرة هنا. ارجعلنا كمان شوية.",
+    "screen": "مفاتيح المزايا",
+    "context_ar": "FlagsProvider.tsx"
+  },
+  {
+    "key": "flags.closed.mark",
+    "value_ar": "نسبوط",
+    "screen": "مفاتيح المزايا",
+    "context_ar": "FlagsProvider.tsx — وصف علامة الاستفهام"
+  },
+  {
+    "key": "flags.off.note",
+    "value_ar": "مقفول دلوقتي",
+    "screen": "مفاتيح المزايا",
+    "context_ar": "شارة جنب زرار مقفول"
   }
 ]

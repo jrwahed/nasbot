@@ -46,6 +46,7 @@ import {
   girlsPrefToDb,
   areaToDb,
   activityToDb,
+  setActivityMap,
   skillToDb,
   budgetToDb,
   slotsToDb,
@@ -80,6 +81,32 @@ async function authHeaders(explicit?: string): Promise<Record<string, string>> {
     'content-type': 'application/json',
     ...(t ? { authorization: `Bearer ${t}` } : {}),
   }
+}
+
+/* ------------------------------------------------ نشاطات المهارة من القاعدة
+ *
+ * `skill_activities` هو مصدر أسماء النشاطات (بادل · جري · سباحة · عجل …).
+ * قبل كده map-db كان بيترجم بتلات شروط ثابتة وأي نشاط جديد بيتحفظ «سباحة».
+ * دلوقتي بنقرا الجدول مرة واحدة في عمر الصفحة وبنحمّله في جدول الترجمة.
+ *
+ * الفشل مش قاتل: البذرة في map-db بتفضل شغالة، وإحنا بنكتب الحاجات المعروفة بس.
+ */
+let activityMapOnce: Promise<void> | null = null
+
+async function loadActivityMap(): Promise<void> {
+  if (!DB) return
+  if (!activityMapOnce) {
+    activityMapOnce = (async () => {
+      try {
+        const { data } = await supabase().from('skill_activities').select('key, label_ar')
+        const rows = (data ?? []) as { key: string; label_ar: string | null }[]
+        if (rows.length) setActivityMap(rows)
+      } catch {
+        // البذرة في map-db بتكفّي
+      }
+    })()
+  }
+  return activityMapOnce
 }
 
 export const DEV_OTP = '1234'
@@ -472,6 +499,7 @@ export async function getProfileForm(): Promise<ProfileForm | null> {
   const [{ data: ints }, { data: skills }] = await Promise.all([
     supabase().from('profile_interests').select('interests(label_ar)').eq('profile_id', uid),
     supabase().from('skill_levels').select('activity, level').eq('profile_id', uid),
+    loadActivityMap(),
   ])
 
   const levels: Partial<Record<string, SkillLevel>> = {}
@@ -553,14 +581,24 @@ export async function createAccount(profile: Partial<Profile>) {
     }
   }
 
-  // المستويات
+  // المستويات — الترجمة من `skill_activities`، والمجهول بيتخطّى بدل ما يتحفظ غلط
   if (profile.levels) {
-    const rows = Object.entries(profile.levels).map(([act, lvl]) => ({
-      profile_id: uid,
-      activity: activityToDb(act),
-      level: skillToDb(lvl),
-    }))
-    await supabase().from('skill_levels').upsert(rows, { onConflict: 'profile_id,activity' })
+    await loadActivityMap()
+    const rows: { profile_id: string; activity: string; level: string }[] = []
+    for (const [act, lvl] of Object.entries(profile.levels)) {
+      const key = activityToDb(act)
+      if (!key) {
+        // نشاط مش في skill_activities — الكتابة كانت هتبقى «سباحة» بالغلط
+        // eslint-disable-next-line no-console
+        console.warn(`[nasbot] نشاط مش معروف، ما اتحفظش: ${act}`)
+        continue
+      }
+      if (!lvl) continue
+      rows.push({ profile_id: uid, activity: key, level: skillToDb(lvl) })
+    }
+    if (rows.length) {
+      await supabase().from('skill_levels').upsert(rows, { onConflict: 'profile_id,activity' })
+    }
   }
 
   return { ok: true as const, profile }

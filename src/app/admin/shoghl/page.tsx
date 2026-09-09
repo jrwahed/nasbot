@@ -6,11 +6,14 @@ import { supabase } from '@/lib/supabase'
 import { revalidateSite, rejected } from '@/lib/admin'
 import type { AdminMe } from '@/lib/admin'
 import {
+  ADMIN_PAGE_SIZE,
+  ADMIN_SCAN_MAX,
   Btn,
   Card,
   Empty,
   Loading,
   NumberField,
+  Pager,
   SelectField,
   Stat,
   Table,
@@ -26,7 +29,7 @@ import {
 import {
   buildVenueReport,
   getConversionTarget,
-  getLeads,
+  getLeadsPage,
   getVenueReportWeeks,
   getVenueReports,
   getWorkMetrics,
@@ -551,6 +554,9 @@ function ShoghlEditor({ me }: { me: AdminMe }) {
 
 function ProfessionsTab({ canEdit, say }: { canEdit: boolean; say: (m: string) => void }) {
   const [rows, setRows] = useState<ProfessionRow[]>([])
+  const [total, setTotal] = useState<number | null>(null)
+  const [page, setPage] = useState(0)
+  const [busyPage, setBusyPage] = useState(false)
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [adding, setAdding] = useState(false)
@@ -562,19 +568,22 @@ function ProfessionsTab({ canEdit, say }: { canEdit: boolean; say: (m: string) =
   const [busy, setBusy] = useState(false)
 
   const reload = useCallback(async () => {
-    const { data, error } = await supabase()
+    const { data, error, count } = await supabase()
       .from('professions')
-      .select('id,key,name_ar,icon_key,color,sort_order,is_active')
+      .select('id,key,name_ar,icon_key,color,sort_order,is_active', { count: 'exact' })
       .order('sort_order')
       .order('name_ar')
+      .range(page * ADMIN_PAGE_SIZE, page * ADMIN_PAGE_SIZE + ADMIN_PAGE_SIZE - 1)
     setLoading(false)
+    setBusyPage(false)
     if (error) {
       setLoadError(error.message)
       return
     }
     setLoadError(null)
     setRows((data ?? []) as ProfessionRow[])
-  }, [])
+    setTotal(count ?? null)
+  }, [page])
 
   useEffect(() => {
     reload()
@@ -614,8 +623,10 @@ function ProfessionsTab({ canEdit, say }: { canEdit: boolean; say: (m: string) =
     if (target < 0 || target >= rows.length) return
     const next = [...rows]
     ;[next[index], next[target]] = [next[target], next[index]]
+    // الترقيم بيبدأ من أول الصفحة — من غير الإزاحة دي صفحة ٢ هتاخد ١..٥٠ وتصطدم بصفحة ١
+    const base = page * ADMIN_PAGE_SIZE
     const changes = next
-      .map((r, i) => ({ id: r.id, sort_order: i + 1, was: r.sort_order }))
+      .map((r, i) => ({ id: r.id, sort_order: base + i + 1, was: r.sort_order }))
       .filter((c) => c.sort_order !== c.was)
     const results = await Promise.all(
       changes.map((c) =>
@@ -635,6 +646,17 @@ function ProfessionsTab({ canEdit, say }: { canEdit: boolean; say: (m: string) =
     await done('الترتيب اتحفظ')
   }
 
+  /** آخر ترتيب في القاعدة كلها — مش في الصفحة المحمّلة */
+  async function nextSort(): Promise<number> {
+    const { data } = await supabase()
+      .from('professions')
+      .select('sort_order')
+      .order('sort_order', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    return Number((data as { sort_order: number } | null)?.sort_order ?? 0)
+  }
+
   async function add() {
     if (!canEdit) return
     const n = name.trim()
@@ -647,6 +669,7 @@ function ProfessionsTab({ canEdit, say }: { canEdit: boolean; say: (m: string) =
     if (color.trim() && !hex) return say('اللون لازم يبقى هيكس زي #F4632A')
 
     setBusy(true)
+    const maxSort = await nextSort()
     const { data, error } = await supabase()
       .from('professions')
       .insert({
@@ -654,7 +677,7 @@ function ProfessionsTab({ canEdit, say }: { canEdit: boolean; say: (m: string) =
         name_ar: n,
         icon_key: icon.trim() || null,
         color: hex,
-        sort_order: rows.reduce((m, r) => Math.max(m, r.sort_order), 0) + 1,
+        sort_order: maxSort + 1,
         is_active: true,
       })
       .select('id')
@@ -687,9 +710,11 @@ function ProfessionsTab({ canEdit, say }: { canEdit: boolean; say: (m: string) =
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="font-display text-18 font-black">{rows.length} مجال</span>
+        <span className="font-display text-18 font-black">
+          {total === null ? '…' : total} مجال
+        </span>
         <span className="font-body text-13" style={{ color: 'var(--muted)' }}>
-          {rows.filter((r) => r.is_active).length} شغّال
+          {rows.filter((r) => r.is_active).length} شغّال في الصفحة دي
         </span>
         {!canEdit && (
           <span className="font-body text-13" style={{ color: 'var(--muted)' }}>
@@ -848,6 +873,17 @@ function ProfessionsTab({ canEdit, say }: { canEdit: boolean; say: (m: string) =
             </Table>
           </div>
         )}
+        <Pager
+          page={page}
+          shown={rows.length}
+          total={total}
+          onPage={(n) => {
+            setBusyPage(true)
+            setPage(n)
+          }}
+          busy={busyPage}
+          note="الترتيب بيتحرّك جوه الصفحة — لنقل مجال لصفحة تانية غيّر ترتيبه من الترقيم."
+        />
         <Note>
           المفتاح (key) ثابت بعد الإضافة لأن الكود والملفات بيشاوروا عليه. المجال اللي مش
           شغّال بيختفي من الاختيارات بس بيفضل على الأعضاء اللي اختاروه قبل كده.
@@ -880,34 +916,63 @@ function RatingTag({ value }: { value: number | null }) {
 
 function VenuesTab({ canEdit, say }: { canEdit: boolean; say: (m: string) => void }) {
   const [rows, setRows] = useState<VenueRow[]>([])
+  const [total, setTotal] = useState<number | null>(null)
+  const [sums, setSums] = useState<{ active: number; low: number } | null>(null)
+  const [page, setPage] = useState(0)
+  const [busyPage, setBusyPage] = useState(false)
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [openId, setOpenId] = useState<string | null>(null)
   const [adding, setAdding] = useState(false)
 
   const reload = useCallback(async () => {
-    const { data, error } = await supabase()
+    const { data, error, count } = await supabase()
       .from('venues')
-      .select(VENUE_SELECT)
+      .select(VENUE_SELECT, { count: 'exact' })
       .in('kind', ['cafe_work', 'coworking'])
       .order('name')
+      .range(page * ADMIN_PAGE_SIZE, page * ADMIN_PAGE_SIZE + ADMIN_PAGE_SIZE - 1)
     setLoading(false)
+    setBusyPage(false)
     if (error) {
       setLoadError(error.message)
       return
     }
     setLoadError(null)
     setRows(((data ?? []) as unknown as VenueRaw[]).map(normalizeVenue))
+    setTotal(count ?? null)
+  }, [page])
+
+  /** الأرقام اللي فوق — عدّ من القاعدة مش من الصفحة المحمّلة */
+  const loadSums = useCallback(async () => {
+    const db = supabase()
+    const [on, low] = await Promise.all([
+      db
+        .from('venues')
+        .select('id', { count: 'exact', head: true })
+        .in('kind', ['cafe_work', 'coworking'])
+        .eq('is_active', true),
+      db
+        .from('venues')
+        .select('id', { count: 'exact', head: true })
+        .in('kind', ['cafe_work', 'coworking'])
+        .lt('rating_avg', RATING_ALERT),
+    ])
+    setSums({ active: on.count ?? 0, low: low.count ?? 0 })
   }, [])
 
   useEffect(() => {
     reload()
   }, [reload])
 
+  useEffect(() => {
+    loadSums()
+  }, [loadSums])
+
   const open = useMemo(() => rows.find((r) => r.id === openId) ?? null, [rows, openId])
 
   async function done(msg: string) {
-    await reload()
+    await Promise.all([reload(), loadSums()])
     const ok = await revalidateSite()
     say(ok ? `${msg} ✓ وبان في الموقع` : `${msg} ✓ — هيبان خلال أقل من دقيقة`)
   }
@@ -957,11 +1022,11 @@ function VenuesTab({ canEdit, say }: { canEdit: boolean; say: (m: string) => voi
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="font-display text-18 font-black">{rows.length} مكان</span>
+        <span className="font-display text-18 font-black">
+          {total === null ? '…' : total} مكان
+        </span>
         <span className="font-body text-13" style={{ color: 'var(--muted)' }}>
-          {rows.filter((r) => r.is_active).length} شغّال ·{' '}
-          {rows.filter((r) => r.rating_avg !== null && r.rating_avg < RATING_ALERT).length} تقييمه
-          نازل
+          {sums ? sums.active : '…'} شغّال · {sums ? sums.low : '…'} تقييمه نازل
         </span>
         {!canEdit && (
           <span className="font-body text-13" style={{ color: 'var(--muted)' }}>
@@ -1035,6 +1100,18 @@ function VenuesTab({ canEdit, say }: { canEdit: boolean; say: (m: string) => voi
             </Table>
           </div>
         )}
+
+        <Pager
+          page={page}
+          shown={rows.length}
+          total={total}
+          onPage={(n) => {
+            setBusyPage(true)
+            setOpenId(null)
+            setPage(n)
+          }}
+          busy={busyPage}
+        />
       </Card>
 
       {open && (
@@ -1693,6 +1770,10 @@ const monthKey = (iso: string) => {
 
 function PassesTab({ canEdit, say }: { canEdit: boolean; say: (m: string) => void }) {
   const [rows, setRows] = useState<PassAdminRow[]>([])
+  const [total, setTotal] = useState<number | null>(null)
+  const [page, setPage] = useState(0)
+  const [busyPage, setBusyPage] = useState(false)
+  const [sales, setSales] = useState<[string, { n: number; total: number }][]>([])
   const [pays, setPays] = useState<Record<string, PassPayRow>>({})
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -1705,13 +1786,20 @@ function PassesTab({ canEdit, say }: { canEdit: boolean; say: (m: string) => voi
   const [note, setNote] = useState('')
   const [adding, setAdding] = useState(false)
 
+  /** صفحة الكروت — فلتر الحالة بيتنفّذ في القاعدة */
   const reload = useCallback(async () => {
-    const { data, error } = await supabase()
+    let query = supabase()
       .from('work_passes')
-      .select(PASS_COLS_ADMIN)
+      .select(PASS_COLS_ADMIN, { count: 'exact' })
       .order('created_at', { ascending: false })
-      .limit(400)
+    if (filter !== 'all') query = query.eq('status', filter)
+
+    const { data, error, count } = await query.range(
+      page * ADMIN_PAGE_SIZE,
+      page * ADMIN_PAGE_SIZE + ADMIN_PAGE_SIZE - 1
+    )
     setLoading(false)
+    setBusyPage(false)
     if (error) {
       setLoadError(error.message)
       return
@@ -1722,9 +1810,9 @@ function PassesTab({ canEdit, say }: { canEdit: boolean; say: (m: string) => voi
       profiles: Array.isArray(r.profiles) ? (r.profiles[0] ?? null) : r.profiles,
     }))
     setRows(list)
+    setTotal(count ?? null)
 
-    // الدفعات بتلزمنا للاعتماد بس — فبنجيب دفعات الكروت المعلّقة لوحدها
-    // بدل ما نحشر 400 معرّف في رابط GET واحد.
+    // الدفعات بتلزمنا للاعتماد بس — دفعات المعلّق في الصفحة دي بس
     const ids = list.filter((r) => r.status === 'pending').map((r) => r.id)
     if (ids.length) {
       const { data: pd } = await supabase()
@@ -1737,29 +1825,46 @@ function PassesTab({ canEdit, say }: { canEdit: boolean; say: (m: string) => voi
     } else {
       setPays({})
     }
+  }, [filter, page])
+
+  /**
+   * مبيعات الشهر — مسح مستقل عن الصفحة، وإلا الأرقام تبقى «مبيعات الصفحة دي»
+   * وهي كذبة. الكروت المدفوعة بس، وبسقف ADMIN_SCAN_MAX زي باقي أرقام اللوحة.
+   */
+  const loadSales = useCallback(async () => {
+    const { data } = await supabase()
+      .from('work_passes')
+      .select('status, price_paid, starts_at, created_at')
+      .in('status', ['active', 'used_up', 'expired', 'refunded'])
+      .gt('price_paid', 0)
+      .order('created_at', { ascending: false })
+      .range(0, ADMIN_SCAN_MAX - 1)
+    const out = new Map<string, { n: number; total: number }>()
+    for (const r of (data ?? []) as {
+      price_paid: number
+      starts_at: string | null
+      created_at: string
+    }[]) {
+      const k = monthKey(r.starts_at ?? r.created_at)
+      const cur = out.get(k) ?? { n: 0, total: 0 }
+      out.set(k, { n: cur.n + 1, total: cur.total + r.price_paid })
+    }
+    setSales(
+      Array.from(out.entries())
+        .sort((a, b) => b[0].localeCompare(a[0]))
+        .slice(0, 6)
+    )
   }, [])
 
   useEffect(() => {
     reload()
   }, [reload])
 
-  const shown = useMemo(
-    () => (filter === 'all' ? rows : rows.filter((r) => r.status === filter)),
-    [rows, filter]
-  )
+  useEffect(() => {
+    loadSales()
+  }, [loadSales])
 
-  /** مبيعات الشهر — الكروت اللي اتدفعت فعلًا بس (المعلّق مش مبيعة) */
-  const sales = useMemo(() => {
-    const out = new Map<string, { n: number; total: number }>()
-    for (const r of rows) {
-      if (!['active', 'used_up', 'expired', 'refunded'].includes(r.status)) continue
-      if (r.price_paid <= 0) continue
-      const k = monthKey(r.starts_at ?? r.created_at)
-      const cur = out.get(k) ?? { n: 0, total: 0 }
-      out.set(k, { n: cur.n + 1, total: cur.total + r.price_paid })
-    }
-    return Array.from(out.entries()).sort((a, b) => b[0].localeCompare(a[0])).slice(0, 6)
-  }, [rows])
+  const shown = rows
 
   /** الاعتماد بيمشي من fn_approve_transfer بس — هي اللي بتنادي fn_activate_pass */
   async function review(r: PassAdminRow, ok: boolean) {
@@ -1784,7 +1889,7 @@ function PassesTab({ canEdit, say }: { canEdit: boolean; say: (m: string) => voi
     })
     setBusy((b) => ({ ...b, [r.id]: false }))
     if (error) return say(`مقدرناش: ${error.message}`)
-    await reload()
+    await Promise.all([reload(), loadSales()])
     say(ok ? `الكارت اتفعّل لـ ${who} ✓` : `الكارت اترفض — و${who} هيوصله السبب`)
   }
 
@@ -1838,7 +1943,7 @@ function PassesTab({ canEdit, say }: { canEdit: boolean; say: (m: string) => voi
     if (rejected(data)) return say('مااتضافش — القاعدة رفضت، محتاج صلاحية payments.review')
     setPhone('')
     setNote('')
-    await reload()
+    await Promise.all([reload(), loadSales()])
     say(`الكارت اتضاف لـ ${person.first_name?.trim() || e164} ✓`)
   }
 
@@ -1871,10 +1976,13 @@ function PassesTab({ canEdit, say }: { canEdit: boolean; say: (m: string) => voi
             label="الحالة"
             value={filter}
             options={[{ value: 'all', label: 'الكل' }, ...PASS_STATUS]}
-            onChange={setFilter}
+            onChange={(v) => {
+              setPage(0)
+              setFilter(v)
+            }}
           />
           <div className="font-body text-14" style={{ color: 'var(--muted)' }}>
-            {shown.length} كارت
+            {total === null ? '…' : total} كارت
           </div>
         </div>
 
@@ -1944,6 +2052,17 @@ function PassesTab({ canEdit, say }: { canEdit: boolean; say: (m: string) => voi
               })}
             </Table>
           )}
+
+          <Pager
+            page={page}
+            shown={rows.length}
+            total={total}
+            onPage={(n) => {
+              setBusyPage(true)
+              setPage(n)
+            }}
+            busy={busyPage}
+          />
         </div>
       </Card>
 
@@ -2013,6 +2132,9 @@ const one = <T,>(v: T[] | T | null): T | null => (Array.isArray(v) ? (v[0] ?? nu
 
 function RecurringTab({ canEdit, say }: { canEdit: boolean; say: (m: string) => void }) {
   const [rows, setRows] = useState<RecurringAdminRow[]>([])
+  const [total, setTotal] = useState<number | null>(null)
+  const [page, setPage] = useState(0)
+  const [busyPage, setBusyPage] = useState(false)
   const [venueNames, setVenueNames] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -2021,15 +2143,18 @@ function RecurringTab({ canEdit, say }: { canEdit: boolean; say: (m: string) => 
   const [running, setRunning] = useState(false)
 
   const reload = useCallback(async () => {
-    const [{ data, error }, { data: vs }] = await Promise.all([
-      supabase()
-        .from('recurring_bookings')
-        .select(RECURRING_COLS_ADMIN)
-        .order('weekday')
-        .limit(400),
-      supabase().from('venues').select('id, name'),
-    ])
+    let query = supabase()
+      .from('recurring_bookings')
+      .select(RECURRING_COLS_ADMIN, { count: 'exact' })
+      .order('weekday')
+    if (filter !== 'all') query = query.eq('status', filter)
+
+    const { data, error, count } = await query.range(
+      page * ADMIN_PAGE_SIZE,
+      page * ADMIN_PAGE_SIZE + ADMIN_PAGE_SIZE - 1
+    )
     setLoading(false)
+    setBusyPage(false)
     if (error) {
       setLoadError(error.message)
       return
@@ -2042,8 +2167,18 @@ function RecurringTab({ canEdit, say }: { canEdit: boolean; say: (m: string) => 
         sbota_templates: one(r.sbota_templates),
       }))
     )
+    setTotal(count ?? null)
+  }, [filter, page])
+
+  /** فهرس أسماء الأماكن — أعمدة قليلة، مرة واحدة، بسقف */
+  const loadVenues = useCallback(async () => {
+    const { data } = await supabase()
+      .from('venues')
+      .select('id, name')
+      .order('name')
+      .range(0, ADMIN_SCAN_MAX - 1)
     const map: Record<string, string> = {}
-    for (const v of (vs ?? []) as { id: string; name: string }[]) map[v.id] = v.name
+    for (const v of (data ?? []) as { id: string; name: string }[]) map[v.id] = v.name
     setVenueNames(map)
   }, [])
 
@@ -2051,10 +2186,11 @@ function RecurringTab({ canEdit, say }: { canEdit: boolean; say: (m: string) => 
     reload()
   }, [reload])
 
-  const shown = useMemo(
-    () => (filter === 'all' ? rows : rows.filter((r) => r.status === filter)),
-    [rows, filter]
-  )
+  useEffect(() => {
+    loadVenues()
+  }, [loadVenues])
+
+  const shown = rows
 
   async function patch(r: RecurringAdminRow, p: Record<string, unknown>, msg: string) {
     if (!canEdit) return say('التعديل هنا محتاج صلاحية bookings.edit.')
@@ -2125,10 +2261,13 @@ function RecurringTab({ canEdit, say }: { canEdit: boolean; say: (m: string) => 
               { value: 'paused', label: 'موقوف' },
               { value: 'cancelled', label: 'ملغي' },
             ]}
-            onChange={setFilter}
+            onChange={(v) => {
+              setPage(0)
+              setFilter(v)
+            }}
           />
           <div className="font-body text-14" style={{ color: 'var(--muted)' }}>
-            {shown.length} يوم ثابت
+            {total === null ? '…' : total} يوم ثابت
           </div>
           <div className="ms-auto flex flex-wrap gap-2">
             <Btn onClick={reload}>حدّث</Btn>
@@ -2216,6 +2355,17 @@ function RecurringTab({ canEdit, say }: { canEdit: boolean; say: (m: string) => 
               })}
             </Table>
           )}
+
+          <Pager
+            page={page}
+            shown={rows.length}
+            total={total}
+            onPage={(n) => {
+              setBusyPage(true)
+              setPage(n)
+            }}
+            busy={busyPage}
+          />
         </div>
       </Card>
 
@@ -2728,34 +2878,56 @@ function MetricsTab({ canRead, say }: { canRead: boolean; say: (m: string) => vo
 
 function LeadsTab({ canRead, say }: { canRead: boolean; say: (m: string) => void }) {
   const [rows, setRows] = useState<LeadRow[]>([])
+  const [total, setTotal] = useState<number | null>(null)
+  const [page, setPage] = useState(0)
+  const [busyPage, setBusyPage] = useState(false)
+  const [counts, setCounts] = useState<Record<string, number> | null>(null)
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [filter, setFilter] = useState('all')
   const [busy, setBusy] = useState<Record<string, boolean>>({})
 
+  /** الفلتر والترقيم في القاعدة — getLeadsPage في src/lib/work.ts */
   const reload = useCallback(async () => {
-    setLoading(true)
-    const res = await getLeads()
+    const res = await getLeadsPage({ page, pageSize: ADMIN_PAGE_SIZE, status: filter })
     setLoading(false)
+    setBusyPage(false)
     setLoadError(res.error)
     setRows(res.rows)
+    setTotal(res.total)
+  }, [page, filter])
+
+  /** عدّاد كل حالة — من القاعدة، مش من الصفحة المحمّلة */
+  const loadCounts = useCallback(async () => {
+    const db = supabase()
+    const res = await Promise.all(
+      LEAD_STATUS.map((st) =>
+        db.from('leads').select('id', { count: 'exact', head: true }).eq('status', st.value)
+      )
+    )
+    const out: Record<string, number> = {}
+    LEAD_STATUS.forEach((st, i) => {
+      out[st.value] = res[i]?.count ?? 0
+    })
+    setCounts(out)
   }, [])
 
   useEffect(() => {
     reload()
   }, [reload])
 
-  const shown = useMemo(
-    () => (filter === 'all' ? rows : rows.filter((r) => r.status === filter)),
-    [rows, filter]
-  )
+  useEffect(() => {
+    loadCounts()
+  }, [loadCounts])
+
+  const shown = rows
 
   async function patch(r: LeadRow, p: { status?: LeadStatusCode; adminNote?: string | null }, msg: string) {
     setBusy((b) => ({ ...b, [r.id]: true }))
     const res = await updateLead(r.id, p)
     setBusy((b) => ({ ...b, [r.id]: false }))
     if (!res.ok) return say(`مقدرناش نحفظ: ${res.error}`)
-    await reload()
+    await Promise.all([reload(), loadCounts()])
     say(msg)
   }
 
@@ -2788,10 +2960,13 @@ function LeadsTab({ canRead, say }: { canRead: boolean; say: (m: string) => void
             label="الحالة"
             value={filter}
             options={[{ value: 'all', label: 'الكل' }, ...LEAD_STATUS]}
-            onChange={setFilter}
+            onChange={(v) => {
+              setPage(0)
+              setFilter(v)
+            }}
           />
           <div className="font-body text-14" style={{ color: 'var(--muted)' }}>
-            {shown.length} طلب
+            {total === null ? '…' : total} طلب
           </div>
           <div className="ms-auto pb-1">
             <Btn onClick={reload}>حدّث</Btn>
@@ -2803,7 +2978,7 @@ function LeadsTab({ canRead, say }: { canRead: boolean; say: (m: string) => void
             <Stat
               key={s.value}
               label={s.label}
-              value={String(rows.filter((r) => r.status === s.value).length)}
+              value={counts ? String(counts[s.value] ?? 0) : '…'}
             />
           ))}
         </div>
@@ -2811,7 +2986,7 @@ function LeadsTab({ canRead, say }: { canRead: boolean; say: (m: string) => void
         <div className="mt-4">
           {shown.length === 0 ? (
             <Empty>
-              {rows.length === 0
+              {filter === 'all'
                 ? 'مفيش طلبات شركات لسه — النموذج في صفحة /shoghl.'
                 : 'مفيش طلبات في الحالة دي.'}
             </Empty>
@@ -2876,6 +3051,17 @@ function LeadsTab({ canRead, say }: { canRead: boolean; say: (m: string) => void
               ))}
             </Table>
           )}
+
+          <Pager
+            page={page}
+            shown={rows.length}
+            total={total}
+            onPage={(n) => {
+              setBusyPage(true)
+              setPage(n)
+            }}
+            busy={busyPage}
+          />
         </div>
       </Card>
 

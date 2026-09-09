@@ -3,10 +3,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { AdminShell } from '@/components/AdminShell'
 import { supabase } from '@/lib/supabase'
+import { rejected } from '@/lib/admin'
 import {
   Card,
   Btn,
   SelectField,
+  TextField,
+  Toggle,
   Table,
   Empty,
   Loading,
@@ -23,6 +26,23 @@ import {
  * جوه إطار فاضي. مش خريطة حقيقية، بس بيوريك لو مكان واقع في منطقة غلط
  * أو الإحداثيات متبدّلة.
  */
+
+/**
+ * كتلة من كتل الخريطة العامة — جدول `map_areas` (هجرة 0066).
+ * الهندسة (x/y/w/h/r/lx/ly) مساحة رسم SVG بمقاس 400×520، والمحرّر هنا
+ * **مش** بيلمسها عن قصد — شوف الملاحظة فوق قسم «كتل الخريطة».
+ */
+interface AreaRow {
+  key: string
+  label_ar: string
+  area: string | null
+  match_labels: string[] | null
+  is_far: boolean
+  note_ar: string | null
+  is_mystery: boolean
+  is_active: boolean
+  sort: number
+}
 
 interface VenueRow {
   id: string
@@ -86,6 +106,7 @@ export default function AdminMapPage() {
 
 function MapEditor() {
   const [rows, setRows] = useState<VenueRow[] | null>(null)
+  const [areas, setAreas] = useState<AreaRow[]>([])
   const [counts, setCounts] = useState<Record<string, number>>({})
   const [areaFilter, setAreaFilter] = useState('all')
   const [selected, setSelected] = useState<string | null>(null)
@@ -93,15 +114,20 @@ function MapEditor() {
 
   const reload = useCallback(async () => {
     const db = supabase()
-    const [v, s] = await Promise.all([
+    const [v, s, a] = await Promise.all([
       db
         .from('venues')
         .select('id, name, kind, area, area_label_ar, address, map_lat, map_lng, is_active')
         .order('area')
         .order('name'),
       db.from('sbotat').select('venue_id').limit(5000),
+      db
+        .from('map_areas')
+        .select('key, label_ar, area, match_labels, is_far, note_ar, is_mystery, is_active, sort')
+        .order('sort'),
     ])
     setRows((v.data ?? []) as VenueRow[])
+    setAreas((a.data ?? []) as AreaRow[])
     const c: Record<string, number> = {}
     for (const row of (s.data ?? []) as { venue_id: string | null }[]) {
       if (row.venue_id) c[row.venue_id] = (c[row.venue_id] ?? 0) + 1
@@ -146,6 +172,24 @@ function MapEditor() {
       return flash('القاعدة ما قبلتش التعديل — يظهر إن صلاحيتك ما بتسمحش.')
     await reload()
     flash('اتحفظ ✓')
+  }
+
+  /**
+   * حفظ كتلة خريطة. نفس حارس الكتابة في باقي اللوحة: `.select('key')` ثم
+   * `rejected()` — المصفوفة الفاضية معناها RLS رفضت (`map_areas_write`
+   * محتاجة صلاحية `map.edit`)، مش إن الحفظ نجح.
+   */
+  async function patchArea(key: string, p: Partial<AreaRow>) {
+    const { data, error } = await supabase()
+      .from('map_areas')
+      .update(p)
+      .eq('key', key)
+      .select('key')
+    if (error) return flash(`مقدرناش نحفظ الكتلة: ${error.message}`)
+    if (rejected(data))
+      return flash('القاعدة رفضت التعديل — محتاج صلاحية map.edit.')
+    setAreas((list) => list.map((r) => (r.key === key ? { ...r, ...p } : r)))
+    flash('الكتلة اتحفظت ✓ — الخريطة العامة هتشوفها على طول.')
   }
 
   /** بيغيّر اسم المنطقة العربي على كل أماكن المنطقة مرة واحدة */
@@ -292,6 +336,97 @@ function MapEditor() {
             >
               {a.label}
             </span>
+          ))}
+        </div>
+      </Card>
+
+      {/* كتل الخريطة العامة — map_areas */}
+      <Card
+        title="كتل الخريطة العامة"
+        hint="ده اللي الأعضاء بيشوفوه في /map. الاسم والملاحظة و«بعيدة» بتتحفظ لما تسيب الخانة."
+      >
+        <div className="mt-2 font-body text-13" style={{ color: 'var(--muted)' }}>
+          الهندسة (مكان الكتلة ومقاسها في الرسم) مش بتتعدّل من هنا عن قصد — دي
+          إحداثيات SVG في مساحة 400×520 وتغييرها بالأرقام بيبوّظ الرسم بسهولة.
+          لو محتاج تحرّك كتلة، اعملها في هجرة على <code>map_areas</code>.
+          الكتلة المقفولة بتختفي من الخريطة العامة خالص.
+        </div>
+
+        <div className="mt-4 flex flex-col gap-3">
+          {areas.length === 0 && (
+            <Empty>
+              مفيش كتل. يعني هجرة 0066 لسه ما اتلزقتش — الخريطة بتقرا من الاحتياطي
+              في الكود لحد ما تتلزق.
+            </Empty>
+          )}
+
+          {areas.map((a) => (
+            <div
+              key={a.key}
+              className="rounded-16 p-4"
+              style={{
+                background: 'var(--bg)',
+                opacity: a.is_active ? 1 : 0.6,
+                border: '3px solid transparent',
+              }}
+            >
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="font-display text-18 font-black">{a.label_ar}</span>
+                <Tag>{a.key}</Tag>
+                {a.is_mystery && <Tag color="#2B4CFF">نقطة الغامضة</Tag>}
+                {a.is_far && <Tag color="#D9A441">بعيدة</Tag>}
+                {!a.is_active && <Tag>مقفولة</Tag>}
+                {a.area && (
+                  <Tag color={AREA_COLOR[a.area]}>
+                    {AREAS.find((x) => x.value === a.area)?.label ?? a.area}
+                  </Tag>
+                )}
+                <span className="ms-auto font-body text-12" style={{ color: 'var(--muted)' }}>
+                  {(a.match_labels ?? []).length
+                    ? `بتلم سبوطات: ${(a.match_labels ?? []).join(' · ')}`
+                    : 'مش مربوطة بأسماء مناطق'}
+                </span>
+              </div>
+
+              <div className="mt-3 grid gap-3 md:grid-cols-2">
+                <TextField
+                  label="الاسم المعروض"
+                  value={a.label_ar}
+                  hint="ده النص اللي بيتكتب جوه الكتلة على الخريطة."
+                  onSave={(v) => {
+                    const t = v.trim()
+                    if (!t) return flash('الاسم ما ينفعش يفضل فاضي.')
+                    if (t !== a.label_ar) patchArea(a.key, { label_ar: t })
+                  }}
+                />
+
+                <TextField
+                  label="الملاحظة جنب الاسم"
+                  value={a.note_ar ?? ''}
+                  placeholder="مثلًا: ساعتين"
+                  hint="بتظهر تحت الاسم على الخريطة. سيبها فاضية تختفي."
+                  onSave={(v) => {
+                    const t = v.trim()
+                    if (t !== (a.note_ar ?? '')) patchArea(a.key, { note_ar: t || null })
+                  }}
+                />
+              </div>
+
+              <div className="mt-3 flex flex-wrap gap-5">
+                <Toggle
+                  label="بعيدة عن القاهرة"
+                  value={a.is_far}
+                  hint="بتتحط عليها علامة «بعيدة» في الخريطة."
+                  onChange={(v) => patchArea(a.key, { is_far: v })}
+                />
+                <Toggle
+                  label="ظاهرة للأعضاء"
+                  value={a.is_active}
+                  hint="اقفلها علشان تختفي من /map من غير ما تتمسح."
+                  onChange={(v) => patchArea(a.key, { is_active: v })}
+                />
+              </div>
+            </div>
           ))}
         </div>
       </Card>

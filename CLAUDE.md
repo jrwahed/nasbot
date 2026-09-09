@@ -164,11 +164,17 @@ psql -h 127.0.0.1 -p 5433 -U postgres -d nasbot --single-transaction -f WORK_MIG
 - 🔴 **مراجعة شاملة عاملة `REVIEW.md`** (+ 4 ملفات تفصيلية) لقت 150 نتيجة، 34 حمرا. اقرأها قبل ما تكمّل أي حاجة.
 - 🟢 **الدفعة الأولى اتلزقت على القاعدة** (`WORK_MIGRATION_5.sql`) — أحمر الأمان والفلوس والقاعدة كله واقع.
 - 🟡 **الدفعة التانية في الكود ومستنية اللزق**: `WORK_MIGRATION_6.sql` (`0065` قوايم التسجيل · `0066` كتل الخريطة · `0067` اختبارها · `0070` تخمين رمز الدخول S7). لحد ما تتلزق، **تخمين الرمز بالتوازي لسه ممكن على الإنتاج** (المسار بيرجع للطريق القديم لوحده — أضعف بس مش مقفول).
-- ⚠ **قبل توزيع اللينك:** (١) الزق `WORK_MIGRATION_5.sql` وشغّل `test_review_fixes()` و`test_caller_guards()` — كلهم لازم «نجح». (٢) رقم فودافون كاش/إنستا باي في `settings` لسه وهمي. (٣) `CRON_SECRET` اتعرض في محادثة — يتغيّر (وهو كمان الـpepper الاحتياطي لهاشات OTP والأدمن).
-- 📌 **باقي من المراجعة:** `A2` مفاتيح المزايا لسه ديكور · `maintenance.allow_roles` بتتعدّل ومحدش بيقراها · `/admin/map` مفيهوش محرّر لـ`map_areas` · `activityToDb` بيرجّع «سباحة» لأي نشاط جديد فـ`skill_activities` ما ينفعش تكبر · `/admin/matching`·`captains`·`templates`·`shoghl` لسه من غير ترقيم.
+- 🟡 **الدفعة التالتة في الكود ومستنية اللزق**: `WORK_MIGRATION_7.sql` (`0075` بحث نشاطات المهارة + رجوع «عجل» + حارس الـenum · `0076` `test_last_review_items()` · `0077` نصوص شاشة «مقفول»). **الترتيب: ٥ ← ٦ ← ٧** لأن `0075` بيعمل `create or replace` لـ`test_public_lists()` بتاعة `0067`.
+- ⚠ **قبل توزيع اللينك:** (١) الزق `WORK_MIGRATION_5.sql` وشغّل `test_review_fixes()` و`test_caller_guards()` و`test_public_lists()` و`test_last_review_items()` — كلهم لازم «نجح». (٢) رقم فودافون كاش/إنستا باي في `settings` لسه وهمي. (٣) `CRON_SECRET` اتعرض في محادثة — يتغيّر (وهو كمان الـpepper الاحتياطي لهاشات OTP والأدمن).
+- ✅ **باقي المراجعة اتقفل (كله في الكود، شغّال من غير لزق):**
+  - `A2` مفاتيح المزايا بقت بتتقرا فعلًا: `src/lib/flags.ts` (نفس نمط `copy.ts`، وسم `flags` **و** `copy` علشان `revalidateSite()` تبطّلها كمان) → `FlagsProvider` في `layout.tsx` → `<FeatureGate flag="…">` على `/game` · `/game/result` · `/map` · `/s/mystery` · `/shoghl/*` (من الـlayout) · الشاتين · `/s/[slug]/pay`، و`useFlag()` لكرت الإحالة في `/me` وزرار الحجز في `/s/[slug]`. الاحتياطي في `src/data/flags-fallback.ts` **مفتوح دايمًا**.
+  - `maintenance.allow_roles` بقى ليها معنى: `src/middleware.ts` بيتأكد من جلسة سوبابيس + صف `admin_users` نشط + الدور جوه `allow_roles` (والقراية بتوكن العضو، يعني RLS هي اللي بتقرر). قبل كده أي حد يكتب كوكي `nb_admin` كان بيعدّي. `/admin/*` سايبينه مفتوح وقت الصيانة عن قصد — محمي أصلًا بـTOTP و`requirePermission`، وقفله كان هيخلق خطر قفل على المالك.
+  - `/admin/map` فيه قسم «كتل الخريطة العامة» بيعدّل `map_areas` (الاسم · الملاحظة · «بعيدة» · الظهور) بحارس `rejected()`. الهندسة (x/y/w/h/r/lx/ly) **مش** بتتعدّل من اللوحة عن قصد.
+  - `activityToDb` بقى بحث حقيقي من `skill_activities` (`setActivityMap` في `map-db.ts` + `loadActivityMap` في `api.ts`)، والمجهول بيرجّع `null` وبيتخطّى بدل ما يتحفظ «سباحة».
+  - ترقيم من القاعدة (`.range()` + `{ count: 'exact' }`) في `/admin/matching` · `captains` · `templates` · `shoghl`، والعدّادات فوق الجداول بقت `head: true` counts.
 
 ### ملفات التوثيق
-`README.md` · `DB_PLAN.md` · `ADMIN_PLAN.md` · `WORK_PLAN.md` · `DESIGN_TOKENS.md` · `COPY.md` · `ADMIN_GUIDE.md` · `RUNBOOK.md` · `DEPLOY_CHECKLIST.md` · **`REVIEW*.md`** (المراجعة) · ملفات `WORK_MIGRATION_*.sql` و`WORK_CRON.sql` (تتلزق في SQL Editor).
+`README.md` · `DB_PLAN.md` · `ADMIN_PLAN.md` · `WORK_PLAN.md` · `DESIGN_TOKENS.md` · `COPY.md` · `ADMIN_GUIDE.md` · `RUNBOOK.md` · `DEPLOY_CHECKLIST.md` · **`REVIEW*.md`** (المراجعة) · ملفات `WORK_MIGRATION_*.sql` (لحد `_7`) و`WORK_CRON.sql` (تتلزق في SQL Editor).
 
 ---
 

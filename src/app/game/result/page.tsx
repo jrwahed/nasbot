@@ -11,12 +11,13 @@ import { track } from '@/lib/track'
 import { isLoggedIn, getSession } from '@/lib/session'
 import type { Persona, Sbota } from '@/types'
 import { useT } from '@/components/CopyProvider'
+import { FeatureGate } from '@/components/FlagsProvider'
 
 /**
  * نتيجة اللعبة — بطاقة 9:16 بتتحفظ صورة.
  * التصدير بـ html-to-image، والمشاركة عبر Web Share لو متاحة.
  */
-export default function ResultPage() {
+function ResultPage() {
   const t = useT()
   const router = useRouter()
   const cardRef = useRef<HTMLDivElement>(null)
@@ -117,5 +118,17 @@ export default function ResultPage() {
         </SecondaryButton>
       </div>
     </main>
+  )
+}
+
+/**
+ * القفل من اللوحة: مفتاح «game» في /admin/settings ← مفاتيح المزايا.
+ * مقفول = شاشة «مقفول» برسالة المالك بدل الصفحة (مراجعة A2).
+ */
+export default function ResultPageRoute() {
+  return (
+    <FeatureGate flag="game">
+      <ResultPage />
+    </FeatureGate>
   )
 }

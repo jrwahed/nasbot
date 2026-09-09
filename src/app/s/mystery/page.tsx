@@ -11,12 +11,13 @@ import { track } from '@/lib/track'
 import { isLoggedIn } from '@/lib/session'
 import type { Clue } from '@/types'
 import { useT } from '@/components/CopyProvider'
+import { FeatureGate } from '@/components/FlagsProvider'
 
 /**
  * السبوطة الغامضة — خلفية كوبالت وعلامة استفهام ضخمة بدل الصور.
  * الزر معطّل لو المستخدم راح أقل من سبوطتين.
  */
-export default function MysteryPage() {
+function MysteryPage() {
   const t = useT()
   const router = useRouter()
   const [clues, setClues] = useState<Clue[]>([])
@@ -106,5 +107,17 @@ export default function MysteryPage() {
         </div>
       </div>
     </main>
+  )
+}
+
+/**
+ * القفل من اللوحة: مفتاح «mystery» في /admin/settings ← مفاتيح المزايا.
+ * مقفول = شاشة «مقفول» برسالة المالك بدل الصفحة (مراجعة A2).
+ */
+export default function MysteryPageRoute() {
+  return (
+    <FeatureGate flag="mystery">
+      <MysteryPage />
+    </FeatureGate>
   )
 }

@@ -5,13 +5,14 @@ import { InnerHeader } from '@/components/Header'
 import { ChatRoom } from '@/components/ChatRoom'
 import { getSession } from '@/lib/session'
 import { useT } from '@/components/CopyProvider'
+import { FeatureGate } from '@/components/FlagsProvider'
 
 /**
  * شات السبوطة — غرفة لكل حجز.
  * بيتفتح مع الكشف وبيتقفل بعد السبوطة بيومين ← قراءة فقط.
  * مفيش شات خاص هنا — الخاص من /me بس بعد الاختيار المتبادل.
  */
-export default function ChatPage() {
+function ChatPage() {
   const t = useT()
   const params = useParams<{ bookingId: string }>()
   const me = getSession()?.firstName ?? t('chat.label.2')
@@ -21,5 +22,17 @@ export default function ChatPage() {
       <InnerHeader back={t('chat.label.1')} href={`/my/${params.bookingId}`} padded={false} />
       <ChatRoom bookingId={params.bookingId} me={me} />
     </main>
+  )
+}
+
+/**
+ * القفل من اللوحة: مفتاح «chat» في /admin/settings ← مفاتيح المزايا.
+ * مقفول = شاشة «مقفول» برسالة المالك بدل الصفحة (مراجعة A2).
+ */
+export default function ChatPageRoute() {
+  return (
+    <FeatureGate flag="chat">
+      <ChatPage />
+    </FeatureGate>
   )
 }
