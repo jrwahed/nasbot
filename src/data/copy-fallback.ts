@@ -42,7 +42,7 @@ export const copyFallback: Record<string, string> = {
   "result.text.2": "ثانية واحدة…",
   "result.label.3": "مقدرناش نحفظ الصورة. جرب تاني.",
   "result.label.4": "البطاقة اتحفظت.",
-  "join.text.1": "مفيش باسورد. رقمك هو دخولك.",
+  "join.text.1": "الإيميل والباسورد دول دخولك بعد كده.",
   "join.text.2": "كمّل الحجز",
   "join.text.3": "موافق إن بياناتي تتخزن علشان المطابقة والحجز",
   "join.text.4": "القواعد الخمس",
@@ -640,4 +640,8 @@ export const copyFallback: Record<string, string> = {
   "shoghl.me.collab.metWork": "اتقابلنا في سبوطة شغل",
   "shoghl.me.collab.dm": "ابعتله",
   "shoghl.me.collab.opening": "ثانية…",
+  "error.title": "حصلت حاجة غلط",
+  "error.body": "مش منك — عندنا حاجة وقعت. جرّب تاني، ولو فضلت كده كلّمنا.",
+  "error.retry": "جرّب تاني",
+  "error.mark": "حصل غلط",
 }

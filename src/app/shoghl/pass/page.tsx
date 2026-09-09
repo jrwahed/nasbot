@@ -8,6 +8,8 @@ import { Footer } from '@/components/Footer'
 import { Sticker } from '@/components/Sticker'
 import { PrimaryButton } from '@/components/Buttons'
 import { PassCard } from '@/components/work/PassCard'
+import { GuaranteeBox } from '@/components/WhoBooked'
+import { guaranteeText } from '@/data/lists'
 import { getWorkSettings } from '@/lib/api'
 import {
   EMPTY_PASS_STATE,
@@ -379,6 +381,13 @@ export default function PassPage() {
                   </button>
                 )
               })}
+            </div>
+
+            {/* U5: الصفحة دي كانت الوحيدة اللي فيها زرار دفع من غير صندوق
+                الضمان — الباقي (سبوطة عامة · سبوطة شغل · مسار دفع الشغل)
+                كلهم بيعرضوه قبل الزرار. */}
+            <div className="mt-4">
+              <GuaranteeBox text={guaranteeText} />
             </div>
 
             <div className="mt-4">

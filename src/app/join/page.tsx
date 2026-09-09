@@ -749,6 +749,8 @@ function JoinForm() {
           <PrimaryButton size="lg" className="w-full" onClick={submit} loading={submitting} disabled={!ready && hasSupabase}>
             {editMode ? t('profile.edit.save') : t('join.text.2')}
           </PrimaryButton>
+          {/* U3: كان مكتوب هنا «مفيش باسورد. رقمك هو دخولك.» وفوقه خانة باسورد
+              — تناقض صريح. الدخول بقى بالإيميل والباسورد، فالسطر بيقول ده. */}
           <div
             className="mt-[6px] text-center font-body text-13"
             style={{ color: 'var(--muted)' }}

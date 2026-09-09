@@ -84,8 +84,11 @@ export function LiveQ({ hidden = false }: { hidden?: boolean }) {
     <div
       ref={ref}
       aria-hidden="true"
-      // الملف بيحطها left:16px bottom:16px — الركن السفلي الأيسر الفيزيائي
-      className="pointer-events-none fixed z-40 grid h-[44px] w-[44px] place-items-center"
+      // الملف بيحطها left:16px bottom:16px — الركن السفلي الأيسر الفيزيائي.
+      // z-20 مقصودة: أقل من StickyCTA (z-30) علشان الشريط اللاصق يغطيها بدل
+      // ما هي تغطي الزرار الرئيسي (U1). التميمة ديكور — تختفي ورا الشريط
+      // أحسن ما تقف قدامه.
+      className="pointer-events-none fixed z-20 grid h-[44px] w-[44px] place-items-center"
       style={{
         left: 16,
         bottom: 16,
