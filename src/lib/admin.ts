@@ -73,6 +73,13 @@ export async function loadBannedWords(): Promise<string[]> {
   return ((data ?? []) as { word: string }[]).map((r) => r.word)
 }
 
+/**
+ * لو الـ select رجّع فاضي بعد التعديل/الإضافة/الحذف، يبقى RLS رفض الكتابة بصمت.
+ * لازم كل كتابة في اللوحة تنتهي بـ `.select('id')` وتعدّي نتيجتها هنا،
+ * وإلا القاعدة ترفض الكتابة والصفحة تقول «اتحفظ ✓» وهي كذبة.
+ */
+export const rejected = (data: unknown) => !data || (data as unknown[]).length === 0
+
 /** بترجّع الكلمات الممنوعة اللي في النص — فاضية يعني تمام */
 export function bannedIn(text: string, words: string[]): string[] {
   const low = text.toLowerCase()
