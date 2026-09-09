@@ -337,9 +337,14 @@ export async function runNotify(limit = BATCH): Promise<NotifyResult> {
   const out: NotifyResult = { picked: 0, sent: 0, failed: 0, left: 0, errors: [] }
   const db = admin()
 
+  // حد القِدَم من settings (0064). لولا الحد ده، أول نشر بعد تصليح D5 كان
+  // هيبعت الطابور المتراكم كله دفعة واحدة — تذكيرات بسبوطات عدّت من أسابيع.
+  const { data: cfg } = await db.from('settings').select('notify_max_stale_hours').single()
+  const staleHours = Number((cfg as { notify_max_stale_hours?: number } | null)?.notify_max_stale_hours ?? 24)
+
   const { data: rows, error } = await db
     .from('notifications')
-    .select('id, profile_id, template_key, payload, attempts')
+    .select('id, profile_id, template_key, payload, attempts, scheduled_for')
     .eq('status', 'queued')
     .lt('attempts', MAX_ATTEMPTS)
     .lte('scheduled_for', new Date().toISOString())
@@ -357,6 +362,7 @@ export async function runNotify(limit = BATCH): Promise<NotifyResult> {
     template_key: string | null
     payload: Record<string, unknown> | null
     attempts: number
+    scheduled_for: string | null
   }
   const list = (rows ?? []) as Row[]
   out.picked = list.length
@@ -454,6 +460,17 @@ export async function runNotify(limit = BATCH): Promise<NotifyResult> {
     }
 
     const key = row.template_key ?? ''
+
+    // إشعار فات ميعاده بكتير مبقاش له معنى — تذكير بسبوطة عدّت، أو كشف
+    // مجموعة خلصت. بنقفله بدل ما نبعته (الحد من settings — 0064).
+    if (staleHours > 0 && row.scheduled_for) {
+      const lateHours = (Date.now() - new Date(row.scheduled_for).getTime()) / 3_600_000
+      if (lateHours > staleHours) {
+        await mark(db, row, false, `فات ميعاده بـ${Math.round(lateHours)} ساعة — مبعتناهوش`)
+        out.failed += 1
+        continue
+      }
+    }
 
     // رمز الدخول بيتبعت من مسار OTP مباشرة — بنطلّعه من الطابور
     if (SKIP_TEMPLATES.has(key)) {
