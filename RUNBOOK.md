@@ -449,7 +449,7 @@ where status in ('open','full') and reveal_at < now() + interval '2 hours'
 **الفحص اليدوي:**
 
 ```bash
-curl -s -H "x-nasbot-secret: $CRON_SECRET" https://nasbot.app/api/cron/work-notify | jq
+curl -s -H "x-nasbot-secret: $CRON_SECRET" https://nasbot.vercel.app/api/cron/work-notify | jq
 # {"ok":true,"picked":3,"sent":3,"failed":0,"left":0,"errors":[]}
 ```
 
@@ -465,6 +465,10 @@ where status = 'failed' and template_key like 'work\_%' order by created_at desc
 
 ### الجدولة — pg_cron + `net.http_post` (المسار المعتمد)
 
+> **الأسرع:** الزق `WORK_CRON.sql` (في جذر المستودع) في SQL Editor بعد ما تبدّل
+> `<CRON_SECRET>` بقيمته من Vercel. بيعمل كل اللي تحت، وبينده المسار مرة فورًا
+> للتجربة، وآمن يتكرر. اللي تحت هو نفس الخطوات مشروحة.
+
 الامتدادين مفعّلين من هجرة 0026 (`pg_cron` و`pg_net`)، وباقي المهام كلها هنا
 (§9). الفرق الوحيد إن المهمة دي بتنده مسار على Vercel مش دالة في القاعدة.
 السر بيتحط في Vault مرة واحدة علشان ما يتكتبش في `cron.job` بالنص الصريح:
@@ -479,7 +483,7 @@ select cron.schedule(
   '5 * * * *',
   $$
   select net.http_post(
-    url     := 'https://nasbot.app/api/cron/work-notify',
+    url     := 'https://nasbot.vercel.app/api/cron/work-notify',
     headers := jsonb_build_object(
                  'content-type',    'application/json',
                  'x-nasbot-secret', (select decrypted_secret from vault.decrypted_secrets
@@ -523,7 +527,7 @@ Vercel Cron بيبعت `Authorization: Bearer $CRON_SECRET` من متغيّر ا
 ### البديل التالت — نداء من بره
 
 أي خدمة بتنده رابط بجدول (cron-job.org مثلًا) وبتسمح بهيدر مخصص:
-`GET https://nasbot.app/api/cron/work-notify` بهيدر `x-nasbot-secret`.
+`GET https://nasbot.vercel.app/api/cron/work-notify` بهيدر `x-nasbot-secret`.
 عيبه إنه طرف تالت زيادة، وميزته إنه بيديك سجل بالردود الحقيقية (بعكس
 `net.http_post` غير المتزامنة).
 
