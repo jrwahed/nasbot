@@ -22,6 +22,25 @@ import {
   money,
   useFlash,
 } from '@/components/admin-ui'
+import {
+  buildVenueReport,
+  getConversionTarget,
+  getLeads,
+  getVenueReportWeeks,
+  getVenueReports,
+  getWorkMetrics,
+  lastCompletedWeekStart,
+  markVenueReportPaid,
+  refreshWorkMetrics,
+  runWorkRecurringNow,
+  shiftWeek,
+  updateLead,
+  weekIsOver,
+  type LeadRow,
+  type LeadStatusCode,
+  type VenueReportRow,
+  type WorkMetricRow,
+} from '@/lib/work'
 
 /**
  * الشغل — طبقة الفريلانسرز (WORK_PLAN.md §5).
@@ -31,8 +50,14 @@ import {
  *   أماكن الشغل   → venues (kind = cafe_work | coworking) + مواصفاتها في work_venues
  *   الإعدادات     → أعمدة settings.work_* (صف واحد، id = true)
  *
- * الباقي (الكروت، الأيام الثابتة، تقارير الأماكن، المؤشرات، الشركات) تبويبات
- * فاضية لحد ما مراحلها تيجي — علشان القايمة تبقى ثابتة من دلوقتي.
+ *   الكروت        → work_passes + اعتماد التحويل
+ *   الأيام الثابتة → recurring_bookings + «ولّد دلوقتي»
+ *   تقارير الأماكن → venue_reports (المرحلة 6)
+ *   المؤشرات      → work_metrics عبر fn_work_metrics (المرحلة 6)
+ *   الشركات       → leads (المرحلة 6)
+ *
+ * القراءات بتاعة المرحلة 6 كلها بتعدّي على src/lib/work.ts — هناك مهلة 8 ثواني
+ * على كل نداء، علشان تبويب ما يفضلش على «ثانية واحدة…» لو الطلب علّق.
  *
  * الفلوس كلها قروش في القاعدة. أي سعر بيتعرض بـ money() وبيتدخّل بالجنيه.
  * أي حفظ بيعدّي على .select() بعد التعديل علشان لو RLS رفض نعرف —
@@ -62,11 +87,21 @@ const TABS: { id: TabId; label: string }[] = [
   { id: 'leads', label: 'الشركات' },
 ]
 
-/** التبويبات اللي لسه ما اتبنتش — والمرحلة اللي هتيجي فيها */
-const PLACEHOLDER_PHASE: Partial<Record<TabId, number>> = {
-  reports: 6,
-  metrics: 6,
-  leads: 6,
+/** حالات طلب الشركة زي ما هي في lead_status_t (الهجرة 0040) */
+const LEAD_STATUS: { value: LeadStatusCode; label: string }[] = [
+  { value: 'new', label: 'جديد' },
+  { value: 'contacted', label: 'كلمناهم' },
+  { value: 'converted', label: 'اتحوّل لعميل' },
+  { value: 'dropped', label: 'مامشيش' },
+]
+
+const leadStatusLabel = (s: string) => LEAD_STATUS.find((x) => x.value === s)?.label ?? s
+
+const LEAD_STATUS_COLOR: Record<string, string | undefined> = {
+  new: '#F2C94C',
+  contacted: undefined,
+  converted: '#6FCF97',
+  dropped: '#EB5757',
 }
 
 /** حالات الكارت زي ما هي في pass_status_t (الهجرة 0040) */
@@ -477,6 +512,12 @@ function ShoghlEditor({ me }: { me: AdminMe }) {
   const canSettings = me.permissions.has('settings.edit')
   const canPasses = me.permissions.has('payments.review')
   const canBookings = me.permissions.has('bookings.edit')
+  /** التقارير: القراءة payments.view — و«اتدفع» و«ابنِ التقرير» payments.review */
+  const canReportsRead = me.permissions.has('payments.view')
+  /** المؤشرات: fn_work_metrics بترجّع صفر صفوف من غير settings.view */
+  const canMetrics = me.permissions.has('settings.view')
+  /** الشركات: سياسة leads في 0043 بتقرا **وبتعدّل** بـ people.view (مش صلاحية تانية) */
+  const canLeads = me.permissions.has('people.view')
 
   const [tab, setTab] = useState<TabId>('fields')
   const { flash, node: flashNode } = useFlash()
@@ -485,8 +526,6 @@ function ShoghlEditor({ me }: { me: AdminMe }) {
   const flashRef = useRef(flash)
   flashRef.current = flash
   const say = useCallback((m: string) => flashRef.current(m, 4000), [])
-
-  const phase = PLACEHOLDER_PHASE[tab]
 
   return (
     <div className="mt-2">
@@ -500,11 +539,11 @@ function ShoghlEditor({ me }: { me: AdminMe }) {
         {tab === 'settings' && <WorkSettingsTab canEdit={canSettings} say={say} />}
         {tab === 'passes' && <PassesTab canEdit={canPasses} say={say} />}
         {tab === 'recurring' && <RecurringTab canEdit={canBookings} say={say} />}
-        {phase !== undefined && (
-          <Card>
-            <Empty>بيتبني في المرحلة {phase}</Empty>
-          </Card>
+        {tab === 'reports' && (
+          <ReportsTab canRead={canReportsRead} canPay={canPasses} say={say} />
         )}
+        {tab === 'metrics' && <MetricsTab canRead={canMetrics} say={say} />}
+        {tab === 'leads' && <LeadsTab canRead={canLeads} say={say} />}
       </div>
     </div>
   )
@@ -1971,6 +2010,7 @@ function RecurringTab({ canEdit, say }: { canEdit: boolean; say: (m: string) => 
   const [loadError, setLoadError] = useState<string | null>(null)
   const [filter, setFilter] = useState('active')
   const [busy, setBusy] = useState<Record<string, boolean>>({})
+  const [running, setRunning] = useState(false)
 
   const reload = useCallback(async () => {
     const [{ data, error }, { data: vs }] = await Promise.all([
@@ -2023,6 +2063,30 @@ function RecurringTab({ canEdit, say }: { canEdit: boolean; say: (m: string) => 
     say(msg)
   }
 
+  /**
+   * «ولّد دلوقتي» — بتنادي fn_admin_run_work_recurring (الهجرة 0050)، وهي غلاف
+   * security definer على job_work_recurring() المقفولة على service_role.
+   * النتيجة نفس نتيجة المهمة المجدولة بالحرف: حجوزات حقيقية وإشعارات حقيقية،
+   * فبنسأل الأول.
+   */
+  async function generateNow() {
+    if (!canEdit) return say('التوليد محتاج صلاحية bookings.edit.')
+    if (
+      !confirm(
+        'هتشغّل توليد الأيام الثابتة دلوقتي؟\n\n' +
+          'ده بيحجز فعلًا للي عندهم رصيد كارت وبيبعتلهم إشعار — ' +
+          'زي ما المهمة بتعمل كل يوم ٩ الصبح. مش تجربة.'
+      )
+    )
+      return
+    setRunning(true)
+    const res = await runWorkRecurringNow()
+    setRunning(false)
+    if (!res.ok) return say(`مقدرناش نولّد: ${res.error}`)
+    await reload()
+    say(res.count > 0 ? `اتولّد ${res.count} يوم ثابت ✓` : 'خلص — مفيش حاجة محتاجة توليد دلوقتي')
+  }
+
   const pauseTwoWeeks = (r: RecurringAdminRow) => {
     const until = new Date()
     until.setDate(until.getDate() + 14)
@@ -2057,6 +2121,12 @@ function RecurringTab({ canEdit, say }: { canEdit: boolean; say: (m: string) => 
           />
           <div className="font-body text-14" style={{ color: 'var(--muted)' }}>
             {shown.length} يوم ثابت
+          </div>
+          <div className="ms-auto flex flex-wrap gap-2">
+            <Btn onClick={reload}>حدّث</Btn>
+            <Btn kind="primary" disabled={!canEdit || running} onClick={generateNow}>
+              {running ? 'بيولّد…' : 'ولّد دلوقتي'}
+            </Btn>
           </div>
         </div>
 
@@ -2144,12 +2214,669 @@ function RecurringTab({ canEdit, say }: { canEdit: boolean; say: (m: string) => 
       <Note>
         التوليد بيحصل لوحده كل يوم ٩ الصبح بتوقيت القاهرة من مهمة{' '}
         <code>nasbot-work-recurring</code> على pg_cron، قبل الموعد بـ{' '}
-        <code>settings.work_recurring_lead_days</code> يوم. مفيش زر «ولّد دلوقتي» هنا لأن{' '}
-        <code>job_work_recurring()</code> ممنوحة لـ <code>service_role</code> بس (الهجرة 0045)،
-        فنداءها من اللوحة كان هيرجع «permission denied» دايمًا. لو عايزها بزر، لازم هجرة تعمل
-        غلاف <code>security definer</code> بيتأكد من <code>fn_has_permission(&apos;bookings.edit&apos;)</code>{' '}
-        وتمنحه لـ <code>authenticated</code>. لحد ساعتها شغّلها من SQL Editor:{' '}
-        <code>select job_work_recurring();</code>
+        <code>settings.work_recurring_lead_days</code> يوم. زر «ولّد دلوقتي» بينادي نفس المهمة
+        دي بالحرف عبر <code>fn_admin_run_work_recurring()</code> — غلاف{' '}
+        <code>security definer</code> بيتأكد من <code>bookings.edit</code> (الهجرة 0050)، لأن{' '}
+        <code>job_work_recurring()</code> نفسها ممنوحة لـ <code>service_role</code> بس. يعني
+        الزر <b>بيحجز فعلًا وبيبعت إشعارات</b> — مش تجربة.
+      </Note>
+    </div>
+  )
+}
+
+/* ================================================== ٦ · تقارير الأماكن */
+
+/** yyyy-mm-dd + n يوم — حساب على UTC علشان منطقة المتصفح ما تزحلقش اليوم */
+const addDays = (d: string, n: number) => {
+  const x = new Date(`${d}T00:00:00Z`)
+  x.setUTCDate(x.getUTCDate() + n)
+  return x.toISOString().slice(0, 10)
+}
+
+/** النهاردة بتوقيت القاهرة — yyyy-mm-dd */
+const todayCairo = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Africa/Cairo' })
+
+/** «١٢ يناير → ١٨ يناير» */
+const weekLabel = (w: string) => `${day(w)} ← ${day(addDays(w, 6))}`
+
+/** خانة CSV آمنة — نفس اللي في /admin/audit */
+const csvCell = (s: string | number) => `"${String(s).split('"').join('""')}"`
+
+/** بينزّل ملف CSV من المتصفح. الـ ﻿ في الأول علشان إكسل يقرا العربي صح. */
+function downloadCsv(name: string, lines: (string | number)[][]) {
+  const body = lines.map((l) => l.map(csvCell).join(',')).join('\r\n')
+  const blob = new Blob(['﻿' + body], { type: 'text/csv;charset=utf-8' })
+  const a = document.createElement('a')
+  a.href = URL.createObjectURL(blob)
+  a.download = name
+  a.click()
+  URL.revokeObjectURL(a.href)
+}
+
+/** اسم ملف من غير حروف بتكسر أنظمة الملفات */
+const safeName = (s: string) => s.replace(/[\\/:*?"<>|]+/g, '-').trim().slice(0, 60) || 'مكان'
+
+function ReportsTab({
+  canRead,
+  canPay,
+  say,
+}: {
+  canRead: boolean
+  canPay: boolean
+  say: (m: string) => void
+}) {
+  const [week, setWeek] = useState(lastCompletedWeekStart())
+  const [rows, setRows] = useState<VenueReportRow[]>([])
+  const [weeks, setWeeks] = useState<string[]>([])
+  const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [busy, setBusy] = useState<Record<string, boolean>>({})
+  const [building, setBuilding] = useState(false)
+
+  const reload = useCallback(async () => {
+    setLoading(true)
+    const [res, ws] = await Promise.all([getVenueReports(week), getVenueReportWeeks()])
+    setLoading(false)
+    setLoadError(res.error)
+    setRows(res.rows)
+    setWeeks(ws)
+  }, [week])
+
+  useEffect(() => {
+    reload()
+  }, [reload])
+
+  const totals = useMemo(
+    () => ({
+      due: rows.reduce((n, r) => n + r.amountDue, 0),
+      unpaid: rows.filter((r) => !r.paidAt).reduce((n, r) => n + r.amountDue, 0),
+      attendees: rows.reduce((n, r) => n + r.attendeesCount, 0),
+    }),
+    [rows]
+  )
+
+  /** قايمة الأسابيع: اللي فيها تقارير + الأسبوع اللي إحنا واقفين عليه دلوقتي */
+  const weekOptions = useMemo(() => {
+    const set = [...new Set([week, lastCompletedWeekStart(), ...weeks])]
+    set.sort((a, b) => b.localeCompare(a))
+    return set.map((w) => ({ value: w, label: weekLabel(w) }))
+  }, [week, weeks])
+
+  async function pay(r: VenueReportRow) {
+    if (!canPay) return say('«اتدفع» محتاج صلاحية payments.review.')
+    if (!confirm(`تأكيد إننا دفعنا ${money(r.amountDue)} لـ«${r.venueName}» عن الأسبوع ده؟`)) return
+    setBusy((b) => ({ ...b, [r.id]: true }))
+    const res = await markVenueReportPaid(r.id)
+    setBusy((b) => ({ ...b, [r.id]: false }))
+    if (!res.ok) return say(`مقدرناش نسجّل الدفع: ${res.error}`)
+    await reload()
+    say(`«${r.venueName}» اتسجّل إنه اتدفع ✓`)
+  }
+
+  async function build() {
+    if (!canPay) return say('بناء التقرير محتاج صلاحية payments.review.')
+    if (!weekIsOver(week))
+      return say('الأسبوع ده لسه ما خلصش — استنى لحد ما يقفل علشان الأرقام تبقى كاملة.')
+    setBuilding(true)
+    const res = await buildVenueReport(week)
+    setBuilding(false)
+    if (!res.ok) return say(`مقدرناش نبني التقرير: ${res.error}`)
+    await reload()
+    say('التقرير اتبنى ✓ — الصفوف اللي اتدفعت ما اتلمستش')
+  }
+
+  /**
+   * CSV بيتبعت **للمكان نفسه** — فمفيش فيه ولا اسم عضو ولا سعر الكرسي بالجملة.
+   * أرقام مجمّعة بس، وده كل اللي المكان محتاجه علشان يطابق الفاتورة.
+   */
+  function exportVenue(r: VenueReportRow) {
+    downloadCsv(`nasbot-${r.weekStart}-${safeName(r.venueName)}.csv`, [
+      ['المكان', 'المنطقة', 'من', 'لـ', 'عدد السبوطات', 'الحاضرين', 'الغياب', 'متوسط التقييم', 'المستحق (جنيه)', 'اتدفع في'],
+      [
+        r.venueName,
+        r.area ? areaLabel(r.area) : '—',
+        r.weekStart,
+        addDays(r.weekStart, 6),
+        r.sessionsCount,
+        r.attendeesCount,
+        r.noShows,
+        r.avgRating === null ? '—' : r.avgRating.toFixed(2),
+        toPounds(r.amountDue),
+        r.paidAt ? day(r.paidAt) : 'لسه',
+      ],
+    ])
+    say(`نزّلنا تقرير «${r.venueName}» ✓`)
+  }
+
+  if (!canRead)
+    return (
+      <Card title="التقارير مقفولة عليك">
+        <Empty>قراءة تقارير الأماكن محتاجة صلاحية payments.view.</Empty>
+      </Card>
+    )
+
+  if (loading) return <Loading />
+
+  return (
+    <div className="flex flex-col gap-4">
+      <Card hint="الأسبوع بيبدأ الاتنين — زي ما القاعدة بتخزّنه بالظبط.">
+        <div className="flex flex-wrap items-end gap-3">
+          <SelectField label="الأسبوع" value={week} options={weekOptions} onChange={setWeek} />
+          <div className="flex gap-2 pb-1">
+            <Btn onClick={() => setWeek((w) => shiftWeek(w, -1))}>أسبوع قبله</Btn>
+            <Btn
+              disabled={shiftWeek(week, 1) > lastCompletedWeekStart()}
+              onClick={() => setWeek((w) => shiftWeek(w, 1))}
+            >
+              أسبوع بعده
+            </Btn>
+          </div>
+          <div className="ms-auto flex flex-wrap gap-2 pb-1">
+            <Btn onClick={reload}>حدّث</Btn>
+            <Btn kind="primary" disabled={!canPay || building} onClick={build}>
+              {building ? 'بيبني…' : 'ابنِ تقرير الأسبوع'}
+            </Btn>
+          </div>
+        </div>
+
+        {loadError && <Note>مقدرناش نجيب التقارير: {loadError}</Note>}
+
+        <div className="mt-4 flex flex-wrap gap-3">
+          <Stat label="أماكن في التقرير" value={String(rows.length)} hint={weekLabel(week)} />
+          <Stat label="حاضرين" value={rows.length ? String(totals.attendees) : '—'} />
+          <Stat label="إجمالي المستحق" value={money(totals.due)} />
+          <Stat
+            label="لسه ما اتدفعش"
+            value={money(totals.unpaid)}
+            hint={`${rows.filter((r) => !r.paidAt).length} مكان`}
+          />
+        </div>
+
+        <div className="mt-4">
+          {rows.length === 0 ? (
+            <Empty>
+              {loadError
+                ? 'مفيش حاجة نعرضها — القراءة نفسها وقعت.'
+                : weekIsOver(week)
+                  ? 'مفيش تقرير للأسبوع ده لسه. دوس «ابنِ تقرير الأسبوع» علشان يتحسب.'
+                  : 'الأسبوع ده لسه ما خلصش — التقرير بيتبني بعد ما يقفل.'}
+            </Empty>
+          ) : (
+            <Table
+              head={[
+                'المكان',
+                'سبوطات',
+                'حاضرين',
+                'غياب',
+                'التقييم',
+                'المستحق',
+                'الحالة',
+                '',
+              ]}
+            >
+              {rows.map((r) => (
+                <tr key={r.id} style={{ borderTop: '1px solid var(--line)' }}>
+                  <td className="p-2">
+                    <div className="font-display text-15 font-black">{r.venueName}</div>
+                    <div className="font-body text-13" style={{ color: 'var(--muted)' }}>
+                      {r.area ? areaLabel(r.area) : '—'}
+                    </div>
+                  </td>
+                  <td className="p-2">{r.sessionsCount}</td>
+                  <td className="p-2">{r.attendeesCount}</td>
+                  <td className="p-2">{r.noShows}</td>
+                  <td className="p-2">
+                    {r.avgRating === null ? (
+                      <span style={{ color: 'var(--muted)' }}>—</span>
+                    ) : (
+                      <span style={{ color: r.avgRating < RATING_ALERT ? 'var(--err-text)' : undefined }}>
+                        {r.avgRating.toFixed(2)}
+                      </span>
+                    )}
+                  </td>
+                  <td className="p-2">{money(r.amountDue)}</td>
+                  <td className="p-2">
+                    <Tag color={r.paidAt ? '#6FCF97' : '#F2C94C'}>
+                      {r.paidAt ? `اتدفع ${day(r.paidAt)}` : 'لسه'}
+                    </Tag>
+                  </td>
+                  <td className="p-2">
+                    <div className="flex flex-wrap gap-2">
+                      <Btn onClick={() => exportVenue(r)}>CSV</Btn>
+                      {!r.paidAt && (
+                        <Btn
+                          kind="primary"
+                          disabled={!canPay || busy[r.id]}
+                          onClick={() => pay(r)}
+                        >
+                          اتدفع
+                        </Btn>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </Table>
+          )}
+        </div>
+      </Card>
+
+      <Note>
+        التقرير بيتبني لوحده كل اتنين ٨ الصبح بتوقيت القاهرة للأسبوع اللي فات، وزر «ابنِ تقرير
+        الأسبوع» بينادي نفس الحسبة عبر <code>fn_admin_build_venue_report</code> (الهجرة 0050).
+        إعادة البناء بتحدّث الأرقام بس <b>ما بتلمسش</b> أي صف اتسجّل إنه اتدفع. المستحق ={' '}
+        الحاضرين × سعر الكرسي بالجملة بتاع المكان. ملف الـ CSV بيتبعت للمكان — عشان كده مفيهوش
+        أسماء أعضاء ولا سعر الجملة، أرقام مجمّعة بس.
+        {!canPay && ' إنت شايف بس — «اتدفع» وبناء التقرير محتاجين payments.review.'}
+      </Note>
+    </div>
+  )
+}
+
+/* ================================================== ٧ · المؤشرات */
+
+/** نسبة للعرض — بترجّع «—» لو مفيش رقم أصلًا (مش صفر) */
+const pct = (v: number | null | undefined) =>
+  v === null || v === undefined ? '—' : `${Number(v).toLocaleString('ar-EG')}%`
+
+/**
+ * أسبوع «مستقر» = عدّى عليه ٣٧ يوم على الأقل (٧ أيام الأسبوع + نافذة الـ٣٠ يوم).
+ * قبل كده نسبة التحوّل بتاعته لسه بتتحرك، فحطّها في الرقم الكبير = كذب.
+ */
+const weekSettled = (w: string) => addDays(w, 37) <= todayCairo()
+
+function MetricsTab({ canRead, say }: { canRead: boolean; say: (m: string) => void }) {
+  const [rows, setRows] = useState<WorkMetricRow[]>([])
+  const [target, setTarget] = useState<number | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+
+  const reload = useCallback(async () => {
+    setLoading(true)
+    const [res, t] = await Promise.all([getWorkMetrics(12), getConversionTarget()])
+    setLoading(false)
+    setLoadError(res.error)
+    setRows(res.rows)
+    setTarget(t)
+  }, [])
+
+  useEffect(() => {
+    reload()
+  }, [reload])
+
+  /** الرقم الكبير: بس من الأسابيع اللي خلصت نافذتها */
+  const head = useMemo(() => {
+    const settled = rows.filter((r) => weekSettled(r.week))
+    const open = rows.filter((r) => !weekSettled(r.week))
+    const firstTimers = settled.reduce((n, r) => n + r.workFirstTimers, 0)
+    const converted = settled.reduce((n, r) => n + r.converted30d, 0)
+    return {
+      firstTimers,
+      converted,
+      value: firstTimers > 0 ? Math.round((100 * converted) / firstTimers) : null,
+      openFirstTimers: open.reduce((n, r) => n + r.workFirstTimers, 0),
+    }
+  }, [rows])
+
+  /** العرض المادي بيطلّع ١٣ أسبوع دايمًا — «فاضي» يعني كل الأرقام أصفار */
+  const noData = useMemo(
+    () =>
+      rows.length === 0 ||
+      rows.every((r) => r.workBookings === 0 && r.workFirstTimers === 0 && r.passesSold === 0),
+    [rows]
+  )
+
+  async function refresh() {
+    setBusy(true)
+    const res = await refreshWorkMetrics()
+    setBusy(false)
+    if (!res.ok) return say(`مقدرناش نحدّث: ${res.error}`)
+    await reload()
+    say('الأرقام اتحدّثت ✓')
+  }
+
+  if (!canRead)
+    return (
+      <Card title="المؤشرات مقفولة عليك">
+        <Empty>قراءة المؤشرات محتاجة صلاحية settings.view.</Empty>
+      </Card>
+    )
+
+  if (loading) return <Loading />
+
+  const hit = head.value !== null && target !== null && head.value >= target
+  const headColor = head.value === null ? undefined : hit ? 'var(--ok-text)' : 'var(--err-text)'
+
+  return (
+    <div className="flex flex-col gap-4">
+      <Card>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="font-display text-18 font-black">مؤشرات الشغل</span>
+          <span className="font-body text-13" style={{ color: 'var(--muted)' }}>
+            آخر ١٢ أسبوع
+          </span>
+          <div className="ms-auto">
+            <Btn kind="primary" disabled={busy} onClick={refresh}>
+              {busy ? 'بيحدّث…' : 'حدّث الأرقام'}
+            </Btn>
+          </div>
+        </div>
+
+        {loadError && <Note>مقدرناش نجيب المؤشرات: {loadError}</Note>}
+
+        {/* الرقم اللي الطبقة كلها بتتحاسب عليه */}
+        <div
+          className="mt-4 rounded-16 px-4 py-4"
+          style={{ background: 'var(--surface)', border: `2px solid ${headColor ?? 'var(--line)'}` }}
+        >
+          <div className="font-body text-14" style={{ color: 'var(--muted)' }}>
+            التحوّل: شغل ← ترفيه خلال ٣٠ يوم
+          </div>
+          <div className="mt-1 flex flex-wrap items-baseline gap-3">
+            <span className="font-display text-40 font-black" style={{ color: headColor }}>
+              {head.value === null ? 'لسه' : `${head.value.toLocaleString('ar-EG')}%`}
+            </span>
+            <span className="font-body text-15" style={{ color: 'var(--muted)' }}>
+              المستهدف {target === null ? '—' : `${target.toLocaleString('ar-EG')}%`}
+            </span>
+            {head.value !== null && target !== null && (
+              <Tag color={hit ? '#6FCF97' : '#EB5757'}>
+                {hit ? 'فوق المستهدف' : `ناقص ${(target - head.value).toLocaleString('ar-EG')} نقطة`}
+              </Tag>
+            )}
+          </div>
+          <p className="mt-3 font-body text-14" style={{ color: 'var(--fg)' }}>
+            {head.value === null ? (
+              <>
+                لسه مفيش حد أول حجز شغل ليه عدّى عليه ٣٠ يوم، فالرقم ما ينفعش يتحسب دلوقتي.
+                {head.openFirstTimers > 0 &&
+                  ` فيه ${head.openFirstTimers.toLocaleString('ar-EG')} واحد لسه نافذته مفتوحة.`}
+              </>
+            ) : (
+              <>
+                من كل ١٠٠ واحد جه أول مرة على سبوطة شغل، {head.value.toLocaleString('ar-EG')} حجزوا
+                سبوطة ترفيهية مدفوعة خلال ٣٠ يوم بعدها. ده مش رقم إيرادات — ده الرقم اللي بيقول
+                إن طبقة الشغل بتعمل شغلها: هي <b>باب للنادي</b> مش خط بيع لوحده. لو نزل عن
+                المستهدف يبقى الناس بتيجي تشتغل وتمشي، والباب مش بيفتح.
+              </>
+            )}
+          </p>
+          <div className="mt-2 font-body text-12" style={{ color: 'var(--muted)' }}>
+            محسوب على {head.converted.toLocaleString('ar-EG')} من{' '}
+            {head.firstTimers.toLocaleString('ar-EG')} واحد أول حجز شغل ليهم بقاله أكتر من ٣٠ يوم.
+            {head.openFirstTimers > 0 &&
+              ` (${head.openFirstTimers.toLocaleString('ar-EG')} كمان لسه نافذتهم مفتوحة — مش داخلين في الرقم.)`}
+          </div>
+        </div>
+
+        {noData ? (
+          <Note>
+            العرض المادي <code>work_metrics</code> فاضي — يعني مفيش ولا سبوطة شغل ولا كارت
+            اتسجّل لسه، أو المهمة <code>job_work_metrics</code> ما اشتغلتش من أول ما البيانات
+            دخلت. دوس «حدّث الأرقام» الأول؛ لو فضل فاضي يبقى فعلًا مفيش بيانات — وده مش صفر
+            حقيقي، ده «لسه».
+          </Note>
+        ) : (
+          <>
+            <div className="mt-4 flex flex-wrap gap-3">
+              <Stat
+                label="سبوطات شغل"
+                value={rows.reduce((n, r) => n + r.workSbotat, 0).toLocaleString('ar-EG')}
+                hint="آخر ١٢ أسبوع"
+              />
+              <Stat
+                label="حجوزات"
+                value={rows.reduce((n, r) => n + r.workBookings, 0).toLocaleString('ar-EG')}
+              />
+              <Stat
+                label="حضروا"
+                value={rows.reduce((n, r) => n + r.attended, 0).toLocaleString('ar-EG')}
+              />
+              <Stat
+                label="كروت اتباعت"
+                value={rows.reduce((n, r) => n + r.passesSold, 0).toLocaleString('ar-EG')}
+                hint={money(rows.reduce((n, r) => n + r.passesRevenue, 0))}
+              />
+              <Stat
+                label="جلسات اتخصمت"
+                value={rows.reduce((n, r) => n + r.sessionsRedeemed, 0).toLocaleString('ar-EG')}
+              />
+            </div>
+
+            <div className="mt-4">
+              <Table
+                head={[
+                  'الأسبوع',
+                  'سبوطات',
+                  'حجوزات',
+                  'حضور',
+                  'غياب',
+                  'بالكارت',
+                  'كروت',
+                  'جلسات',
+                  'أول مرة',
+                  'اتحوّلوا',
+                  'التحوّل',
+                  'التبادل',
+                ]}
+              >
+                {rows.map((r) => {
+                  const settled = weekSettled(r.week)
+                  return (
+                    <tr key={r.week} style={{ borderTop: '1px solid var(--line)' }}>
+                      <td className="p-2 whitespace-nowrap">
+                        {day(r.week)}
+                        {!settled && (
+                          <span className="ms-1 font-body text-12" style={{ color: 'var(--muted)' }}>
+                            (لسه)
+                          </span>
+                        )}
+                      </td>
+                      <td className="p-2">{r.workSbotat}</td>
+                      <td className="p-2">{r.workBookings}</td>
+                      <td className="p-2">{r.attended}</td>
+                      <td className="p-2">{pct(r.noShowPct)}</td>
+                      <td className="p-2">{r.passBookings}</td>
+                      <td className="p-2">{r.passesSold}</td>
+                      <td className="p-2">{r.sessionsRedeemed}</td>
+                      <td className="p-2">{r.workFirstTimers}</td>
+                      <td className="p-2">{r.converted30d}</td>
+                      <td
+                        className="p-2"
+                        style={{
+                          color:
+                            r.conversion30dPct === null || target === null || !settled
+                              ? undefined
+                              : r.conversion30dPct >= target
+                                ? 'var(--ok-text)'
+                                : 'var(--err-text)',
+                        }}
+                      >
+                        {pct(r.conversion30dPct)}
+                      </td>
+                      <td className="p-2">{pct(r.collabMutualPct)}</td>
+                    </tr>
+                  )
+                })}
+              </Table>
+            </div>
+          </>
+        )}
+      </Card>
+
+      <Note>
+        الأرقام بتتحسب في عرض مادي (<code>work_metrics</code>) بيتجدّد كل يوم ٣:١٥ فجرًا UTC من
+        مهمة <code>nasbot-work-metrics</code>، يعني اللي قدامك ممكن يكون بتاع النهاردة الفجر.
+        «حدّث الأرقام» بيجدّده حالًا عبر <code>fn_admin_refresh_work_metrics</code> (الهجرة 0050).
+        الأسابيع المعلّمة «لسه» ما دخلتش في الرقم الكبير لأن نافذة الـ٣٠ يوم بتاعتها لسه مفتوحة.
+        مستهدف التحوّل بيتغيّر من تبويب «الإعدادات».
+      </Note>
+    </div>
+  )
+}
+
+/* ================================================== ٨ · الشركات */
+
+function LeadsTab({ canRead, say }: { canRead: boolean; say: (m: string) => void }) {
+  const [rows, setRows] = useState<LeadRow[]>([])
+  const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [filter, setFilter] = useState('all')
+  const [busy, setBusy] = useState<Record<string, boolean>>({})
+
+  const reload = useCallback(async () => {
+    setLoading(true)
+    const res = await getLeads()
+    setLoading(false)
+    setLoadError(res.error)
+    setRows(res.rows)
+  }, [])
+
+  useEffect(() => {
+    reload()
+  }, [reload])
+
+  const shown = useMemo(
+    () => (filter === 'all' ? rows : rows.filter((r) => r.status === filter)),
+    [rows, filter]
+  )
+
+  async function patch(r: LeadRow, p: { status?: LeadStatusCode; adminNote?: string | null }, msg: string) {
+    setBusy((b) => ({ ...b, [r.id]: true }))
+    const res = await updateLead(r.id, p)
+    setBusy((b) => ({ ...b, [r.id]: false }))
+    if (!res.ok) return say(`مقدرناش نحفظ: ${res.error}`)
+    await reload()
+    say(msg)
+  }
+
+  if (!canRead)
+    return (
+      <Card title="طلبات الشركات مقفولة عليك">
+        <Empty>قراءة الطلبات وتعديلها محتاجين صلاحية people.view.</Empty>
+      </Card>
+    )
+
+  if (loading) return <Loading />
+
+  if (loadError)
+    return (
+      <Card title="مقدرناش نجيب طلبات الشركات">
+        <Note>
+          {loadError}
+          <br />
+          لو الرسالة بتقول إن الجدول مش موجود، يبقى WORK_MIGRATION.sql لسه ما اتشغّلش على
+          القاعدة.
+        </Note>
+      </Card>
+    )
+
+  return (
+    <div className="flex flex-col gap-4">
+      <Card>
+        <div className="flex flex-wrap items-end gap-3">
+          <SelectField
+            label="الحالة"
+            value={filter}
+            options={[{ value: 'all', label: 'الكل' }, ...LEAD_STATUS]}
+            onChange={setFilter}
+          />
+          <div className="font-body text-14" style={{ color: 'var(--muted)' }}>
+            {shown.length} طلب
+          </div>
+          <div className="ms-auto pb-1">
+            <Btn onClick={reload}>حدّث</Btn>
+          </div>
+        </div>
+
+        <div className="mt-4 flex flex-wrap gap-3">
+          {LEAD_STATUS.map((s) => (
+            <Stat
+              key={s.value}
+              label={s.label}
+              value={String(rows.filter((r) => r.status === s.value).length)}
+            />
+          ))}
+        </div>
+
+        <div className="mt-4">
+          {shown.length === 0 ? (
+            <Empty>
+              {rows.length === 0
+                ? 'مفيش طلبات شركات لسه — النموذج في صفحة /shoghl.'
+                : 'مفيش طلبات في الحالة دي.'}
+            </Empty>
+          ) : (
+            <Table
+              head={['الشركة', 'الرقم', 'العدد', 'كام مرة/شهر', 'اللي كتبوه', 'ملاحظتنا', 'جه', 'الحالة']}
+            >
+              {shown.map((r) => (
+                <tr key={r.id} style={{ borderTop: '1px solid var(--line)' }}>
+                  <td className="p-2">
+                    <div className="font-display text-15 font-black">{r.company}</div>
+                    <div className="font-body text-13" style={{ color: 'var(--muted)' }}>
+                      {r.contactName}
+                    </div>
+                  </td>
+                  <td className="p-2">
+                    <a
+                      dir="ltr"
+                      href={`tel:${r.phone}`}
+                      className="font-body text-14 underline"
+                      style={{ color: 'var(--fg)' }}
+                    >
+                      {r.phone || '—'}
+                    </a>
+                  </td>
+                  <td className="p-2">{r.peopleCount ?? '—'}</td>
+                  <td className="p-2">{r.timesPerMonth ?? '—'}</td>
+                  <td className="p-2">
+                    <div className="max-w-[280px] whitespace-pre-wrap font-body text-13">
+                      {r.note || <span style={{ color: 'var(--muted)' }}>—</span>}
+                    </div>
+                  </td>
+                  <td className="p-2">
+                    <Cell
+                      value={r.adminNote ?? ''}
+                      width={220}
+                      placeholder="اكتب ملاحظتك…"
+                      disabled={busy[r.id]}
+                      onSave={(v) =>
+                        patch(r, { adminNote: v.trim() || null }, `ملاحظة «${r.company}» اتحفظت ✓`)
+                      }
+                    />
+                  </td>
+                  <td className="p-2 whitespace-nowrap">{day(r.createdAt)}</td>
+                  <td className="p-2">
+                    <div className="flex flex-col items-start gap-1">
+                      <Tag color={LEAD_STATUS_COLOR[r.status]}>{leadStatusLabel(r.status)}</Tag>
+                      <SelectField
+                        value={r.status}
+                        options={LEAD_STATUS}
+                        onChange={(v) =>
+                          patch(
+                            r,
+                            { status: v as LeadStatusCode },
+                            `«${r.company}» بقى ${leadStatusLabel(v)} ✓`
+                          )
+                        }
+                      />
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </Table>
+          )}
+        </div>
+      </Card>
+
+      <Note>
+        الطلبات بتيجي من نموذج الشركات في صفحة <code>/shoghl</code> عبر{' '}
+        <code>fn_submit_lead</code> (٣ طلبات في اليوم لكل رقم كحد أقصى) — مفيش إدراج مباشر.
+        «اللي كتبوه» هو نص الشركة نفسه وبيفضل زي ما هو؛ اكتب كلامك إنت في «ملاحظتنا».
+        القراءة والتعديل الاتنين على صلاحية <code>people.view</code> — كده سياسة{' '}
+        <code>leads_write</code> في الهجرة 0043 بالظبط، مش سهو.
       </Note>
     </div>
   )
