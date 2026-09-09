@@ -4,26 +4,32 @@ import { useEffect, useState } from 'react'
 import { InnerHeader } from '@/components/Header'
 import { CairoMap } from '@/components/CairoMap'
 import { FilterChips } from '@/components/FilterChips'
-import { mapFilters } from '@/data/areas'
+import { mapFilters, mapFilterOptions } from '@/data/areas'
 import { getSbotat } from '@/lib/api'
 import type { Sbota } from '@/types'
 import { useT } from '@/components/CopyProvider'
 
-/** الخريطة كاملة — كتل المناطق SVG والنقط بتنبض */
+/**
+ * الخريطة كاملة — كتل المناطق SVG والنقط بتنبض.
+ * الكتل والنقط بقت من القاعدة — الشغل ده كله جوه CairoMap و src/lib/fields.ts
+ * (مراجعة A5). الصفحة دي مسؤولة عن الفلاتر بس.
+ */
 export default function MapPage() {
   const t = useT()
   const [all, setAll] = useState<Sbota[]>([])
-  const [filter, setFilter] = useState<string>('الكل')
+  const [filter, setFilter] = useState<string>(mapFilterOptions[0].label)
 
   useEffect(() => {
     getSbotat().then(setAll)
   }, [])
 
+  // المقارنة بالـ id مش بالنص — النص ممكن يتغيّر من اللوحة، والـ id ثابت
+  const activeId = mapFilterOptions.find((o) => o.label === filter)?.id ?? 'all'
+
   const shown = all.filter((s) => {
-    if (filter === 'الكل') return true
-    if (filter === t('map.label.3')) return s.timeOfDay === 'day'
-    if (filter === t('map.label.2')) return s.timeOfDay === 'night'
-    if (filter === 'بنات بس') return s.girls
+    if (activeId === 'day') return s.timeOfDay === 'day'
+    if (activeId === 'night') return s.timeOfDay === 'night'
+    if (activeId === 'girls') return s.girls
     return true
   })
 

@@ -1,9 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import type { Sbota } from '@/types'
-import { mapAreas, mapPins, mysteryPin, visitedAreaIds } from '@/data/areas'
+import { getMapData, mapFallback, placePins, type MapData } from '@/lib/fields'
 import { Sticker } from '@/components/Sticker'
 import { useT } from '@/components/CopyProvider'
 
@@ -13,6 +13,13 @@ import { useT } from '@/components/CopyProvider'
  *
  * النقط برتقالية بتنبض، والضغط بيفتح بطاقة صغيرة فوق الخريطة.
  * المناطق اللي المستخدم لسه مارحهاش باهتة ومكتوب عليها «لسه».
+ *
+ * الكتل بتيجي من `map_areas` في القاعدة (مراجعة A5) — الحالة الابتدائية هي
+ * الاحتياطي من الكود، فالخريطة بترسم من أول لحظة حتى لو القاعدة واقعة، وما
+ * فيش لحظة تحميل فاضية ولا لفة مستمرة.
+ *
+ * والنقط بقت محسوبة من السبوطات نفسها — قبل كده كانت قايمة يدوية بـ٧ slugs،
+ * يعني أي سبوطة جديدة عمرها ما كانت تبان.
  */
 export function CairoMap({
   sbotat,
@@ -25,9 +32,21 @@ export function CairoMap({
   const [open, setOpen] = useState<string | null>(null)
   // فلتر «شغل» — أماكن الشغل (cafe_work / coworking) بتظهر بأيقونة لابتوب
   const [workOnly, setWorkOnly] = useState(false)
+  const [map, setMap] = useState<MapData>(mapFallback)
+
+  useEffect(() => {
+    let alive = true
+    getMapData().then((d) => {
+      if (alive) setMap(d)
+    })
+    return () => {
+      alive = false
+    }
+  }, [])
+
   const shown = workOnly ? sbotat.filter((s) => s.kind === 'work') : sbotat
   const picked = shown.find((s) => s.slug === open)
-  const visible = mapPins.filter((p) => shown.some((s) => s.slug === p.slug))
+  const visible = useMemo(() => placePins(map.blocks, shown), [map.blocks, shown])
   const isWorkPin = (slug: string) => shown.find((s) => s.slug === slug)?.kind === 'work'
 
   return (
@@ -47,10 +66,10 @@ export function CairoMap({
           fill="#232732"
         />
 
-        {mapAreas.map((a) => {
-          const visited = visitedAreaIds.includes(a.id)
+        {map.blocks.map((a) => {
+          const visited = !!a.area && map.visitedAreas.includes(a.area)
           return (
-            <g key={a.id} opacity={visited ? 1 : 0.45}>
+            <g key={a.key} opacity={visited ? 1 : 0.45}>
               <rect
                 x={a.x}
                 y={a.y}
@@ -110,18 +129,18 @@ export function CairoMap({
           style={{ cursor: 'pointer' }}
           onClick={() => setOpen(open === 'mystery' ? null : 'mystery')}
         >
-          <circle cx={mysteryPin.x} cy={mysteryPin.y} r="19" fill="#2B4CFF" />
+          <circle cx={map.mystery.x} cy={map.mystery.y} r="19" fill="#2B4CFF" />
           <text
-            x={mysteryPin.x}
-            y={mysteryPin.y}
+            x={map.mystery.x}
+            y={map.mystery.y}
             textAnchor="middle"
             dominantBaseline="central"
             fill="#FBF7EF"
             style={{ font: '900 24px var(--font-rubik), sans-serif' }}
           >{t('shared.text.5')}</text>
           <text
-            x={mysteryPin.x}
-            y={mysteryPin.y + 36}
+            x={map.mystery.x}
+            y={map.mystery.y + 36}
             textAnchor="middle"
             fill="#9A9CA3"
             style={{ font: '600 11px var(--font-plex), sans-serif' }}

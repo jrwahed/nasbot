@@ -9,16 +9,10 @@ import { Field, Select, ChoicePill, Checkbox } from '@/components/Field'
 import { PrimaryButton } from '@/components/Buttons'
 import { StickyCTA } from '@/components/StickyCTA'
 import {
-  interests as ALL_INTERESTS,
-  defaultInterests,
-  MAX_INTERESTS,
-  areas,
-  skillLevels,
-  sports,
-  budgets,
-  days,
-  girlsOnlyOptions,
-} from '@/data/lists'
+  getRegistrationLists,
+  listsFallback,
+  type RegistrationLists,
+} from '@/lib/fields'
 import {
   signInOrSignUp,
   ensureAccount,
@@ -87,6 +81,13 @@ function JoinForm() {
   const search = useSearchParams()
   const next = search.get('next') ?? '/me'
 
+  /**
+   * قوايم النموذج — من `profile_fields` و`field_options` و`skill_activities`
+   * و`consents` في القاعدة (مراجعة A4). البداية هي احتياطي الكود، فالنموذج
+   * بيرسم من أول لحظة ولو القاعدة واقعة يفضل شغّال زي ما هو.
+   */
+  const [lists, setLists] = useState<RegistrationLists>(listsFallback)
+
   // 1 — رقمك
   const [phone, setPhone] = useState('')
   const [email, setEmail] = useState('')
@@ -103,17 +104,52 @@ function JoinForm() {
   const [gender, setGender] = useState<Gender | null>(null)
   const [area, setArea] = useState<string | null>(null)
   const [areaOther, setAreaOther] = useState('')
-  const [girlsOnly, setGirlsOnly] = useState<string>('أحيانًا')
+  const [girlsOnly, setGirlsOnly] = useState<string>(
+    listsFallback.girlsOnly[1]?.value ?? ''
+  )
 
   // 3 — بتحب إيه
-  const [picked, setPicked] = useState<string[]>(defaultInterests)
-  const [levels, setLevels] = useState<Record<string, SkillLevel>>({
-    بادل: 'أول مرة',
-    جري: 'مبتدئ',
-    سباحة: 'كويس',
-  })
-  const [budget, setBudget] = useState<string>('لحد 500')
-  const [pickedDays, setPickedDays] = useState<string[]>(['تلات', 'خميس', 'جمعة'])
+  const [picked, setPicked] = useState<string[]>(listsFallback.defaultInterests)
+  const [levels, setLevels] = useState<Record<string, SkillLevel>>({})
+  const [budget, setBudget] = useState<string>(listsFallback.budgets[1]?.value ?? '')
+  const [pickedDays, setPickedDays] = useState<string[]>(listsFallback.defaultDays)
+
+  /**
+   * لما القوايم توصل من القاعدة: أي اختيار حالي مش موجود في القايمة الجديدة
+   * بيتشال، والفاضي بياخد الافتراضي. كده تعديل المالك من اللوحة بيبان فورًا
+   * من غير ما يسيب النموذج على قيمة مقفولة.
+   */
+  useEffect(() => {
+    let alive = true
+    getRegistrationLists().then((l) => {
+      if (!alive) return
+      setLists(l)
+      const keep = (opts: { value: string }[], cur: string) =>
+        opts.some((o) => o.value === cur)
+      setPicked((cur) => {
+        const ok = cur.filter((v) => keep(l.interests, v))
+        return ok.length ? ok : l.defaultInterests
+      })
+      setPickedDays((cur) => {
+        const ok = cur.filter((v) => keep(l.days, v))
+        return ok.length ? ok : l.defaultDays
+      })
+      setBudget((cur) => (keep(l.budgets, cur) ? cur : (l.budgets[1] ?? l.budgets[0])?.value ?? cur))
+      setGirlsOnly((cur) =>
+        keep(l.girlsOnly, cur) ? cur : (l.girlsOnly[1] ?? l.girlsOnly[0])?.value ?? cur
+      )
+      setArea((cur) => (cur && !keep(l.areas, cur) ? null : cur))
+      setLevels((cur) => {
+        const nextLevel = { ...cur }
+        const first = l.skillLevels[0]?.value as SkillLevel | undefined
+        for (const s of l.sports) if (!nextLevel[s.value] && first) nextLevel[s.value] = first
+        return nextLevel
+      })
+    })
+    return () => {
+      alive = false
+    }
+  }, [])
 
   /**
    * خطوة الشغل — **اختيارية وما بتظهرش لكل الناس** (WORK_PLAN §2).
@@ -222,7 +258,7 @@ function JoinForm() {
     setPicked((s) =>
       s.includes(label)
         ? s.filter((x) => x !== label)
-        : s.length < MAX_INTERESTS
+        : s.length < lists.maxInterests
           ? [...s, label]
           : s
     )
@@ -248,7 +284,7 @@ function JoinForm() {
     else if (area === 'غير كده' && !areaOther.trim()) e.areaOther = t('join.err.areaOther')
     // الصورة إجبارية — الكابتن بيعرف الناس بيها عند البوابة
     if (!photoFile && !existingAvatar) e.photo = t('join.err.photoRequired')
-    if (picked.length !== MAX_INTERESTS) e.interests = t('join.label.17')
+    if (picked.length !== lists.maxInterests) e.interests = t('join.label.17')
     if (!pickedDays.length) e.days = t('join.label.16')
     if (!agreeRules || !agreeData) e.agree = t('join.label.15')
 
@@ -439,9 +475,9 @@ function JoinForm() {
 
       <Label>{t('join.text.13')}</Label>
       <div className="mt-[6px] flex flex-wrap gap-2" data-err={errors.area ? '1' : undefined}>
-        {areas.map((a) => (
-          <ChoicePill key={a} selected={area === a} onClick={() => setArea(a)}>
-            {a}
+        {lists.areas.map((a) => (
+          <ChoicePill key={a.value} selected={area === a.value} onClick={() => setArea(a.value)}>
+            {a.label}
           </ChoicePill>
         ))}
       </div>
@@ -471,16 +507,16 @@ function JoinForm() {
             <span className="font-semibold" style={{ color: '#14161A' }}>{t('join.text.11')}</span>
           </div>
           <div className="mt-[10px] flex gap-2">
-            {girlsOnlyOptions.map((o) => (
+            {lists.girlsOnly.map((o) => (
               <ChoicePill
-                key={o}
-                selected={girlsOnly === o}
-                onClick={() => setGirlsOnly(o)}
+                key={o.value}
+                selected={girlsOnly === o.value}
+                onClick={() => setGirlsOnly(o.value)}
                 fontSize={14}
                 padding="0"
                 className="flex-1"
               >
-                {o}
+                {o.label}
               </ChoicePill>
             ))}
           </div>
@@ -493,18 +529,19 @@ function JoinForm() {
         title={t('join.label.4')}
         rotate={-2}
         extra={
-          <span className="text-14" style={{ color: 'var(--muted)' }}>{t('join.text.10')}<b style={{ color: 'var(--fg)' }}>{picked.length}/5</b>
+          <span className="text-14" style={{ color: 'var(--muted)' }}>{t('join.text.10')}<b style={{ color: 'var(--fg)' }}>{picked.length}/{lists.maxInterests}</b>
           </span>
         }
       />
       <div className="mt-3 flex flex-wrap gap-2" data-err={errors.interests ? '1' : undefined}>
-        {ALL_INTERESTS.map((label, i) => {
-          const on = picked.includes(label)
+        {lists.interests.map((opt, i) => {
+          const label = opt.label
+          const on = picked.includes(opt.value)
           return (
             <button
-              key={label}
+              key={opt.value}
               type="button"
-              onClick={() => toggleInterest(label)}
+              onClick={() => toggleInterest(opt.value)}
               aria-pressed={on}
               className="min-h-[44px] cursor-pointer rounded-pill px-4 font-display text-15 font-black leading-none"
               style={{
@@ -527,20 +564,22 @@ function JoinForm() {
 
       <Label>{t('join.text.9')}</Label>
       <div className="mt-[6px] flex flex-col gap-2 text-14">
-        {sports.map((sport) => (
-          <div key={sport} className="flex items-center gap-2">
-            <span className="w-[56px] shrink-0 font-semibold">{sport}</span>
+        {lists.sports.map((sport) => (
+          <div key={sport.value} className="flex items-center gap-2">
+            <span className="w-[56px] shrink-0 font-semibold">{sport.label}</span>
             <div className="flex flex-1 gap-[6px]">
-              {skillLevels.map((lvl) => (
+              {lists.skillLevels.map((lvl) => (
                 <ChoicePill
-                  key={lvl}
-                  selected={levels[sport] === lvl}
-                  onClick={() => setLevels((s) => ({ ...s, [sport]: lvl }))}
+                  key={lvl.value}
+                  selected={levels[sport.value] === lvl.value}
+                  onClick={() =>
+                    setLevels((s) => ({ ...s, [sport.value]: lvl.value as SkillLevel }))
+                  }
                   fontSize={12}
                   padding="6px 0"
                   className="min-h-[44px] flex-1"
                 >
-                  {lvl}
+                  {lvl.label}
                 </ChoicePill>
               ))}
             </div>
@@ -550,33 +589,33 @@ function JoinForm() {
 
       <Label>{t('join.text.8')}</Label>
       <div className="mt-[6px] flex gap-[6px]">
-        {budgets.map((b) => (
+        {lists.budgets.map((b) => (
           <ChoicePill
-            key={b}
-            selected={budget === b}
-            onClick={() => setBudget(b)}
+            key={b.value}
+            selected={budget === b.value}
+            onClick={() => setBudget(b.value)}
             fontSize={13}
             padding="8px 0"
             className="flex-1"
           >
-            {b}
+            {b.label}
           </ChoicePill>
         ))}
       </div>
 
       <Label>{t('join.text.7')}</Label>
       <div className="mt-[6px] flex gap-[6px]" data-err={errors.days ? '1' : undefined}>
-        {days.map((d) => (
+        {lists.days.map((d) => (
           <ChoicePill
-            key={d}
-            selected={pickedDays.includes(d)}
-            onClick={() => toggleDay(d)}
+            key={d.value}
+            selected={pickedDays.includes(d.value)}
+            onClick={() => toggleDay(d.value)}
             radius={12}
             fontSize={13}
             padding="8px 0"
             className="flex-1"
           >
-            {d}
+            {d.label}
           </ChoicePill>
         ))}
       </div>
@@ -664,17 +703,17 @@ function JoinForm() {
 
           <Label>{t('join.work.days')}</Label>
           <div className="mt-[6px] flex gap-[6px]">
-            {days.map((d) => (
+            {lists.days.map((d) => (
               <ChoicePill
-                key={d}
-                selected={workDays.includes(d)}
-                onClick={() => toggleWorkDay(d)}
+                key={d.value}
+                selected={workDays.includes(d.value)}
+                onClick={() => toggleWorkDay(d.value)}
                 radius={12}
                 fontSize={13}
                 padding="8px 0"
                 className="flex-1"
               >
-                {d}
+                {d.label}
               </ChoicePill>
             ))}
           </div>
@@ -731,10 +770,13 @@ function JoinForm() {
       {/* ===== موافقتك ===== */}
       <Step n={showWork ? 6 : 5} title={t('join.label.1')} rotate={-3} />
       <div className="mt-3" data-err={errors.agree ? '1' : undefined}>
-        <Checkbox checked={agreeRules} onChange={setAgreeRules} error={!!errors.agree}>{t('join.text.5')}<b>{t('join.text.4')}</b>
+        <Checkbox checked={agreeRules} onChange={setAgreeRules} error={!!errors.agree}>
+          {lists.consents.rules ?? (
+            <>{t('join.text.5')}<b>{t('join.text.4')}</b></>
+          )}
         </Checkbox>
         <div className="mt-[6px]">
-          <Checkbox checked={agreeData} onChange={setAgreeData} error={!!errors.agree}>{t('join.text.3')}</Checkbox>
+          <Checkbox checked={agreeData} onChange={setAgreeData} error={!!errors.agree}>{lists.consents.privacy ?? t('join.text.3')}</Checkbox>
         </div>
       </div>
       {errors.agree && (

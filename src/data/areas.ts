@@ -3,6 +3,15 @@
  * الإحداثيات في مساحة viewBox 400×520.
  * أسلوب الكتل والزوايا مأخوذ من الخريطة المصغرة في design/نسبوط.dc.html
  * (مستطيلات بزوايا 24–30 بلون واحد + تسمية).
+ *
+ * ⚠ من مراجعة A5: `mapAreas` و`mysteryPin` بقوا **احتياطي بس** — المصدر
+ * الحقيقي جدول `map_areas` في القاعدة، والقراية من `src/lib/fields.ts`
+ * (نفس نمط `src/data/copy-fallback.ts` مع `src/lib/copy.ts`). أي تعديل هنا
+ * لازم يتعمل في هجرة كمان، وإلا هيبان بس لما القاعدة تكون مش متاحة.
+ *
+ * و`mapPins` اتشالت خالص: كانت قايمة يدوية بـ٧ slugs، يعني أي سبوطة جديدة
+ * عمرها ما كانت تبان على الخريطة. دلوقتي النقط بتتحسب من السبوطات نفسها في
+ * `placePins` جوه `src/lib/fields.ts`.
  */
 
 export interface MapArea {
@@ -83,32 +92,25 @@ export const mapAreas: MapArea[] = [
   },
 ]
 
-/** نقط السبوطات على الخريطة — مربوطة بالـ slug */
-export interface MapPin {
-  slug: string
-  areaId: string
-  x: number
-  y: number
-}
-
-export const mapPins: MapPin[] = [
-  { slug: 'ehna-el-rabe3', areaId: 'tagamo3', x: 276, y: 92 },
-  { slug: 'el-mal3ab-lina', areaId: 'tagamo3', x: 330, y: 128 },
-  { slug: 'tarabeza-setta', areaId: 'tagamo3', x: 258, y: 132 },
-  { slug: 'work-cafe-tagamo3', areaId: 'tagamo3', x: 340, y: 84 },
-  { slug: 'fetar-3al-nil', areaId: 'maadi', x: 214, y: 322 },
-  { slug: 'ba3d-ma-el-shams-teghib', areaId: 'wadi', x: 288, y: 414 },
-  { slug: 'shoro2-men-el-gabal', areaId: 'wadi', x: 336, y: 416 },
-]
-
-/** موقع نقطة السبوطة الغامضة — كوبالت كبيرة بعلامة استفهام */
+/** موقع نقطة السبوطة الغامضة — كوبالت كبيرة بعلامة استفهام (احتياطي) */
 export const mysteryPin = { x: 96, y: 320 }
 
-/** فلاتر الخريطة — البرومبت §4.15 */
-export const mapFilters = ['الكل', 'نهاري', 'ليلي', 'بنات بس'] as const
+/**
+ * فلاتر الخريطة — البرومبت §4.15.
+ * لكل فلتر `id` ثابت: الصفحة بتقارن بالـ id مش بالنص المعروض. قبل كده كانت
+ * بتقارن `filter === t('map.label.3')` — يعني أي تعديل للنص من اللوحة كان
+ * بيوقّف الفلترة بصمت.
+ */
+export const mapFilterOptions = [
+  { id: 'all', label: 'الكل' },
+  { id: 'day', label: 'نهاري' },
+  { id: 'night', label: 'ليلي' },
+  { id: 'girls', label: 'بنات بس' },
+] as const
 
-/** المناطق اللي المستخدم راحها (من الحجوزات) — الباقي باهت ومكتوب عليه «لسه» */
-export const visitedAreaIds = ['tagamo3', 'maadi']
+export type MapFilterId = (typeof mapFilterOptions)[number]['id']
+
+export const mapFilters: readonly string[] = mapFilterOptions.map((o) => o.label)
 
 /**
  * كتل الخريطة المصغرة في الرئيسية — منقولة بالإحداثيات بالظبط من الملف.

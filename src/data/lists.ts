@@ -1,6 +1,14 @@
 /**
  * القوايم الثابتة — كلها حرفيًا من design/نسبوط.dc.html
  * (ما عدا اللي مكتوب جنبه إنه من البرومبت)
+ *
+ * ⚠ من مراجعة A4: قوايم نموذج التسجيل (`interests` · `areas` · `budgets` ·
+ * `days` · `girlsOnlyOptions` · `skillLevels` · `sports` · `MAX_INTERESTS`)
+ * بقت **احتياطي بس**. المصدر الحقيقي `profile_fields` و`field_options` و
+ * `skill_activities` و`consents` في القاعدة — واللي بيقرا منها
+ * `src/lib/fields.ts` (نفس نمط `copy-fallback.ts` مع `copy.ts`).
+ * القيم هنا هي نفسها اللي `src/lib/map-db.ts` بيعرف يترجمها، فلو غيّرتها
+ * لازم تغيّر جدول الترجمة والهجرة معاها.
  */
 
 /** الفلاتر العشرة — [ملف] */
@@ -67,6 +75,9 @@ export const budgets = ['لحد 250', 'لحد 500', 'لحد 1000', 'مفيش م�
 
 /** الأيام الفاضية — [ملف] */
 export const days = ['سبت', 'حد', 'اتنين', 'تلات', 'أربع', 'خميس', 'جمعة'] as const
+
+/** الأيام المختارة افتراضيًا في الملف */
+export const defaultDays = ['تلات', 'خميس', 'جمعة']
 
 /** تفضيل «بنات بس» — [ملف] */
 export const girlsOnlyOptions = ['دايمًا', 'أحيانًا', 'مش مهم'] as const
