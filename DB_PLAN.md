@@ -447,3 +447,106 @@ TEST_PHONE_ALLOWLIST=               # أرقام الاختبار — غير ا�
 - أي كتابة أو هجرة على المشروع `rhvskbkyzlfdpxjrgyju` (نظام الوكالة الشغّال).
 - إنشاء مشروع Supabase جديد (بيترتب عليه فاتورة).
 - الاشتراك في بايموب/كاشير أو تقديم قوالب واتساب (محتاج بيانات الشركة).
+
+---
+
+## 12. طبقة الشغل (WORK_PLAN.md — المرحلة 1)
+
+الهجرات `0039`–`0046` (`supabase/migrations/20260909*`)، مجمّعة في `WORK_MIGRATION.sql`.
+كل كائن فيها idempotent، ومفيش حاجة موجودة اتشالت ولا اتغيّر اسمها.
+مطابقة `work_v1` (`fn_build_work_matching`) مؤجّلة للمرحلة 5 — وهي **منفصلة عن قصد**
+عن `fn_build_matching`: لو الأصلية اتغيّرت بعدين لازم تتراجع دي يدويًا (WORK_PLAN §8 #3).
+
+### 12.1 أنواع جديدة
+
+```
+work_status_t      freelancer | remote_employee | business_owner | student | employee | other
+work_style_t       silent | chatty | depends
+experience_t       under_1 | one_to_three | three_to_five | five_plus
+outlets_t          few | enough | plenty
+noise_t            quiet | medium | lively
+pass_kind_t        four | eight
+pass_status_t      pending | active | used_up | expired | refunded | cancelled   ← cancelled: التحويل اترفض قبل التفعيل
+recurring_status_t active | paused | cancelled
+lead_status_t      new | contacted | converted | dropped
+venue_kind_t       + cafe_work | coworking
+```
+
+### 12.2 امتدادات على جداول موجودة
+
+| الجدول | الأعمدة |
+|---|---|
+| `profiles` | `work_status`, `profession_id → professions`, `secondary_profession_id`, `work_style`, `open_to_collab` (true), `years_experience`, `work_days_pref text[]`, `work_area_pref`, `work_no_show_count` (0) |
+| `sbota_templates` | `is_work` (false), `work_config jsonb` |
+| `sbotat` | `is_work` — بيتنسخ من القالب بمحفّز `t_sbotat_is_work` + فهرس جزئي `where is_work` |
+| `payments` | `pass_id → work_passes` · **`booking_id` بقى nullable** · قيد `payments_target_ck` (واحد من الاتنين لازم) |
+| `bookings` | `paid_with_pass` (false) |
+| `settings` | `work_pass4_price` 40000 · `work_pass4_weeks` 6 · `work_pass8_price` 72000 · `work_pass8_weeks` 10 · `work_single_price` 12000 · `work_first_time_price` 6000 · `work_profession_mix_max` 2 · `work_lunch_at` 13:00 · `work_complaint_at` 14:30 · `work_recurring_lead_days` 7 · `work_pass_refund_days` 3 · `work_conversion_target_pct` 25 |
+| `sbotat_public` | + `is_work`, `work_config` في الآخر |
+
+### 12.3 جداول جديدة
+
+| الجدول | الدور | ملاحظات |
+|---|---|---|
+| `professions` | قاموس المجالات (15 بذرة) | `key` فريد، `sort_order`, `is_active` |
+| `work_venues` | مواصفات مكان الشغل — 1:1 مع `venues` | `wholesale_seat_price` و`notes_ar` للإدارة بس |
+| `work_passes` | الكروت | `pending` → `active` عند الاعتماد · قيد `sessions_used <= sessions_total` · حارس `t_guard_pass_columns` |
+| `pass_redemptions` | كل خصم ورجوع | `booking_id` فريد |
+| `recurring_bookings` | اليوم الثابت | فهرس فريد جزئي `(profile_id, weekday) where status <> 'cancelled'` |
+| `work_affinity` | «عايز تشتغل مع مين» | نسخة `pair_affinity` بالحرف — محفّز `t_mutual_work_affinity` |
+| `venue_reports` | حساب الأسبوع لكل مكان | فريد `(venue_id, week_start)` |
+| `leads` | نموذج الشركات | الإدراج عبر `fn_submit_lead` بس (3/يوم/رقم) |
+| `work_metrics` | عرض مادي أسبوعي | `conversion_30d_pct` = نسبة اللي أول حجز شغل ليهم اتبعه حجز ترفيهي مدفوع خلال 30 يوم |
+
+**عروض:** `work_venues_public` (security invoker فوق `fn_work_venues_public()` — من غير سعر الجملة؛
+العنوان بيظهر بس لو فيه سبوطة شغل معلنة مش مخفية العنوان) · `work_group_members`
+(security invoker فوق `fn_work_group_members()` — الاسم الأول والمجال والأسلوب والخبرة لزمايل
+مجموعتي في سبوطات الشغل **بعد الكشف بس**). مفيش سياسة على `profiles` لزمايل المجموعة عن قصد:
+RLS على مستوى الصف كانت هتكشف التليفون والإيميل — نفس قرار `fn_group_members`.
+
+### 12.4 دوال
+
+| الدالة | بتعمل إيه | مين يناديها |
+|---|---|---|
+| `fn_redeem_pass(p_booking_id) → jsonb` | خصم جلسة من أقدم كارت نشط · `paid_with_pass` · الحجز `paid` لو كان مستني | صاحب الحجز / الخادم |
+| `fn_revert_pass(p_booking_id, p_force=false) → jsonb` | رجوع الجلسة لو قبل `work_pass_refund_days` (أو `p_force`) | الخادم (من `fn_cancel_booking`) |
+| `fn_activate_pass(p_payment_id) → jsonb` | `active` + `starts_at/expires_at` + إشعار `work_pass_activated` | الإدارة / `fn_approve_transfer` |
+| `fn_pass_balance(p_profile)` · `fn_my_pass_balance()` | الجلسات الباقية | الخادم · العميل |
+| `fn_group_professions(p_sbota_id) → jsonb` | `{revealed, count, professions[]}` — قبل الكشف العدد بس | الكل (anon) |
+| `fn_work_collab_state(p_other) → 'mutual' \| 'none'` | الوصول الوحيد لـ `work_affinity` | العميل |
+| `fn_work_want(p_other, p_booking_id=null, p_want=true) → 'mutual' \| 'none'` | بتكتب جهتي بس في `work_affinity` (مفيش قراءة) — **دي طريقة الكتابة الوحيدة اللي بتشتغل** لأن update/upsert مباشر ما بيوصلش للصف من غير سياسة select | العميل |
+| `fn_work_group_members()` · `fn_work_venues_public()` | خلف العرضين | العميل · الكل |
+| `fn_venue_report(p_week_start date) → int` | تبني/تحدّث `venue_reports` | `job_work_venue_reports` / الإدارة |
+| `fn_work_metrics(p_weeks=12)` | قراءة `work_metrics` بصلاحية `settings.view` | اللوحة |
+| `fn_submit_lead(company, contact_name, phone, people_count, times_per_month, note) → uuid` | نموذج الشركات بحد معدل | الكل (anon) |
+| `fn_cancel_booking` (امتداد) | لو `paid_with_pass` → `fn_revert_pass` بدل الفلوس، `refund_kind` = `full` لو رجعت / `none` لو لأ | زي ما هو |
+| `fn_approve_transfer` (امتداد) | لو `payments.pass_id` → `fn_activate_pass` ولا بيلمس `bookings` | زي ما هو |
+| `test_work_rls()` | 12 اختبار سياسات — بترمي استثناء لو حاجة رسبت | SQL Editor |
+
+### 12.5 مهام pg_cron
+
+| المهمة | الجدولة (UTC) | بتعمل إيه |
+|---|---|---|
+| `job_work_recurring` | `0 7 * * *` | اليوم الثابت: حجز بالكارت + `work_recurring_booked` · مفيش رصيد → `work_no_pass_balance` · مفيش سبوطة → `provider_alerts` |
+| `job_work_pass_reminders` | `0 8 * * *` | `expired` · `work_pass_low` · `work_pass_expiring` |
+| `job_work_venue_reports` | `0 6 * * 1` | `fn_venue_report` للأسبوع اللي فات |
+| `job_work_metrics` | `15 3 * * *` | تجديد `work_metrics` |
+
+### 12.6 سياسات الصفوف
+
+| الجدول | قراءة | كتابة |
+|---|---|---|
+| `professions` | الكل | `fields.edit` |
+| `work_venues` | الإدارة (الأعضاء عبر `work_venues_public`) | `sbotat.edit` |
+| `work_passes` | صاحبها + الإدارة | صاحبها إدراج `pending` بس · `payments.review` · الرصيد من الدوال بس |
+| `pass_redemptions` | صاحب الكارت + الإدارة | الدوال |
+| `recurring_bookings` | صاحبها + الإدارة | صاحبها · `bookings.edit` |
+| `work_affinity` | محدش (الإدارة select) | سياسات insert/update لصاحب `a`/`b` زي `pair_affinity` — بس عمليًا الكتابة عبر `fn_work_want` (شوف 12.4) |
+| `venue_reports` | `payments.view` | `payments.review` |
+| `leads` | `people.view` | `fn_submit_lead` بس · تعديل `people.view` |
+| `payments` | + صاحب الكارت يشوف دفعة كارته | — |
+
+### 12.7 قوالب إشعارات جديدة
+
+`work_recurring_booked` · `work_no_pass_balance` · `work_pass_low` · `work_pass_expiring`
+· `work_collab_match` · `work_venue_changed` · `work_first_time_offer` · `work_pass_activated` (زيادة).
