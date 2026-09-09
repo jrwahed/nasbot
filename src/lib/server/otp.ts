@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { mailConfigured, sendAuthCodeEmail } from '@/lib/server/mailer'
 import { sendAuthCode as sendWhatsApp } from '@/lib/server/whatsapp'
+import { clientIp } from '@/lib/server/admin-auth'
 
 /**
  * رمز الدخول — المنطق المشترك بين /api/otp/send و /api/otp/verify.
@@ -104,4 +105,67 @@ export async function deliverCode(phone: string, email: string, code: string): P
   }
 
   return { ok: false, channel: 'simulated', error: 'الإرسال مش متفعّل على السيرفر — كلّم الإدارة' }
+}
+
+/* ==================================================== حدود المعدل (S7) */
+
+/**
+ * مفتاح مهشوش للجهاز. بنخزّن الهاش مش الـIP الخام — إحنا مش محتاجينه،
+ * ومحدش يقدر يرجّعه من جدول العدّادات.
+ */
+export function ipKey(prefix: string, req: Request): string | null {
+  const ip = clientIp(req)
+  if (!ip) return null
+  const h = createHash('sha256')
+    .update(`${ip}:${process.env.CRON_SECRET ?? 'nasbot'}`)
+    .digest('hex')
+    .slice(0, 32)
+  return `${prefix}:${h}`
+}
+
+/** الحدود من settings — لو القراية وقعت بنرجع للافتراضي بتاع الهجرة */
+export interface OtpLimits {
+  maxAttempts: number
+  sendsPerHour: number
+  ipSendsPerHour: number
+  ipVerifiesPerHour: number
+}
+
+export async function otpLimits(db: SupabaseClient): Promise<OtpLimits> {
+  const d = { maxAttempts: 5, sendsPerHour: 3, ipSendsPerHour: 20, ipVerifiesPerHour: 40 }
+  const { data } = await db
+    .from('settings')
+    .select('otp_max_attempts, otp_sends_per_hour, otp_ip_sends_per_hour, otp_ip_verifies_per_hour')
+    .maybeSingle()
+  const r = data as Record<string, number | null> | null
+  if (!r) return d
+  return {
+    maxAttempts: r.otp_max_attempts ?? d.maxAttempts,
+    sendsPerHour: r.otp_sends_per_hour ?? d.sendsPerHour,
+    ipSendsPerHour: r.otp_ip_sends_per_hour ?? d.ipSendsPerHour,
+    ipVerifiesPerHour: r.otp_ip_verifies_per_hour ?? d.ipVerifiesPerHour,
+  }
+}
+
+/**
+ * عدّاد نافذة ذرّي عبر fn_rate_hit. بيرجّع true لو لسه تحت الحد.
+ *
+ * ⚠ fail-open عن قصد: لو الهجرة 0070 لسه ما اتلزقتش، أو القاعدة ردّت بغلط،
+ * بنسيب الطلب يعدّي. القفل على الكل بسبب حاجة عندنا أسوأ من غياب حد مؤقت —
+ * وحد المحاولات على الرمز نفسه لسه شغّال في الحالتين.
+ */
+export async function rateOk(
+  db: SupabaseClient,
+  bucket: string | null,
+  limit: number,
+  windowSecs = 3600
+): Promise<boolean> {
+  if (!bucket || limit <= 0) return true
+  const { data, error } = await db.rpc('fn_rate_hit', {
+    p_bucket: bucket,
+    p_limit: limit,
+    p_window_secs: windowSecs,
+  })
+  if (error) return true
+  return data !== false
 }

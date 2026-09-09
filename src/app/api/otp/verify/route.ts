@@ -1,9 +1,43 @@
 import { NextResponse } from 'next/server'
 import { randomBytes } from 'node:crypto'
 import { admin, normalizePhone } from '@/lib/server/supabase-admin'
-import { codeHash, resolveEmail } from '@/lib/server/otp'
+import { codeHash, resolveEmail, otpLimits, rateOk, ipKey } from '@/lib/server/otp'
+import type { SupabaseClient } from '@supabase/supabase-js'
 
 export const runtime = 'nodejs'
+
+/**
+ * الطريق القديم — بيتنادى بس لو fn_otp_try مش موجودة (الهجرة 0070 لسه ما
+ * اتلزقتش). فيه سباق معروف تحت الضغط، وموجود هنا علشان النشر ما يقفلش
+ * الدخول قبل ما القاعدة تتحدّث. يتشال بعد ما 0070 تتطبّق.
+ */
+async function legacyOtpTry(
+  db: SupabaseClient,
+  phone: string,
+  hash: string,
+  maxAttempts: number
+): Promise<string> {
+  const { data: row } = await db
+    .from('otp_codes')
+    .select('id, code_hash, expires_at, attempts, consumed_at')
+    .eq('phone', phone)
+    .is('consumed_at', null)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (!row) return 'none'
+  const r = row as { id: string; code_hash: string; expires_at: string; attempts: number }
+
+  if (new Date(r.expires_at) < new Date()) return 'expired'
+  if (r.attempts >= maxAttempts) return 'locked'
+  if (r.code_hash !== hash) {
+    await db.from('otp_codes').update({ attempts: r.attempts + 1 }).eq('id', r.id)
+    return 'wrong'
+  }
+  await db.from('otp_codes').update({ consumed_at: new Date().toISOString() }).eq('id', r.id)
+  return 'ok'
+}
 
 /** كود إحالة فريد من 6 حروف */
 function referralCode() {
@@ -32,33 +66,45 @@ export async function POST(req: Request) {
   if (!target.ok) return NextResponse.json({ error: target.error }, { status: target.status })
   const email = target.email
 
-  const { data: row } = await db
-    .from('otp_codes')
-    .select('id, code_hash, expires_at, attempts, consumed_at')
-    .eq('phone', phone)
-    .is('consumed_at', null)
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle()
-
-  if (!row) return NextResponse.json({ error: 'اطلب الرمز الأول' }, { status: 400 })
-
-  const r = row as {
-    id: string; code_hash: string; expires_at: string; attempts: number
+  // حد المعدل على الجهاز — رقم واحد محدود، بس مهاجم معاه ألف رقم كان بياخد
+  // ألف نصيب من نفس الجهاز (S7).
+  const limits = await otpLimits(db)
+  if (!(await rateOk(db, ipKey('otp_verify', req), limits.ipVerifiesPerHour))) {
+    return NextResponse.json({ error: 'محاولات كتير من الجهاز ده. استنى شوية.' }, { status: 429 })
   }
 
-  if (new Date(r.expires_at) < new Date()) {
+  /**
+   * التحقق كله جوه fn_otp_try — بيقفل الصف فالمحاولات المتوازية بتتصفّ ورا
+   * بعض. الكود القديم كان بيقرا العدّاد وبعدين يكتبه في خطوتين، فـ٥٠ طلب
+   * متوازي كانوا بيقروا كلهم صفر وحد الـ٥ عمره ما بيمسك (اتثبت عمليًا: عدّى
+   * ٢٨ تخمين بدل ٥). ⚠ نفس المسار بيخدم دخول اللوحة.
+   *
+   * لو الهجرة 0070 لسه ما اتلزقتش، الدالة مش موجودة فبنرجع للطريق القديم
+   * علشان الدخول ما يقفش على الناس — أضعف، بس مش مقفول.
+   */
+  const hash = codeHash(code, phone, email)
+  const { data: verdictRaw, error: rpcErr } = await db.rpc('fn_otp_try', {
+    p_phone: phone,
+    p_hash: hash,
+  })
+
+  let verdict: string
+  if (rpcErr) {
+    verdict = await legacyOtpTry(db, phone, hash, limits.maxAttempts)
+  } else {
+    verdict = String(verdictRaw)
+  }
+
+  if (verdict === 'none') return NextResponse.json({ error: 'اطلب الرمز الأول' }, { status: 400 })
+  if (verdict === 'expired') {
     return NextResponse.json({ error: 'الرمز خلصت مدته. اطلب واحد جديد.' }, { status: 400 })
   }
-  if (r.attempts >= 5) {
+  if (verdict === 'locked') {
     return NextResponse.json({ error: 'جربت كتير. اطلب رمز جديد.' }, { status: 429 })
   }
-  if (r.code_hash !== codeHash(code, phone, email)) {
-    await db.from('otp_codes').update({ attempts: r.attempts + 1 }).eq('id', r.id)
+  if (verdict !== 'ok') {
     return NextResponse.json({ error: 'الرمز مش مظبوط' }, { status: 400 })
   }
-
-  await db.from('otp_codes').update({ consumed_at: new Date().toISOString() }).eq('id', r.id)
 
   // ===== المستخدم: موجود ولا نعمله؟ =====
   let userId = target.profileId ?? undefined

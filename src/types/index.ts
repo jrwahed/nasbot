@@ -248,6 +248,9 @@ export interface WorkSettings {
   vodafoneNumber: string
   instapayHandle: string
   reviewHours: number
+  /** الافتراضي لجدول اليوم لو قالب السبوطة ما حددش — من settings.work_lunch_at */
+  lunchAt: string
+  complaintAt: string
 }
 
 /** مكان شغل — من work_venues_public (من غير سعر الجملة أبدًا) */

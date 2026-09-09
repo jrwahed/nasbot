@@ -390,6 +390,11 @@ export function workSettingsFromDb(row: Record<string, unknown> | null): WorkSet
     vodafoneNumber: s('vodafone_number', D.vodafoneNumber),
     instapayHandle: s('instapay_handle', D.instapayHandle),
     reviewHours: n('manual_review_hours', D.reviewHours),
+    // أعمدة time بترجع «13:00:00» — clockFromDb بتخليها «13:00»
+    lunchAt: clockFromDb(s('work_lunch_at', workScheduleDefaults.lunchAt)) || workScheduleDefaults.lunchAt,
+    complaintAt:
+      clockFromDb(s('work_complaint_at', workScheduleDefaults.complaintAt)) ||
+      workScheduleDefaults.complaintAt,
   }
 }
 
@@ -443,14 +448,27 @@ export function workVenueFromDb(
   }
 }
 
-/** sbota_templates.work_config → جدول اليوم. أي حقل ناقص بياخد الافتراضي. */
-export function workScheduleFromConfig(cfg: unknown): DaySchedule {
+/**
+ * sbota_templates.work_config → جدول اليوم. أي حقل ناقص بياخد الافتراضي.
+ *
+ * `fallback` بييجي من `settings` (work_lunch_at / work_complaint_at) — قبل كده
+ * الافتراضي كان ثابت في الكود، فالعمودين في اللوحة كانوا ميتين: المالك يعدّل
+ * ساعة الغدا ومحدش بيقراها (A16). القالب لسه بيغلب الإعدادات لو حدّد.
+ */
+export function workScheduleFromConfig(
+  cfg: unknown,
+  fallback?: Partial<Pick<DaySchedule, 'lunchAt' | 'complaintAt'>>
+): DaySchedule {
   const c = (cfg && typeof cfg === 'object' ? cfg : {}) as Record<string, unknown>
   const str = (k: string, d: string) => {
     const v = c[k]
     return typeof v === 'string' && v ? clockFromDb(v) : d
   }
-  const D = workScheduleDefaults
+  const D = {
+    ...workScheduleDefaults,
+    ...(fallback?.lunchAt ? { lunchAt: fallback.lunchAt } : {}),
+    ...(fallback?.complaintAt ? { complaintAt: fallback.complaintAt } : {}),
+  }
   const start = str('start', D.start)
   const end = str('end', D.end)
   const lunchAt = str('lunch_hour_at', D.lunchAt)

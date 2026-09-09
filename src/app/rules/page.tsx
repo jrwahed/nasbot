@@ -4,12 +4,24 @@ import { InnerHeader } from '@/components/Header'
 import { Footer } from '@/components/Footer'
 import { Sticker } from '@/components/Sticker'
 import { GuaranteeBox } from '@/components/WhoBooked'
-import { fiveRules, guaranteeText, emergencyPhone } from '@/data/lists'
+import { fiveRules, guaranteeText } from '@/data/lists'
+import { getEmergencyPhone } from '@/lib/api'
 import { useT } from '@/components/CopyProvider'
+import { useEffect, useState } from 'react'
 
 /** القواعد والضمان — «الثقة قبل الفسحة» */
 export default function RulesPage() {
   const t = useT()
+  // رقم الطوارئ من الإعدادات — null يعني مفيش رقم متظبط، فبنخفي الزرار
+  // بدل ما نعرض زرار اتصال برقم وهمي (A15).
+  const [emergency, setEmergency] = useState<string | null>(null)
+  useEffect(() => {
+    let alive = true
+    getEmergencyPhone().then((p) => alive && setEmergency(p))
+    return () => {
+      alive = false
+    }
+  }, [])
   return (
     <main className="mx-auto w-full max-w-page">
       <div className="px-5">
@@ -55,11 +67,13 @@ export default function RulesPage() {
         {/* ===== الطوارئ ===== */}
         <h2 className="mt-10 font-display text-26 font-black">{t('rules.text.4')}</h2>
         <div className="mt-1 font-body text-16" style={{ color: 'var(--muted)' }}>{t('rules.text.3')}</div>
-        <a
-          href={`tel:${emergencyPhone}`}
-          className="mt-4 grid w-full place-items-center rounded-16 font-display text-20 font-black"
-          style={{ background: '#8E2F1F', color: '#FBF7EF', minHeight: 58 }}
-        >{t('rules.text.2')}</a>
+        {emergency && (
+          <a
+            href={`tel:${emergency}`}
+            className="mt-4 grid w-full place-items-center rounded-16 font-display text-20 font-black"
+            style={{ background: '#8E2F1F', color: '#FBF7EF', minHeight: 58 }}
+          >{t('rules.text.2')}</a>
+        )}
 
         <div
           className="mt-8 rounded-16 p-4 text-center font-body text-15 font-semibold"

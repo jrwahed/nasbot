@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { randomInt } from 'node:crypto'
 import { admin, normalizePhone } from '@/lib/server/supabase-admin'
-import { codeHash, deliverCode, resolveEmail, OTP_TTL_MS } from '@/lib/server/otp'
+import { codeHash, deliverCode, resolveEmail, OTP_TTL_MS, otpLimits, rateOk, ipKey } from '@/lib/server/otp'
 
 export const runtime = 'nodejs'
 // إرسال SMTP بياخد ثواني — الافتراضي على Vercel Hobby 10 ثواني وده على الحافة
@@ -35,7 +35,18 @@ export async function POST(req: Request) {
   const target = await resolveEmail(db, phone, submittedEmail)
   if (!target.ok) return NextResponse.json({ error: target.error }, { status: target.status })
 
-  // حد المعدل: 3 إرسالات في الساعة لكل رقم
+  const limits = await otpLimits(db)
+
+  // حد المعدل على الجهاز — الحد بالرقم لوحده مكانش بيكفي: مهاجم معاه ألف
+  // رقم كان بياخد ألف نصيب من نفس الجهاز (S7).
+  if (!(await rateOk(db, ipKey('otp_send', req), limits.ipSendsPerHour))) {
+    return NextResponse.json(
+      { error: 'طلبات كتير من الجهاز ده. استنى شوية.' },
+      { status: 429 }
+    )
+  }
+
+  // حد المعدل لكل رقم — الرقم بييجي من الطلب فالعدّاد على otp_codes نفسه
   const hourAgo = new Date(Date.now() - 3600_000).toISOString()
   const { count } = await db
     .from('otp_codes')
@@ -43,7 +54,7 @@ export async function POST(req: Request) {
     .eq('phone', phone)
     .gte('created_at', hourAgo)
 
-  if ((count ?? 0) >= 3) {
+  if ((count ?? 0) >= limits.sendsPerHour) {
     return NextResponse.json(
       { error: 'بعتنالك الرمز كذا مرة. استنى شوية وجرب تاني.' },
       { status: 429 }

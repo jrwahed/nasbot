@@ -67,7 +67,7 @@ import { setSession, clearSession } from '@/lib/session'
 import { personas } from '@/data/personas'
 import { gameFallback } from '@/data/game'
 import { resultFor, type GameConfig, type GameKind } from '@/lib/game-config'
-import { WORK_WINDOW_DAYS, workSettingsDefaults } from '@/data/lists'
+import { WORK_WINDOW_DAYS, workSettingsDefaults, workScheduleDefaults } from '@/data/lists'
 
 /** بيتحدد مرة واحدة عند التحميل */
 const DB = hasSupabase
@@ -1409,16 +1409,57 @@ async function safeWork<T>(label: string, run: () => Promise<T>, fallback: T): P
  * أعمدة settings.work_* — بالقروش في القاعدة، بالجنيه هنا.
  * أي عمود ناقص (الهجرة لسه ما اتطبّقتش) بياخد الافتراضي من lists.ts.
  */
+/**
+ * الافتراضي الكامل — أعمدة الشغل + افتراضي جدول اليوم. الاتنين مصدرهم
+ * `src/data/lists.ts`، وبنركّبهم هنا علشان WorkSettings بقت شايلة ساعتَي
+ * الغدا والشكوى كمان (A16).
+ */
+const WORK_SETTINGS_FALLBACK: WorkSettings = {
+  ...workSettingsDefaults,
+  lunchAt: workScheduleDefaults.lunchAt,
+  complaintAt: workScheduleDefaults.complaintAt,
+}
+
 export async function getWorkSettings(): Promise<WorkSettings> {
-  if (!DB) return { ...workSettingsDefaults }
+  if (!DB) return { ...WORK_SETTINGS_FALLBACK }
   return safeWork(
     'getWorkSettings',
     async () => {
         const { data, error } = await supabase().from('settings').select('*').limit(1).maybeSingle()
-        if (error || !data) return { ...workSettingsDefaults }
+        if (error || !data) return { ...WORK_SETTINGS_FALLBACK }
         return workSettingsFromDb(data as Record<string, unknown>)
     },
-    { ...workSettingsDefaults }
+    { ...WORK_SETTINGS_FALLBACK }
+  )
+}
+
+/**
+ * رقم الطوارئ من `settings.emergency_phone` (A15).
+ *
+ * كان متحطوط في `src/data/lists.ts` كرقم **وهمي** (`+201000000000`) ومعروض
+ * في /rules كزرار اتصال — يعني عضو في مشكلة كان هيرن على رقم مش بتاعنا،
+ * والمالك بيعدّل الرقم في اللوحة ومحدش بيقراه.
+ *
+ * بترجّع `null` لو مفيش رقم متظبط، والصفحة بتخفي الزرار خالص — إخفاء أنضف
+ * من رقم غلط.
+ */
+export async function getEmergencyPhone(): Promise<string | null> {
+  if (!DB) return null
+  return safeWork(
+    'getEmergencyPhone',
+    async () => {
+      const { data, error } = await supabase()
+        .from('settings')
+        .select('emergency_phone')
+        .limit(1)
+        .maybeSingle()
+      if (error || !data) return null
+      const raw = String((data as { emergency_phone?: string | null }).emergency_phone ?? '').trim()
+      // الأرقام الوهمية (كلها أصفار بعد كود الدولة) بتتعامل كأنها فاضية
+      if (!raw || /^\+?2?0?1?0{6,}$/.test(raw.replace(/[\s-]/g, ''))) return null
+      return raw
+    },
+    null as string | null
   )
 }
 
@@ -1442,7 +1483,9 @@ const WORK_SBOTA_COLS = `${SBOTA_COLS}, template_id, venue_id, is_work, work_con
 function workSbotaFromRows(
   row: Record<string, unknown>,
   who: Parameters<typeof sbotaFromDb>[1],
-  venue: WorkVenue | null
+  venue: WorkVenue | null,
+  /** افتراضي جدول اليوم من settings — القالب بيغلبه لو حدّد (A16) */
+  schedDefaults?: { lunchAt: string; complaintAt: string }
 ): WorkSbota {
   const base = sbotaFromDb(row, who)
   const r = row as { id: string; work_config?: unknown }
@@ -1453,7 +1496,7 @@ function workSbotaFromRows(
     tags: Array.from(new Set([...base.tags, 'شغل'])),
     sbotaId: r.id,
     venue,
-    schedule: workScheduleFromConfig(r.work_config ?? null),
+    schedule: workScheduleFromConfig(r.work_config ?? null, schedDefaults),
   }
 }
 
@@ -1514,12 +1557,16 @@ export async function getWorkSbotat(): Promise<WorkSbota[]> {
         if (error || !data) return []
 
         const rows = data as unknown as Record<string, unknown>[]
-        const [who, venues] = await Promise.all([
+        const [who, venues, cfg] = await Promise.all([
           whoBookedMap(rows.map((r) => r.id as string)),
           workVenuesMap(rows.map((r) => String(r.venue_id ?? ''))),
+          getWorkSettings(),
         ])
         return rows.map((r) =>
-          workSbotaFromRows(r, who.get(r.id as string), venues.get(String(r.venue_id ?? '')) ?? null)
+          workSbotaFromRows(r, who.get(r.id as string), venues.get(String(r.venue_id ?? '')) ?? null, {
+            lunchAt: cfg.lunchAt,
+            complaintAt: cfg.complaintAt,
+          })
         )
     },
     []
@@ -1543,11 +1590,15 @@ export async function getWorkSbota(slug: string): Promise<WorkSbota | null> {
 
   const row = data as unknown as Record<string, unknown>
   const id = row.id as string
-  const [who, venues] = await Promise.all([
+  const [who, venues, cfg] = await Promise.all([
     whoBookedMap([id]),
     workVenuesMap([String(row.venue_id ?? '')]),
+    getWorkSettings(),
   ])
-  return workSbotaFromRows(row, who.get(id), venues.get(String(row.venue_id ?? '')) ?? null)
+  return workSbotaFromRows(row, who.get(id), venues.get(String(row.venue_id ?? '')) ?? null, {
+    lunchAt: cfg.lunchAt,
+    complaintAt: cfg.complaintAt,
+  })
 }
 
 /**
