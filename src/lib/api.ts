@@ -1364,14 +1364,48 @@ export async function logEvent(name: string, props: Record<string, unknown> = {}
 /* ============================================================ الشغل */
 
 /**
+ * أي طلب لسوبابيس ممكن **يرمي** (شبكة مقطوعة، مفتاح غلط، الخدمة واقعة) —
+ * مش بس يرجّع error. الصفحات هنا بتتحكم في العرض بحالة `null`، فرمية واحدة
+ * كانت بتسيبها على «ثانية واحدة…» للأبد. كل دوال الشغل بتعدي من هنا
+ * فبترجّع البديل بدل ما ترمي.
+ */
+const WORK_TIMEOUT_MS = 8000
+
+async function safeWork<T>(label: string, run: () => Promise<T>, fallback: T): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined
+  try {
+    // المهلة مش رفاهية: الطلب ممكن **يعلّق** من غير ما يرمي (شبكة بتبلع الحزم،
+    // الخدمة واقعة) — وساعتها الصفحة تفضل على «ثانية واحدة…» للأبد.
+    return await Promise.race([
+      run(),
+      new Promise<T>((_, reject) => {
+        timer = setTimeout(() => reject(new Error('المهلة خلصت')), WORK_TIMEOUT_MS)
+      }),
+    ])
+  } catch (e) {
+    // eslint-disable-next-line no-console
+    console.warn(`[الشغل] ${label} وقع:`, (e as Error).message)
+    return fallback
+  } finally {
+    if (timer) clearTimeout(timer)
+  }
+}
+
+/**
  * أعمدة settings.work_* — بالقروش في القاعدة، بالجنيه هنا.
  * أي عمود ناقص (الهجرة لسه ما اتطبّقتش) بياخد الافتراضي من lists.ts.
  */
 export async function getWorkSettings(): Promise<WorkSettings> {
   if (!DB) return { ...workSettingsDefaults }
-  const { data, error } = await supabase().from('settings').select('*').limit(1).maybeSingle()
-  if (error || !data) return { ...workSettingsDefaults }
-  return workSettingsFromDb(data as Record<string, unknown>)
+  return safeWork(
+    'getWorkSettings',
+    async () => {
+        const { data, error } = await supabase().from('settings').select('*').limit(1).maybeSingle()
+        if (error || !data) return { ...workSettingsDefaults }
+        return workSettingsFromDb(data as Record<string, unknown>)
+    },
+    { ...workSettingsDefaults }
+  )
 }
 
 /** أماكن الشغل من work_venues_public — مفتاحها venue_id */
@@ -1449,26 +1483,32 @@ async function mockWorkSbotat(): Promise<WorkSbota[]> {
 /** سبوطات الشغل المعلنة في الـ 14 يوم الجايين */
 export async function getWorkSbotat(): Promise<WorkSbota[]> {
   if (!DB) return mockWorkSbotat()
+  return safeWork(
+    'getWorkSbotat',
+    async () => {
 
-  const now = new Date()
-  const until = new Date(now.getTime() + WORK_WINDOW_DAYS * 24 * 3600_000)
-  const { data, error } = await supabase()
-    .from('sbotat_public')
-    .select(WORK_SBOTA_COLS)
-    .eq('is_work', true)
-    .eq('is_mystery', false)
-    .gte('starts_at', now.toISOString())
-    .lte('starts_at', until.toISOString())
-    .order('starts_at', { ascending: true })
-  if (error || !data) return []
+        const now = new Date()
+        const until = new Date(now.getTime() + WORK_WINDOW_DAYS * 24 * 3600_000)
+        const { data, error } = await supabase()
+          .from('sbotat_public')
+          .select(WORK_SBOTA_COLS)
+          .eq('is_work', true)
+          .eq('is_mystery', false)
+          .gte('starts_at', now.toISOString())
+          .lte('starts_at', until.toISOString())
+          .order('starts_at', { ascending: true })
+        if (error || !data) return []
 
-  const rows = data as unknown as Record<string, unknown>[]
-  const [who, venues] = await Promise.all([
-    whoBookedMap(rows.map((r) => r.id as string)),
-    workVenuesMap(rows.map((r) => String(r.venue_id ?? ''))),
-  ])
-  return rows.map((r) =>
-    workSbotaFromRows(r, who.get(r.id as string), venues.get(String(r.venue_id ?? '')) ?? null)
+        const rows = data as unknown as Record<string, unknown>[]
+        const [who, venues] = await Promise.all([
+          whoBookedMap(rows.map((r) => r.id as string)),
+          workVenuesMap(rows.map((r) => String(r.venue_id ?? ''))),
+        ])
+        return rows.map((r) =>
+          workSbotaFromRows(r, who.get(r.id as string), venues.get(String(r.venue_id ?? '')) ?? null)
+        )
+    },
+    []
   )
 }
 
@@ -1506,24 +1546,30 @@ export async function getWorkVenues(): Promise<WorkVenue[]> {
     const list = await mockWorkSbotat()
     return list.map((s) => s.venue).filter((v): v is WorkVenue => Boolean(v))
   }
+  return safeWork(
+    'getWorkVenues',
+    async () => {
 
-  const [{ data: venues, error }, { data: upcoming }] = await Promise.all([
-    supabase().from('work_venues_public').select('*').eq('is_active', true).order('name'),
-    supabase()
-      .from('sbotat_public')
-      .select('venue_id')
-      .eq('is_work', true)
-      .gte('starts_at', new Date().toISOString()),
-  ])
-  if (error || !venues) return []
-  const withSbota = new Set(
-    ((upcoming ?? []) as { venue_id: string | null }[]).map((r) => r.venue_id ?? '')
-  )
-  return (venues as Record<string, unknown>[]).map((row) =>
-    workVenueFromDb(
-      row,
-      Boolean(row.has_open_sbota) || withSbota.has(String(row.venue_id ?? ''))
-    )
+        const [{ data: venues, error }, { data: upcoming }] = await Promise.all([
+          supabase().from('work_venues_public').select('*').eq('is_active', true).order('name'),
+          supabase()
+            .from('sbotat_public')
+            .select('venue_id')
+            .eq('is_work', true)
+            .gte('starts_at', new Date().toISOString()),
+        ])
+        if (error || !venues) return []
+        const withSbota = new Set(
+          ((upcoming ?? []) as { venue_id: string | null }[]).map((r) => r.venue_id ?? '')
+        )
+        return (venues as Record<string, unknown>[]).map((row) =>
+          workVenueFromDb(
+            row,
+            Boolean(row.has_open_sbota) || withSbota.has(String(row.venue_id ?? ''))
+          )
+        )
+    },
+    []
   )
 }
 
@@ -1537,44 +1583,62 @@ export async function getGroupProfessions(sbotaId: string): Promise<GroupProfess
       { name: 'مسوّق', count: 1 },
     ]
   }
-  const { data, error } = await supabase().rpc('fn_group_professions', { p_sbota_id: sbotaId })
-  if (error) return []
-  return professionsFromDb(data)
+  return safeWork(
+    'getGroupProfessions',
+    async () => {
+        const { data, error } = await supabase().rpc('fn_group_professions', { p_sbota_id: sbotaId })
+        if (error) return []
+        return professionsFromDb(data)
+    },
+    []
+  )
 }
 
 /** أقدم كارت نشط للمستخدم الحالي — null لو مفيش أو مش داخل */
 export async function getMyActivePass(): Promise<WorkPass | null> {
   if (!DB) return null
-  const { data: auth } = await supabase().auth.getUser()
-  const uid = auth.user?.id
-  if (!uid) return null
-  const { data, error } = await supabase()
-    .from('work_passes')
-    .select('id, kind, sessions_total, sessions_used, expires_at, status')
-    .eq('profile_id', uid)
-    .eq('status', 'active')
-    .order('created_at', { ascending: true })
-    .limit(1)
-    .maybeSingle()
-  if (error || !data) return null
-  return workPassFromDb(data as Record<string, unknown>)
+  return safeWork(
+    'getMyActivePass',
+    async () => {
+        const { data: auth } = await supabase().auth.getUser()
+        const uid = auth.user?.id
+        if (!uid) return null
+        const { data, error } = await supabase()
+          .from('work_passes')
+          .select('id, kind, sessions_total, sessions_used, expires_at, status')
+          .eq('profile_id', uid)
+          .eq('status', 'active')
+          .order('created_at', { ascending: true })
+          .limit(1)
+          .maybeSingle()
+        if (error || !data) return null
+        return workPassFromDb(data as Record<string, unknown>)
+    },
+    null
+  )
 }
 
 /** هل حجز سبوطة شغل قبل كده (مدفوعة أو حضرها)؟ — بيحدد عرض «أول مرة» */
 export async function hasPriorWorkBooking(): Promise<boolean> {
   if (!DB) return false
-  const { data: auth } = await supabase().auth.getUser()
-  const uid = auth.user?.id
-  if (!uid) return false
-  const { data, error } = await supabase()
-    .from('bookings')
-    .select('id, sbotat!inner(is_work)')
-    .eq('profile_id', uid)
-    .eq('sbotat.is_work', true)
-    .in('status', ['paid', 'attended'])
-    .limit(1)
-  if (error) return false
-  return (data ?? []).length > 0
+  return safeWork(
+    'hasPriorWorkBooking',
+    async () => {
+        const { data: auth } = await supabase().auth.getUser()
+        const uid = auth.user?.id
+        if (!uid) return false
+        const { data, error } = await supabase()
+          .from('bookings')
+          .select('id, sbotat!inner(is_work)')
+          .eq('profile_id', uid)
+          .eq('sbotat.is_work', true)
+          .in('status', ['paid', 'attended'])
+          .limit(1)
+        if (error) return false
+        return (data ?? []).length > 0
+    },
+    false
+  )
 }
 
 /** نموذج الشركات → fn_submit_lead (إدراج للكل بحد معدل) */
