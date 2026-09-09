@@ -152,3 +152,55 @@ export const emergencyPhone = '+201000000000'
 
 /** رقم إنستا باي للتحويل */
 export const instapayHandle = 'nasbot@instapay'
+
+/* ============================================================ الشغل */
+
+/**
+ * الأرقام الافتراضية للشغل — نفس قيم WORK_PLAN §1.2 بالجنيه.
+ * بتتستخدم لو القاعدة مش متاحة أو الأعمدة لسه ما اتضافتش.
+ */
+export const workSettingsDefaults = {
+  pass4Price: 400,
+  pass4Weeks: 6,
+  pass8Price: 720,
+  pass8Weeks: 10,
+  singlePrice: 120,
+  firstTimePrice: 60,
+  vodafoneNumber: '010 0000 0000',
+  instapayHandle: 'nasbot@instapay',
+  reviewHours: 2,
+} as const
+
+/** جدول اليوم الافتراضي لو work_config فاضي */
+export const workScheduleDefaults = {
+  start: '10:00',
+  lunchAt: '13:00',
+  complaintAt: '14:30',
+  end: '15:00',
+} as const
+
+/** الخطوات الأربعة في /shoghl — النصوص في copy_strings بالمفاتيح دي */
+export const workSteps = [
+  { n: 1, icon: 'calendar', titleKey: 'shoghl.step1.title', bodyKey: 'shoghl.step1.body' },
+  { n: 2, icon: 'laptop', titleKey: 'shoghl.step2.title', bodyKey: 'shoghl.step2.body' },
+  { n: 3, icon: 'food', titleKey: 'shoghl.step3.title', bodyKey: 'shoghl.step3.body' },
+  { n: 4, icon: 'pair', titleKey: 'shoghl.step4.title', bodyKey: 'shoghl.step4.body' },
+] as const
+
+/** أسئلة صفحة الكارت — 3 بس */
+export const workFaq = [
+  { q: 'shoghl.pass.faq.q1', a: 'shoghl.pass.faq.a1' },
+  { q: 'shoghl.pass.faq.q2', a: 'shoghl.pass.faq.a2' },
+  { q: 'shoghl.pass.faq.q3', a: 'shoghl.pass.faq.a3' },
+] as const
+
+/** نموذج الشركات — كام مرة في الشهر (المفتاح للنص) */
+export const leadTimesOptions = [
+  { value: 1, key: 'shoghl.lead.times.1' },
+  { value: 2, key: 'shoghl.lead.times.2' },
+  { value: 4, key: 'shoghl.lead.times.4' },
+  { value: 8, key: 'shoghl.lead.times.8' },
+] as const
+
+/** السبوطات اللي بتظهر في «سبوطات الشغل الأسبوع ده» — 14 يوم قدام */
+export const WORK_WINDOW_DAYS = 14

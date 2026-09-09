@@ -2074,5 +2074,857 @@
     "value_ar": "الرقم مش بيتغيّر من هنا — كلّمنا لو محتاج.",
     "screen": "تعديل الملف",
     "context_ar": "join/page.tsx"
+  },
+  {
+    "key": "shoghl.nav",
+    "value_ar": "الشغل",
+    "screen": "الشغل",
+    "context_ar": "Header.tsx / WorkStrip"
+  },
+  {
+    "key": "shoghl.back",
+    "value_ar": "الشغل",
+    "screen": "الشغل",
+    "context_ar": "زر الرجوع في صفحات الشغل الداخلية"
+  },
+  {
+    "key": "shoghl.loading",
+    "value_ar": "ثانية واحدة…",
+    "screen": "الشغل",
+    "context_ar": "حالة التحميل"
+  },
+  {
+    "key": "shoghl.yes",
+    "value_ar": "أيوه",
+    "screen": "الشغل",
+    "context_ar": "قيمة نعم في مواصفات المكان"
+  },
+  {
+    "key": "shoghl.no",
+    "value_ar": "لأ",
+    "screen": "الشغل",
+    "context_ar": "قيمة لا في مواصفات المكان"
+  },
+  {
+    "key": "shoghl.levelAny",
+    "value_ar": "أي حد",
+    "screen": "الشغل",
+    "context_ar": "المستوى لو فاضي"
+  },
+  {
+    "key": "shoghl.title",
+    "value_ar": "الشغل مش لازم يكون لوحدك.",
+    "screen": "الشغل",
+    "context_ar": "عنوان /shoghl"
+  },
+  {
+    "key": "shoghl.sub",
+    "value_ar": "6 على ترابيزة واحدة، من مجالات مختلفة، في كافيه هادي. كابتن بيظبط الجو، وغدا سوا الساعة 1.",
+    "screen": "الشغل",
+    "context_ar": "السطر تحت العنوان"
+  },
+  {
+    "key": "shoghl.hero.cta",
+    "value_ar": "شوف المواعيد",
+    "screen": "الشغل",
+    "context_ar": "زر العنوان → #schedule"
+  },
+  {
+    "key": "shoghl.hero.pass",
+    "value_ar": "كارت الشغل",
+    "screen": "الشغل",
+    "context_ar": "زر ثانوي في العنوان → /shoghl/pass"
+  },
+  {
+    "key": "shoghl.stepsTitle",
+    "value_ar": "بيحصل إيه؟",
+    "screen": "الشغل",
+    "context_ar": "عنوان الخطوات الأربعة"
+  },
+  {
+    "key": "shoghl.step1.title",
+    "value_ar": "اختار يومك ومكانك",
+    "screen": "الشغل",
+    "context_ar": "الخطوة 1"
+  },
+  {
+    "key": "shoghl.step1.body",
+    "value_ar": "شوف سبوطات الشغل الأسبوع ده واحجز مقعد. 6 بس على الترابيزة.",
+    "screen": "الشغل",
+    "context_ar": "الخطوة 1"
+  },
+  {
+    "key": "shoghl.step2.title",
+    "value_ar": "اشتغل جنب ناس زيك",
+    "screen": "الشغل",
+    "context_ar": "الخطوة 2"
+  },
+  {
+    "key": "shoghl.step2.body",
+    "value_ar": "مجالات مختلفة — مش أكتر من اتنين من نفس المجال. الكابتن بيعرّفكم على بعض وبيسكّت الدوشة.",
+    "screen": "الشغل",
+    "context_ar": "الخطوة 2"
+  },
+  {
+    "key": "shoghl.step3.title",
+    "value_ar": "غدا وساعة شكوى",
+    "screen": "الشغل",
+    "context_ar": "الخطوة 3"
+  },
+  {
+    "key": "shoghl.step3.body",
+    "value_ar": "الساعة 1 بناكل سوا، والساعة 2:30 كل واحد بيحكي اللي مضايقه في شغله.",
+    "screen": "الشغل",
+    "context_ar": "الخطوة 3"
+  },
+  {
+    "key": "shoghl.step4.title",
+    "value_ar": "لو حبيتهم، كمّلوا",
+    "screen": "الشغل",
+    "context_ar": "الخطوة 4"
+  },
+  {
+    "key": "shoghl.step4.body",
+    "value_ar": "بعد السبوطة بتختار مين تحب تشتغل معاه تاني. لو اختارتوا بعض، بيتفتح بينكم شات.",
+    "screen": "الشغل",
+    "context_ar": "الخطوة 4"
+  },
+  {
+    "key": "shoghl.weekTitle",
+    "value_ar": "سبوطات الشغل الأسبوع ده",
+    "screen": "الشغل",
+    "context_ar": "عنوان قائمة السبوطات"
+  },
+  {
+    "key": "shoghl.weekSub",
+    "value_ar": "احجز مقعدك — اللابتوب عليك، والباقي علينا.",
+    "screen": "الشغل",
+    "context_ar": "تحت عنوان القائمة"
+  },
+  {
+    "key": "shoghl.weekEmpty",
+    "value_ar": "مفيش سبوطات شغل معلنة الأسبوعين الجايين — عدّي علينا بكرة.",
+    "screen": "الشغل",
+    "context_ar": "القائمة فاضية"
+  },
+  {
+    "key": "shoghl.card.cta",
+    "value_ar": "أنا جاي",
+    "screen": "الشغل",
+    "context_ar": "زر بطاقة سبوطة الشغل"
+  },
+  {
+    "key": "shoghl.card.full",
+    "value_ar": "كامل",
+    "screen": "الشغل",
+    "context_ar": "ستيكر البطاقة لما تكمل"
+  },
+  {
+    "key": "shoghl.card.left",
+    "value_ar": "فاضل {{n}} من {{total}}",
+    "screen": "الشغل",
+    "context_ar": "ستيكر البطاقة"
+  },
+  {
+    "key": "shoghl.card.wifi",
+    "value_ar": "نت {{n}} ميجا",
+    "screen": "الشغل",
+    "context_ar": "كبسولة النت في البطاقة"
+  },
+  {
+    "key": "shoghl.outlets.few",
+    "value_ar": "بريز قليل",
+    "screen": "الشغل",
+    "context_ar": "درجة البريز"
+  },
+  {
+    "key": "shoghl.outlets.enough",
+    "value_ar": "بريز كفاية",
+    "screen": "الشغل",
+    "context_ar": "درجة البريز"
+  },
+  {
+    "key": "shoghl.outlets.plenty",
+    "value_ar": "بريز كتير",
+    "screen": "الشغل",
+    "context_ar": "درجة البريز"
+  },
+  {
+    "key": "shoghl.noise.quiet",
+    "value_ar": "هادي",
+    "screen": "الشغل",
+    "context_ar": "درجة الصوت"
+  },
+  {
+    "key": "shoghl.noise.medium",
+    "value_ar": "صوت متوسط",
+    "screen": "الشغل",
+    "context_ar": "درجة الصوت"
+  },
+  {
+    "key": "shoghl.noise.lively",
+    "value_ar": "فيه حركة",
+    "screen": "الشغل",
+    "context_ar": "درجة الصوت"
+  },
+  {
+    "key": "shoghl.kind.cafe_work",
+    "value_ar": "كافيه",
+    "screen": "الشغل",
+    "context_ar": "نوع المكان"
+  },
+  {
+    "key": "shoghl.kind.coworking",
+    "value_ar": "مساحة عمل",
+    "screen": "الشغل",
+    "context_ar": "نوع المكان"
+  },
+  {
+    "key": "shoghl.passTitle",
+    "value_ar": "كارت الشغل",
+    "screen": "الشغل",
+    "context_ar": "عنوان قسم الكارتين"
+  },
+  {
+    "key": "shoghl.passSub",
+    "value_ar": "ادفع مرة واحدة وخد أيامك بأقل من سعر اليوم.",
+    "screen": "الشغل",
+    "context_ar": "تحت عنوان الكارتين"
+  },
+  {
+    "key": "shoghl.pass.four",
+    "value_ar": "كارت 4 أيام",
+    "screen": "الشغل",
+    "context_ar": "اسم الكارت"
+  },
+  {
+    "key": "shoghl.pass.eight",
+    "value_ar": "كارت 8 أيام",
+    "screen": "الشغل",
+    "context_ar": "اسم الكارت"
+  },
+  {
+    "key": "shoghl.pass.weeks",
+    "value_ar": "صالح {{n}} أسابيع",
+    "screen": "الشغل",
+    "context_ar": "مدة الكارت"
+  },
+  {
+    "key": "shoghl.pass.perDay",
+    "value_ar": "{{n}} جنيه لليوم",
+    "screen": "الشغل",
+    "context_ar": "سعر اليوم داخل الكارت"
+  },
+  {
+    "key": "shoghl.pass.save",
+    "value_ar": "وفّر {{n}} جنيه",
+    "screen": "الشغل",
+    "context_ar": "ستيكر التوفير"
+  },
+  {
+    "key": "shoghl.pass.single",
+    "value_ar": "اليوم لوحده بـ {{n}}",
+    "screen": "الشغل",
+    "context_ar": "مقارنة بسعر اليوم"
+  },
+  {
+    "key": "shoghl.passLink",
+    "value_ar": "اعرف أكتر عن الكارت",
+    "screen": "الشغل",
+    "context_ar": "رابط → /shoghl/pass"
+  },
+  {
+    "key": "shoghl.fixed.title",
+    "value_ar": "يومك الثابت",
+    "screen": "الشغل",
+    "context_ar": "قسم اليوم الثابت"
+  },
+  {
+    "key": "shoghl.fixed.body",
+    "value_ar": "كل أسبوع نفس اليوم، نفس المكان، الساعة 10. إحنا بنحجزلك لوحدنا قبلها بأسبوع — وأنت بس تيجي.",
+    "screen": "الشغل",
+    "context_ar": "قسم اليوم الثابت"
+  },
+  {
+    "key": "shoghl.fixed.cta",
+    "value_ar": "ظبّط يومك الثابت",
+    "screen": "الشغل",
+    "context_ar": "زر اليوم الثابت"
+  },
+  {
+    "key": "shoghl.fixed.soon",
+    "value_ar": "بيتفعّل مع الكارت — قريبًا",
+    "screen": "الشغل",
+    "context_ar": "ملاحظة جنب الزر"
+  },
+  {
+    "key": "shoghl.venuesTitle",
+    "value_ar": "الأماكن",
+    "screen": "الشغل",
+    "context_ar": "قسم الأماكن في /shoghl"
+  },
+  {
+    "key": "shoghl.venuesSub",
+    "value_ar": "كافيهات ومساحات اخترناها بإيدينا — النت والبريز والصوت متجرّبين.",
+    "screen": "الشغل",
+    "context_ar": "تحت عنوان الأماكن"
+  },
+  {
+    "key": "shoghl.venuesAll",
+    "value_ar": "كل الأماكن",
+    "screen": "الشغل",
+    "context_ar": "رابط → /shoghl/amaken"
+  },
+  {
+    "key": "shoghl.venuesEmpty",
+    "value_ar": "لسه بنجهّز الأماكن.",
+    "screen": "الشغل",
+    "context_ar": "مفيش أماكن"
+  },
+  {
+    "key": "shoghl.collab.title",
+    "value_ar": "شغالين معاك",
+    "screen": "الشغل",
+    "context_ar": "قسم شغالين معاك"
+  },
+  {
+    "key": "shoghl.collab.body",
+    "value_ar": "بعد كل سبوطة بتقول مين تحب تشتغل معاه تاني. لو الاتنين اختاروا بعض، بيتفتح بينكم شات. غير كده محدش يعرف إنك اخترت حد.",
+    "screen": "الشغل",
+    "context_ar": "شرح شغالين معاك"
+  },
+  {
+    "key": "shoghl.collab.rule1",
+    "value_ar": "الاختيار سري",
+    "screen": "الشغل",
+    "context_ar": "ستيكر"
+  },
+  {
+    "key": "shoghl.collab.rule2",
+    "value_ar": "الشات بيتفتح للاتنين بس",
+    "screen": "الشغل",
+    "context_ar": "ستيكر"
+  },
+  {
+    "key": "shoghl.lead.title",
+    "value_ar": "شركتك عايزة يوم شغل بره؟",
+    "screen": "الشغل",
+    "context_ar": "نموذج الشركات"
+  },
+  {
+    "key": "shoghl.lead.sub",
+    "value_ar": "بنظبط يوم لفريقك في مكان من أماكننا، بكابتن. سيب بياناتك وهنكلمك.",
+    "screen": "الشغل",
+    "context_ar": "نموذج الشركات"
+  },
+  {
+    "key": "shoghl.lead.company",
+    "value_ar": "اسم الشركة",
+    "screen": "الشغل",
+    "context_ar": "حقل"
+  },
+  {
+    "key": "shoghl.lead.name",
+    "value_ar": "اسمك",
+    "screen": "الشغل",
+    "context_ar": "حقل"
+  },
+  {
+    "key": "shoghl.lead.phone",
+    "value_ar": "رقمك",
+    "screen": "الشغل",
+    "context_ar": "حقل"
+  },
+  {
+    "key": "shoghl.lead.people",
+    "value_ar": "عدد الناس",
+    "screen": "الشغل",
+    "context_ar": "حقل"
+  },
+  {
+    "key": "shoghl.lead.times",
+    "value_ar": "كام مرة في الشهر؟",
+    "screen": "الشغل",
+    "context_ar": "حقل"
+  },
+  {
+    "key": "shoghl.lead.timesPick",
+    "value_ar": "اختار",
+    "screen": "الشغل",
+    "context_ar": "placeholder القائمة"
+  },
+  {
+    "key": "shoghl.lead.times.1",
+    "value_ar": "مرة",
+    "screen": "الشغل",
+    "context_ar": "اختيار"
+  },
+  {
+    "key": "shoghl.lead.times.2",
+    "value_ar": "مرتين",
+    "screen": "الشغل",
+    "context_ar": "اختيار"
+  },
+  {
+    "key": "shoghl.lead.times.4",
+    "value_ar": "كل أسبوع",
+    "screen": "الشغل",
+    "context_ar": "اختيار"
+  },
+  {
+    "key": "shoghl.lead.times.8",
+    "value_ar": "مرتين في الأسبوع",
+    "screen": "الشغل",
+    "context_ar": "اختيار"
+  },
+  {
+    "key": "shoghl.lead.note",
+    "value_ar": "حاجة تحب تقولها؟ (اختياري)",
+    "screen": "الشغل",
+    "context_ar": "حقل"
+  },
+  {
+    "key": "shoghl.lead.cta",
+    "value_ar": "ابعت",
+    "screen": "الشغل",
+    "context_ar": "زر الإرسال"
+  },
+  {
+    "key": "shoghl.lead.thanks",
+    "value_ar": "وصلنا. هنكلمك خلال يومين.",
+    "screen": "الشغل",
+    "context_ar": "بعد الإرسال"
+  },
+  {
+    "key": "shoghl.lead.err.company",
+    "value_ar": "اكتب اسم الشركة",
+    "screen": "الشغل",
+    "context_ar": "خطأ"
+  },
+  {
+    "key": "shoghl.lead.err.name",
+    "value_ar": "اكتبلنا اسمك",
+    "screen": "الشغل",
+    "context_ar": "خطأ"
+  },
+  {
+    "key": "shoghl.lead.err.phone",
+    "value_ar": "الرقم ده ناقص رقم",
+    "screen": "الشغل",
+    "context_ar": "خطأ"
+  },
+  {
+    "key": "shoghl.lead.err.people",
+    "value_ar": "كام واحد؟",
+    "screen": "الشغل",
+    "context_ar": "خطأ"
+  },
+  {
+    "key": "shoghl.lead.err.generic",
+    "value_ar": "مقدرناش نبعت. جرب تاني.",
+    "screen": "الشغل",
+    "context_ar": "خطأ"
+  },
+  {
+    "key": "shoghl.venue.title",
+    "value_ar": "المكان",
+    "screen": "الشغل",
+    "context_ar": "بطاقة المواصفات"
+  },
+  {
+    "key": "shoghl.venue.wifi",
+    "value_ar": "النت",
+    "screen": "الشغل",
+    "context_ar": "تسمية"
+  },
+  {
+    "key": "shoghl.venue.wifiValue",
+    "value_ar": "{{n}} ميجا",
+    "screen": "الشغل",
+    "context_ar": "قيمة النت"
+  },
+  {
+    "key": "shoghl.venue.wifiNa",
+    "value_ar": "لسه ما اتقاسش",
+    "screen": "الشغل",
+    "context_ar": "النت مش متقاس"
+  },
+  {
+    "key": "shoghl.venue.outlets",
+    "value_ar": "البريز",
+    "screen": "الشغل",
+    "context_ar": "تسمية"
+  },
+  {
+    "key": "shoghl.venue.noise",
+    "value_ar": "الصوت",
+    "screen": "الشغل",
+    "context_ar": "تسمية"
+  },
+  {
+    "key": "shoghl.venue.min",
+    "value_ar": "الحد الأدنى",
+    "screen": "الشغل",
+    "context_ar": "تسمية"
+  },
+  {
+    "key": "shoghl.venue.minValue",
+    "value_ar": "{{n}} جنيه",
+    "screen": "الشغل",
+    "context_ar": "قيمة الحد الأدنى"
+  },
+  {
+    "key": "shoghl.venue.meeting",
+    "value_ar": "أوضة اجتماعات",
+    "screen": "الشغل",
+    "context_ar": "تسمية"
+  },
+  {
+    "key": "shoghl.venue.parking",
+    "value_ar": "باركنج",
+    "screen": "الشغل",
+    "context_ar": "تسمية"
+  },
+  {
+    "key": "shoghl.venue.ac",
+    "value_ar": "تكييف",
+    "screen": "الشغل",
+    "context_ar": "تسمية"
+  },
+  {
+    "key": "shoghl.venue.desks",
+    "value_ar": "مقاعد",
+    "screen": "الشغل",
+    "context_ar": "تسمية"
+  },
+  {
+    "key": "shoghl.venue.hours",
+    "value_ar": "مفتوح",
+    "screen": "الشغل",
+    "context_ar": "تسمية"
+  },
+  {
+    "key": "shoghl.venue.hoursValue",
+    "value_ar": "من {{from}} لـ {{to}}",
+    "screen": "الشغل",
+    "context_ar": "ساعات الفتح"
+  },
+  {
+    "key": "shoghl.venue.bestDays",
+    "value_ar": "أحسن أيام",
+    "screen": "الشغل",
+    "context_ar": "تسمية"
+  },
+  {
+    "key": "shoghl.venue.addressHidden",
+    "value_ar": "العنوان الكامل بيظهر لما نعلن سبوطة هناك.",
+    "screen": "الشغل",
+    "context_ar": "ملاحظة"
+  },
+  {
+    "key": "shoghl.venue.seeDates",
+    "value_ar": "شوف مواعيدنا هنا",
+    "screen": "الشغل",
+    "context_ar": "زر → /shoghl#schedule"
+  },
+  {
+    "key": "shoghl.schedule.title",
+    "value_ar": "يومك معانا",
+    "screen": "الشغل",
+    "context_ar": "جدول اليوم"
+  },
+  {
+    "key": "shoghl.schedule.start",
+    "value_ar": "بنبدأ — لابتوبات مفتوحة وصوت واطي",
+    "screen": "الشغل",
+    "context_ar": "جدول اليوم"
+  },
+  {
+    "key": "shoghl.schedule.focus",
+    "value_ar": "تركيز",
+    "screen": "الشغل",
+    "context_ar": "جدول اليوم"
+  },
+  {
+    "key": "shoghl.schedule.lunch",
+    "value_ar": "غدا سوا",
+    "screen": "الشغل",
+    "context_ar": "جدول اليوم"
+  },
+  {
+    "key": "shoghl.schedule.complaint",
+    "value_ar": "ساعة الشكوى — كل واحد يحكي اللي مضايقه",
+    "screen": "الشغل",
+    "context_ar": "جدول اليوم"
+  },
+  {
+    "key": "shoghl.schedule.end",
+    "value_ar": "بنقفل اللابتوبات",
+    "screen": "الشغل",
+    "context_ar": "جدول اليوم"
+  },
+  {
+    "key": "shoghl.schedule.desk",
+    "value_ar": "الترابيزة: {{type}}",
+    "screen": "الشغل",
+    "context_ar": "نوع الترابيزة"
+  },
+  {
+    "key": "shoghl.who.title",
+    "value_ar": "مين حاجز لحد دلوقتي",
+    "screen": "الشغل",
+    "context_ar": "مين حاجز بالمجال"
+  },
+  {
+    "key": "shoghl.who.early",
+    "value_ar": "لسه بدري — هتعرف مجالات المجموعة لما يكمّلوا 3.",
+    "screen": "الشغل",
+    "context_ar": "أقل من 3"
+  },
+  {
+    "key": "shoghl.who.mix",
+    "value_ar": "مش أكتر من اتنين من نفس المجال.",
+    "screen": "الشغل",
+    "context_ar": "سطر القاعدة"
+  },
+  {
+    "key": "shoghl.price.day",
+    "value_ar": "لليوم — شامل القهوة والمقعد والكابتن.",
+    "screen": "الشغل",
+    "context_ar": "تحت السعر"
+  },
+  {
+    "key": "shoghl.price.passLink",
+    "value_ar": "أو كارت 4 أيام بـ {{n}}",
+    "screen": "الشغل",
+    "context_ar": "رابط الكارت تحت السعر"
+  },
+  {
+    "key": "shoghl.cta.single",
+    "value_ar": "أنا جاي — {{price}}",
+    "screen": "الشغل",
+    "context_ar": "زر الحجز"
+  },
+  {
+    "key": "shoghl.cta.first",
+    "value_ar": "أول مرة — {{price}}",
+    "screen": "الشغل",
+    "context_ar": "زر أول مرة"
+  },
+  {
+    "key": "shoghl.cta.firstNote",
+    "value_ar": "أول مرة معانا؟ أول سبوطة شغل بـ {{price}} بدل {{single}}.",
+    "screen": "الشغل",
+    "context_ar": "تحت السعر"
+  },
+  {
+    "key": "shoghl.cta.pass",
+    "value_ar": "استخدم كارتي (فاضل {{n}})",
+    "screen": "الشغل",
+    "context_ar": "زر الكارت"
+  },
+  {
+    "key": "shoghl.cta.soon",
+    "value_ar": "قريبًا",
+    "screen": "الشغل",
+    "context_ar": "الكارت والرفع لسه"
+  },
+  {
+    "key": "shoghl.cta.wait",
+    "value_ar": "سجلني في الانتظار",
+    "screen": "الشغل",
+    "context_ar": "لما تكمل"
+  },
+  {
+    "key": "shoghl.cta.waitNote",
+    "value_ar": "هنبعتلك أول ما مكان يفضى.",
+    "screen": "الشغل",
+    "context_ar": "تحت الزر"
+  },
+  {
+    "key": "shoghl.cta.note",
+    "value_ar": "الدفع تحويل يدوي — الحجز بيتأكد لما نراجعه.",
+    "screen": "الشغل",
+    "context_ar": "تحت الزر"
+  },
+  {
+    "key": "shoghl.pay.firstTime",
+    "value_ar": "سعر أول مرة",
+    "screen": "الشغل",
+    "context_ar": "صفحة الدفع"
+  },
+  {
+    "key": "shoghl.pay.singleLabel",
+    "value_ar": "يوم واحد",
+    "screen": "الشغل",
+    "context_ar": "صفحة الدفع"
+  },
+  {
+    "key": "shoghl.pass.page.title",
+    "value_ar": "كارت الشغل",
+    "screen": "الشغل",
+    "context_ar": "/shoghl/pass"
+  },
+  {
+    "key": "shoghl.pass.page.sub",
+    "value_ar": "ادفع مرة، وخد أيامك على مزاجك.",
+    "screen": "الشغل",
+    "context_ar": "/shoghl/pass"
+  },
+  {
+    "key": "shoghl.pass.mine",
+    "value_ar": "معاك كارت فيه {{n}} أيام.",
+    "screen": "الشغل",
+    "context_ar": "لو عنده كارت نشط"
+  },
+  {
+    "key": "shoghl.pass.how.title",
+    "value_ar": "بيشتغل إزاي؟",
+    "screen": "الشغل",
+    "context_ar": "/shoghl/pass"
+  },
+  {
+    "key": "shoghl.pass.how.1",
+    "value_ar": "بتختار كارت 4 أو 8 أيام وبتحوّل ثمنه.",
+    "screen": "الشغل",
+    "context_ar": "/shoghl/pass"
+  },
+  {
+    "key": "shoghl.pass.how.2",
+    "value_ar": "بنفعّله أول ما نتأكد من التحويل — عادةً خلال ساعات.",
+    "screen": "الشغل",
+    "context_ar": "/shoghl/pass"
+  },
+  {
+    "key": "shoghl.pass.how.3",
+    "value_ar": "بعدها كل حجز شغل بيتخصم من الكارت — من غير دفع.",
+    "screen": "الشغل",
+    "context_ar": "/shoghl/pass"
+  },
+  {
+    "key": "shoghl.pass.faq.title",
+    "value_ar": "أسئلة بتتسأل",
+    "screen": "الشغل",
+    "context_ar": "/shoghl/pass"
+  },
+  {
+    "key": "shoghl.pass.faq.q1",
+    "value_ar": "الكارت بيتفعّل إمتى؟",
+    "screen": "الشغل",
+    "context_ar": "سؤال 1"
+  },
+  {
+    "key": "shoghl.pass.faq.a1",
+    "value_ar": "أول ما نتأكد من التحويل — عادةً خلال ساعات. لحد ما يتفعّل تقدر تحجز يوم لوحده بـ {{single}}.",
+    "screen": "الشغل",
+    "context_ar": "جواب 1"
+  },
+  {
+    "key": "shoghl.pass.faq.q2",
+    "value_ar": "لو ألغيت حجز؟",
+    "screen": "الشغل",
+    "context_ar": "سؤال 2"
+  },
+  {
+    "key": "shoghl.pass.faq.a2",
+    "value_ar": "لو ألغيت قبل السبوطة بـ 3 أيام، اليوم بيرجع لكارتك. أقل من كده بيتحسب.",
+    "screen": "الشغل",
+    "context_ar": "جواب 2"
+  },
+  {
+    "key": "shoghl.pass.faq.q3",
+    "value_ar": "الكارت بينتهي؟",
+    "screen": "الشغل",
+    "context_ar": "سؤال 3"
+  },
+  {
+    "key": "shoghl.pass.faq.a3",
+    "value_ar": "كارت 4 أيام صالح {{w4}} أسابيع، وكارت 8 أيام {{w8}} أسابيع من يوم التفعيل.",
+    "screen": "الشغل",
+    "context_ar": "جواب 3"
+  },
+  {
+    "key": "shoghl.pass.buy",
+    "value_ar": "اشتري الكارت",
+    "screen": "الشغل",
+    "context_ar": "زر الشراء"
+  },
+  {
+    "key": "shoghl.pass.buyWith",
+    "value_ar": "اشتري الكارت — {{n}}",
+    "screen": "الشغل",
+    "context_ar": "زر الشراء بعد الاختيار"
+  },
+  {
+    "key": "shoghl.pass.pick",
+    "value_ar": "اختار كارت الأول",
+    "screen": "الشغل",
+    "context_ar": "لو داس من غير اختيار"
+  },
+  {
+    "key": "shoghl.pass.transfer.title",
+    "value_ar": "حوّل {{n}} جنيه على",
+    "screen": "الشغل",
+    "context_ar": "تعليمات التحويل"
+  },
+  {
+    "key": "shoghl.pass.transfer.note",
+    "value_ar": "هنفعّل كارتك أول ما نتأكد من التحويل — عادةً خلال ساعات.",
+    "screen": "الشغل",
+    "context_ar": "تعليمات التحويل"
+  },
+  {
+    "key": "shoghl.pass.transfer.upload",
+    "value_ar": "ابعت صورة التحويل",
+    "screen": "الشغل",
+    "context_ar": "زر معطّل"
+  },
+  {
+    "key": "shoghl.pass.transfer.soon",
+    "value_ar": "رفع صورة التحويل لكارت بيتفعّل في المرحلة الجاية. لحد ساعتها، حجز اليوم لوحده بـ {{single}} شغال عادي.",
+    "screen": "الشغل",
+    "context_ar": "ملاحظة صريحة"
+  },
+  {
+    "key": "shoghl.amaken.title",
+    "value_ar": "أماكن الشغل",
+    "screen": "الشغل",
+    "context_ar": "/shoghl/amaken"
+  },
+  {
+    "key": "shoghl.amaken.sub",
+    "value_ar": "كل مكان اتجرّب قبل ما يدخل هنا: النت اتقاس، والبريز اتعد، والصوت اتسمع.",
+    "screen": "الشغل",
+    "context_ar": "/shoghl/amaken"
+  },
+  {
+    "key": "shoghl.strip.title",
+    "value_ar": "الشغل مش لازم يكون لوحدك",
+    "screen": "الشغل",
+    "context_ar": "شريط الرئيسية — نهاري"
+  },
+  {
+    "key": "shoghl.strip.sub",
+    "value_ar": "سبوطات شغل الصبح — 6 على ترابيزة واحدة",
+    "screen": "الشغل",
+    "context_ar": "شريط الرئيسية"
+  },
+  {
+    "key": "shoghl.strip.cta",
+    "value_ar": "خد يومك",
+    "screen": "الشغل",
+    "context_ar": "زر الشريط → /shoghl"
+  },
+  {
+    "key": "shoghl.map.filter",
+    "value_ar": "شغل",
+    "screen": "الشغل",
+    "context_ar": "فلتر الخريطة"
+  },
+  {
+    "key": "shoghl.map.workPin",
+    "value_ar": "سبوطة شغل",
+    "screen": "الشغل",
+    "context_ar": "أيقونة اللابتوب على الخريطة"
   }
 ]

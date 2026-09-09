@@ -14,6 +14,7 @@ import {
   LastFriday,
   RulesStrip,
   ScheduleBox,
+  WorkStrip,
 } from '@/components/home/Sections'
 import { filters, marqueeText } from '@/data/lists'
 import { getSbotat } from '@/lib/api'
@@ -65,6 +66,8 @@ export default function Home() {
       <div className="lg:flex lg:items-start lg:gap-8 lg:px-5">
         {/* ===== العمود الشمال: البطاقات ===== */}
         <div className="min-w-0 lg:w-[40%] lg:order-2">
+          {/* شريط الشغل — نهاري بس، فوق البطاقات */}
+          <WorkStrip className="mx-5 mt-6 lg:mx-0" />
           <div className="px-5 pt-7 lg:px-0">
             <h2 className="m-0 font-display text-30 font-black leading-[1.15]">{t('home.text.3')}</h2>
             <div className="mt-1" style={{ color: 'var(--sbt-sub)' }}>{t('home.text.2')}</div>

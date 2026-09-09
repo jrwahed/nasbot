@@ -15,6 +15,8 @@ export const runtime = 'nodejs'
  */
 
 type Method = 'vodafone_cash' | 'instapay'
+/** اختيار الدفع لسبوطة الشغل — `pass` بيتضاف في المرحلة 3 (fn_redeem_pass) */
+type PayWith = 'single' | 'first_time'
 
 export async function POST(req: Request) {
   const token = (req.headers.get('authorization') ?? '').replace('Bearer ', '')
@@ -29,12 +31,14 @@ export async function POST(req: Request) {
   let method: Method
   let referralCode: string | undefined
   let useWallet: boolean
+  let payWith: PayWith | undefined
   try {
     const b = await req.json()
     slug = String(b.slug)
     method = b.method === 'vodafone_cash' ? 'vodafone_cash' : 'instapay'
     referralCode = b.referralCode ? String(b.referralCode).trim().toUpperCase() : undefined
     useWallet = Boolean(b.useWallet)
+    payWith = b.payWith === 'first_time' ? 'first_time' : b.payWith === 'single' ? 'single' : undefined
   } catch {
     return NextResponse.json({ error: 'طلب مش مفهوم' }, { status: 400 })
   }
@@ -61,13 +65,40 @@ export async function POST(req: Request) {
     vodafone_number: string
     instapay_handle: string
     manual_review_hours: number
+    work_single_price?: number | null
+    work_first_time_price?: number | null
   }
 
   const { data: prof } = await db
     .from('profiles').select('wallet_balance').eq('id', uid).maybeSingle()
 
+  // ===== سبوطة الشغل: السعر من settings.work_* حسب الاختيار =====
+  // بنسأل الجدول نفسه مش العرض — لو العمود لسه مش موجود بنعتبرها مش شغل ومفيش كسر.
+  let isWork = false
+  if (payWith) {
+    const { data: w, error: wErr } = await db.from('sbotat').select('is_work').eq('id', sbota.id).maybeSingle()
+    isWork = !wErr && Boolean((w as { is_work?: boolean } | null)?.is_work)
+  }
+  let basePrice = sbota.price
+  if (isWork && payWith === 'first_time') {
+    // إعادة تحقق على الخادم: العرض لأول حجز شغل بس — مش بنثق في العميل
+    const { data: prior } = await db
+      .from('bookings')
+      .select('id, sbotat!inner(is_work)')
+      .eq('profile_id', uid)
+      .eq('sbotat.is_work', true)
+      .in('status', ['paid', 'attended'])
+      .limit(1)
+    if ((prior ?? []).length > 0) {
+      return NextResponse.json({ error: 'عرض أول مرة لأول سبوطة شغل بس — اختار «أنا جاي»' }, { status: 400 })
+    }
+    if (typeof s.work_first_time_price === 'number') basePrice = s.work_first_time_price
+  } else if (isWork && payWith === 'single') {
+    if (typeof s.work_single_price === 'number') basePrice = s.work_single_price
+  }
+
   // ===== الحساب =====
-  let amount = sbota.price
+  let amount = basePrice
   let discount = 0
 
   if (referralCode) {
@@ -108,7 +139,7 @@ export async function POST(req: Request) {
         sbota_id: sbota.id,
         profile_id: uid,
         status: 'pending_payment',
-        price_paid: sbota.price - discount,
+        price_paid: basePrice - discount,
         discount,
         wallet_used: walletUsed,
         referral_code_used: referralCode ?? null,

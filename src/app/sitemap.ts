@@ -35,6 +35,8 @@ const routes: Array<{
 }> = [
   { path: '/', changeFrequency: 'daily', priority: 1 },
   { path: '/one', changeFrequency: 'daily', priority: 0.9 },
+  { path: '/shoghl', changeFrequency: 'daily', priority: 0.9 },
+  { path: '/shoghl/amaken', changeFrequency: 'weekly', priority: 0.7 },
   { path: '/map', changeFrequency: 'daily', priority: 0.8 },
   { path: '/game', changeFrequency: 'monthly', priority: 0.8 },
   { path: '/s/mystery', changeFrequency: 'weekly', priority: 0.7 },

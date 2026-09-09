@@ -8,7 +8,46 @@ import { Sticker } from '@/components/Sticker'
 import { captains } from '@/data/captains'
 import { homeRuleStickers, lastFriday, quote } from '@/data/lists'
 import { subscribeSchedule } from '@/lib/api'
+import { useTheme } from '@/lib/use-theme'
+import { LaptopSmallIcon } from '@/components/work/WorkIcons'
 import { useT } from '@/components/CopyProvider'
+
+/**
+ * شريط «الشغل» في الرئيسية — نهاري بس. سطر واحد وزر «خد يومك» → /shoghl.
+ * رملي بزوايا 16 زي صندوق الضمان، والزر برتقالي بنفس مقاس زر البطاقة.
+ */
+export function WorkStrip({ className = '' }: { className?: string }) {
+  const t = useT()
+  const [theme] = useTheme()
+  if (theme !== 'day') return null
+  return (
+    <section
+      className={`flex items-center justify-between gap-3 rounded-16 p-4 ${className}`}
+      style={{ background: '#EFE3CF', color: '#14161A' }}
+      aria-label={t('shoghl.nav')}
+    >
+      <div className="flex min-w-0 items-center gap-3">
+        <span
+          className="grid shrink-0 place-items-center rounded-12"
+          style={{ width: 40, height: 40, background: '#F4632A' }}
+        >
+          <LaptopSmallIcon size={22} />
+        </span>
+        <div className="min-w-0">
+          <div className="font-display text-18 font-black leading-[1.15]">{t('shoghl.strip.title')}</div>
+          <div className="font-body text-14" style={{ color: '#55575C' }}>{t('shoghl.strip.sub')}</div>
+        </div>
+      </div>
+      <Link
+        href="/shoghl"
+        className="grid min-h-[48px] shrink-0 place-items-center rounded-14 px-5 font-display text-18 font-black leading-none"
+        style={{ background: '#F4632A', color: '#14161A' }}
+      >
+        {t('shoghl.strip.cta')}
+      </Link>
+    </section>
+  )
+}
 
 /**
  * «اللي حصل الجمعة اللي فاتت» — من الملف:

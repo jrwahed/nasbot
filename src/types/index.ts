@@ -225,3 +225,100 @@ export type TrackEvent =
   | 'paid'
   | 'share_type_card'
   | 'use_referral'
+
+/* ============================================================ الشغل */
+
+/** البريز — outlets_t */
+export type OutletsLevel = 'few' | 'enough' | 'plenty'
+/** الصوت — noise_t */
+export type NoiseLevel = 'quiet' | 'medium' | 'lively'
+/** نوع الكارت — pass_kind_t */
+export type PassKind = 'four' | 'eight'
+/** اختيار الدفع لسبوطة الشغل — `pass` بيتفعّل في المرحلة 3 */
+export type WorkPayWith = 'single' | 'first_time'
+
+/** أرقام الشغل من صف settings — بالجنيه، جاهزة للعرض */
+export interface WorkSettings {
+  pass4Price: number
+  pass4Weeks: number
+  pass8Price: number
+  pass8Weeks: number
+  singlePrice: number
+  firstTimePrice: number
+  vodafoneNumber: string
+  instapayHandle: string
+  reviewHours: number
+}
+
+/** مكان شغل — من work_venues_public (من غير سعر الجملة أبدًا) */
+export interface WorkVenue {
+  venueId: string
+  name: string
+  /** المنطقة بالعربي للعرض */
+  area: string
+  kind: 'cafe_work' | 'coworking' | 'other'
+  desksCount: number | null
+  wifiMbps: number | null
+  wifiNote: string
+  outlets: OutletsLevel | null
+  noise: NoiseLevel | null
+  hasMeetingRoom: boolean
+  hasParking: boolean
+  hasAc: boolean
+  /** بالجنيه */
+  minConsumption: number | null
+  /** «10:00» */
+  openFrom: string
+  openTo: string
+  /** أيام بالعربي — سبت … جمعة */
+  bestDays: string[]
+  photos: string[]
+  /** بيظهر بس لو فيه سبوطة شغل معلنة في المكان ده */
+  address: string
+  hasUpcomingSbota: boolean
+}
+
+/** جدول اليوم — من sbota_templates.work_config أو الافتراضي */
+export interface DaySchedule {
+  start: string
+  end: string
+  lunchAt: string
+  complaintAt: string
+  /** «10:00–13:00» */
+  focusBlocks: string[]
+  deskType: string
+}
+
+/** سبوطة شغل — نفس Sbota + المكان والجدول */
+export interface WorkSbota extends Sbota {
+  sbotaId: string
+  venue: WorkVenue | null
+  schedule: DaySchedule
+}
+
+/** مجال في مجموعة سبوطة — من fn_group_professions، من غير أسماء ناس */
+export interface GroupProfession {
+  name: string
+  count: number
+}
+
+/** كارت شغل نشط للمستخدم الحالي */
+export interface WorkPass {
+  id: string
+  kind: PassKind
+  sessionsTotal: number
+  sessionsUsed: number
+  sessionsLeft: number
+  expiresAt: string | null
+  status: 'pending' | 'active' | 'used_up' | 'expired' | 'refunded'
+}
+
+/** نموذج الشركات → leads */
+export interface LeadInput {
+  company: string
+  contactName: string
+  phone: string
+  peopleCount: number
+  timesPerMonth: number
+  note?: string
+}

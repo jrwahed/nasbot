@@ -23,6 +23,13 @@ import type {
   Gender,
   GirlsOnlyPref,
   SkillLevel,
+  GroupProfession,
+  LeadInput,
+  WorkPass,
+  WorkPayWith,
+  WorkSbota,
+  WorkSettings,
+  WorkVenue,
 } from '@/types'
 import { supabase, hasSupabase } from '@/lib/supabase'
 import * as mock from '@/lib/api-mock'
@@ -50,11 +57,17 @@ import {
   activityFromDb,
   budgetFromDb,
   areaFromDb,
+  workSettingsFromDb,
+  workVenueFromDb,
+  workScheduleFromConfig,
+  professionsFromDb,
+  workPassFromDb,
 } from '@/lib/map-db'
 import { setSession, clearSession } from '@/lib/session'
 import { personas } from '@/data/personas'
 import { gameFallback } from '@/data/game'
 import { resultFor, type GameConfig, type GameKind } from '@/lib/game-config'
+import { WORK_WINDOW_DAYS, workSettingsDefaults } from '@/data/lists'
 
 /** بيتحدد مرة واحدة عند التحميل */
 const DB = hasSupabase
@@ -606,6 +619,8 @@ export async function startBooking(input: {
   method: 'vodafone_cash' | 'instapay'
   referralCode?: string
   useWallet?: boolean
+  /** لسبوطات الشغل بس — الخادم بيتجاهله لغيرها */
+  payWith?: WorkPayWith
 }): Promise<
   | { ok: true; bookingId: string; amount?: number; payTo?: string; reviewHours?: number; paid?: boolean }
   | { ok: false; error: string }
@@ -629,6 +644,7 @@ export async function startBooking(input: {
       method: input.method,
       referralCode: input.referralCode,
       useWallet: input.useWallet ?? false,
+      payWith: input.payWith,
     }),
   })
   const json = await res.json()
@@ -1343,6 +1359,238 @@ export async function logEvent(name: string, props: Record<string, unknown> = {}
     props,
     profile_id: auth.user?.id ?? null,
   })
+}
+
+/* ============================================================ الشغل */
+
+/**
+ * أعمدة settings.work_* — بالقروش في القاعدة، بالجنيه هنا.
+ * أي عمود ناقص (الهجرة لسه ما اتطبّقتش) بياخد الافتراضي من lists.ts.
+ */
+export async function getWorkSettings(): Promise<WorkSettings> {
+  if (!DB) return { ...workSettingsDefaults }
+  const { data, error } = await supabase().from('settings').select('*').limit(1).maybeSingle()
+  if (error || !data) return { ...workSettingsDefaults }
+  return workSettingsFromDb(data as Record<string, unknown>)
+}
+
+/** أماكن الشغل من work_venues_public — مفتاحها venue_id */
+async function workVenuesMap(venueIds: string[]): Promise<Map<string, WorkVenue>> {
+  const out = new Map<string, WorkVenue>()
+  const ids = Array.from(new Set(venueIds.filter(Boolean)))
+  if (!ids.length) return out
+  const { data } = await supabase().from('work_venues_public').select('*').in('venue_id', ids)
+  for (const row of (data ?? []) as Record<string, unknown>[]) {
+    // جاية من سبوطة معلنة أصلًا — العنوان مسموح (والعرض نفسه بيخفيه لو مش مسموح)
+    const v = workVenueFromDb(row, true)
+    out.set(v.venueId, v)
+  }
+  return out
+}
+
+/** الأعمدة الزيادة اللي بنحتاجها من sbotat_public لسبوطة الشغل (العرض بيجيب work_config من القالب) */
+const WORK_SBOTA_COLS = `${SBOTA_COLS}, template_id, venue_id, is_work, work_config`
+
+function workSbotaFromRows(
+  row: Record<string, unknown>,
+  who: Parameters<typeof sbotaFromDb>[1],
+  venue: WorkVenue | null
+): WorkSbota {
+  const base = sbotaFromDb(row, who)
+  const r = row as { id: string; work_config?: unknown }
+  return {
+    ...base,
+    kind: 'work',
+    venueName: venue?.name ?? base.venueName,
+    tags: Array.from(new Set([...base.tags, 'شغل'])),
+    sbotaId: r.id,
+    venue,
+    schedule: workScheduleFromConfig(r.work_config ?? null),
+  }
+}
+
+/** نسخة وهمية — من بيانات mock (السبوطات اللي kind = work) */
+function mockWorkVenue(name: string, area: string): WorkVenue {
+  return {
+    venueId: 'v-mock',
+    name,
+    area,
+    kind: 'cafe_work',
+    desksCount: 6,
+    wifiMbps: 80,
+    wifiNote: '',
+    outlets: 'plenty',
+    noise: 'quiet',
+    hasMeetingRoom: false,
+    hasParking: true,
+    hasAc: true,
+    minConsumption: 60,
+    openFrom: '09:00',
+    openTo: '23:00',
+    bestDays: ['تلات', 'أربع'],
+    photos: ['[صورة — الترابيزة الكبيرة واللابتوبات]'],
+    address: '',
+    hasUpcomingSbota: true,
+  }
+}
+
+async function mockWorkSbotat(): Promise<WorkSbota[]> {
+  const all = await mock.getSbotat({ timeOfDay: 'day' })
+  return all
+    .filter((s) => s.kind === 'work')
+    .map((s) => ({
+      ...s,
+      sbotaId: `mock-${s.slug}`,
+      venue: mockWorkVenue(s.venueName ?? '', s.area),
+      schedule: workScheduleFromConfig(null),
+    }))
+}
+
+/** سبوطات الشغل المعلنة في الـ 14 يوم الجايين */
+export async function getWorkSbotat(): Promise<WorkSbota[]> {
+  if (!DB) return mockWorkSbotat()
+
+  const now = new Date()
+  const until = new Date(now.getTime() + WORK_WINDOW_DAYS * 24 * 3600_000)
+  const { data, error } = await supabase()
+    .from('sbotat_public')
+    .select(WORK_SBOTA_COLS)
+    .eq('is_work', true)
+    .eq('is_mystery', false)
+    .gte('starts_at', now.toISOString())
+    .lte('starts_at', until.toISOString())
+    .order('starts_at', { ascending: true })
+  if (error || !data) return []
+
+  const rows = data as unknown as Record<string, unknown>[]
+  const [who, venues] = await Promise.all([
+    whoBookedMap(rows.map((r) => r.id as string)),
+    workVenuesMap(rows.map((r) => String(r.venue_id ?? ''))),
+  ])
+  return rows.map((r) =>
+    workSbotaFromRows(r, who.get(r.id as string), venues.get(String(r.venue_id ?? '')) ?? null)
+  )
+}
+
+/** سبوطة شغل واحدة بالـ slug — null لو مش موجودة أو مش شغل */
+export async function getWorkSbota(slug: string): Promise<WorkSbota | null> {
+  if (!DB) return (await mockWorkSbotat()).find((s) => s.slug === slug) ?? null
+
+  const { data, error } = await supabase()
+    .from('sbotat_public')
+    .select(WORK_SBOTA_COLS)
+    .eq('slug', slug)
+    .eq('is_work', true)
+    .gte('starts_at', new Date(Date.now() - 6 * 3600_000).toISOString())
+    .order('starts_at', { ascending: true })
+    .limit(1)
+    .maybeSingle()
+  if (error || !data) return null
+
+  const row = data as unknown as Record<string, unknown>
+  const id = row.id as string
+  const [who, venues] = await Promise.all([
+    whoBookedMap([id]),
+    workVenuesMap([String(row.venue_id ?? '')]),
+  ])
+  return workSbotaFromRows(row, who.get(id), venues.get(String(row.venue_id ?? '')) ?? null)
+}
+
+/**
+ * أماكن الشغل النشطة للصفحة العامة.
+ * العنوان بيتعرض بس لو للمكان سبوطة شغل معلنة قدام — العرض بيقول has_open_sbota
+ * (وبيخفي address أصلًا لو مفيش)، وبنأكد من sbotat_public كمان.
+ */
+export async function getWorkVenues(): Promise<WorkVenue[]> {
+  if (!DB) {
+    const list = await mockWorkSbotat()
+    return list.map((s) => s.venue).filter((v): v is WorkVenue => Boolean(v))
+  }
+
+  const [{ data: venues, error }, { data: upcoming }] = await Promise.all([
+    supabase().from('work_venues_public').select('*').eq('is_active', true).order('name'),
+    supabase()
+      .from('sbotat_public')
+      .select('venue_id')
+      .eq('is_work', true)
+      .gte('starts_at', new Date().toISOString()),
+  ])
+  if (error || !venues) return []
+  const withSbota = new Set(
+    ((upcoming ?? []) as { venue_id: string | null }[]).map((r) => r.venue_id ?? '')
+  )
+  return (venues as Record<string, unknown>[]).map((row) =>
+    workVenueFromDb(
+      row,
+      Boolean(row.has_open_sbota) || withSbota.has(String(row.venue_id ?? ''))
+    )
+  )
+}
+
+/** مجالات المجموعة — الدالة نفسها بترجّع العدد بس قبل الكشف */
+export async function getGroupProfessions(sbotaId: string): Promise<GroupProfession[]> {
+  if (!DB) {
+    return [
+      { name: 'مصممة', count: 1 },
+      { name: 'مطور', count: 1 },
+      { name: 'كاتبة محتوى', count: 1 },
+      { name: 'مسوّق', count: 1 },
+    ]
+  }
+  const { data, error } = await supabase().rpc('fn_group_professions', { p_sbota_id: sbotaId })
+  if (error) return []
+  return professionsFromDb(data)
+}
+
+/** أقدم كارت نشط للمستخدم الحالي — null لو مفيش أو مش داخل */
+export async function getMyActivePass(): Promise<WorkPass | null> {
+  if (!DB) return null
+  const { data: auth } = await supabase().auth.getUser()
+  const uid = auth.user?.id
+  if (!uid) return null
+  const { data, error } = await supabase()
+    .from('work_passes')
+    .select('id, kind, sessions_total, sessions_used, expires_at, status')
+    .eq('profile_id', uid)
+    .eq('status', 'active')
+    .order('created_at', { ascending: true })
+    .limit(1)
+    .maybeSingle()
+  if (error || !data) return null
+  return workPassFromDb(data as Record<string, unknown>)
+}
+
+/** هل حجز سبوطة شغل قبل كده (مدفوعة أو حضرها)؟ — بيحدد عرض «أول مرة» */
+export async function hasPriorWorkBooking(): Promise<boolean> {
+  if (!DB) return false
+  const { data: auth } = await supabase().auth.getUser()
+  const uid = auth.user?.id
+  if (!uid) return false
+  const { data, error } = await supabase()
+    .from('bookings')
+    .select('id, sbotat!inner(is_work)')
+    .eq('profile_id', uid)
+    .eq('sbotat.is_work', true)
+    .in('status', ['paid', 'attended'])
+    .limit(1)
+  if (error) return false
+  return (data ?? []).length > 0
+}
+
+/** نموذج الشركات → fn_submit_lead (إدراج للكل بحد معدل) */
+export async function submitLead(input: LeadInput) {
+  if (!DB) return { ok: true as const }
+  const digits = input.phone.replace(/\D/g, '')
+  const e164 = input.phone.trim().startsWith('+') ? `+${digits}` : `+2${digits}`
+  const { error } = await supabase().rpc('fn_submit_lead', {
+    p_company: input.company.trim(),
+    p_contact_name: input.contactName.trim(),
+    p_phone: e164,
+    p_people_count: input.peopleCount,
+    p_times_per_month: input.timesPerMonth,
+    p_note: input.note?.trim() || null,
+  })
+  return error ? { ok: false as const, error: error.message } : { ok: true as const }
 }
 
 export { genderFromDb, toPiastres }

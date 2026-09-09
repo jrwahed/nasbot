@@ -23,8 +23,12 @@ export function CairoMap({
 }) {
   const t = useT()
   const [open, setOpen] = useState<string | null>(null)
-  const picked = sbotat.find((s) => s.slug === open)
-  const visible = mapPins.filter((p) => sbotat.some((s) => s.slug === p.slug))
+  // فلتر «شغل» — أماكن الشغل (cafe_work / coworking) بتظهر بأيقونة لابتوب
+  const [workOnly, setWorkOnly] = useState(false)
+  const shown = workOnly ? sbotat.filter((s) => s.kind === 'work') : sbotat
+  const picked = shown.find((s) => s.slug === open)
+  const visible = mapPins.filter((p) => shown.some((s) => s.slug === p.slug))
+  const isWorkPin = (slug: string) => shown.find((s) => s.slug === slug)?.kind === 'work'
 
   return (
     <div
@@ -130,7 +134,7 @@ export function CairoMap({
             key={p.slug}
             role="button"
             tabIndex={0}
-            aria-label={sbotat.find((s) => s.slug === p.slug)?.name ?? t('shared.label.3')}
+            aria-label={shown.find((s) => s.slug === p.slug)?.name ?? t('shared.label.3')}
             style={{ cursor: 'pointer' }}
             onClick={() => setOpen(open === p.slug ? null : p.slug)}
             onKeyDown={(e) => {
@@ -147,10 +151,38 @@ export function CairoMap({
               className="nb-map-ring"
               style={{ animationDelay: `${(i % 4) * 0.4}s` }}
             />
-            <circle cx={p.x} cy={p.y} r="7" fill="#F4632A" />
+            {isWorkPin(p.slug) ? (
+              // لابتوب صغير — مكان شغل (كافيه أو مساحة عمل)
+              <g transform={`translate(${p.x - 9} ${p.y - 8})`}>
+                <rect x="0" y="0" width="18" height="16" rx="4" fill="#F4632A" />
+                <rect x="4" y="3" width="10" height="7" rx="1.5" fill="none" stroke="#14161A" strokeWidth="1.6" />
+                <path d="M2.5 12.5h13" stroke="#14161A" strokeWidth="1.6" strokeLinecap="round" />
+              </g>
+            ) : (
+              <circle cx={p.x} cy={p.y} r="7" fill="#F4632A" />
+            )}
           </g>
         ))}
       </svg>
+
+      {/* فلتر «شغل» — كبسولة صغيرة فوق الخريطة */}
+      <button
+        type="button"
+        onClick={() => {
+          setWorkOnly((v) => !v)
+          setOpen(null)
+        }}
+        aria-pressed={workOnly}
+        className="absolute end-3 top-3 min-h-[36px] cursor-pointer rounded-pill px-3 font-display text-13 font-black leading-none"
+        style={{
+          border: `2px solid ${workOnly ? '#F4632A' : '#9A9CA3'}`,
+          background: workOnly ? '#F4632A' : 'transparent',
+          color: workOnly ? '#14161A' : '#FBF7EF',
+          transform: workOnly ? 'rotate(-3deg)' : undefined,
+        }}
+      >
+        {t('shoghl.map.filter')}
+      </button>
 
       {/* بطاقة صغيرة فوق الخريطة */}
       {picked && (
@@ -177,7 +209,7 @@ export function CairoMap({
               {picked.left}
             </Sticker>
             <Link
-              href={`/s/${picked.slug}`}
+              href={picked.kind === 'work' ? `/shoghl/${picked.slug}` : `/s/${picked.slug}`}
               className="grid min-h-[44px] place-items-center rounded-14 px-5 font-display text-16 font-black"
               style={{ background: '#F4632A', color: '#14161A' }}
             >{t('shared.text.1')}</Link>

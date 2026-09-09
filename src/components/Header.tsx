@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react'
 import { Logo } from '@/components/Logo'
 import { ThemeToggle } from '@/components/ThemeToggle'
 import { isLoggedIn } from '@/lib/session'
+import { useTheme } from '@/lib/use-theme'
 import { useT } from '@/components/CopyProvider'
 
 /**
@@ -12,10 +13,18 @@ import { useT } from '@/components/CopyProvider'
  * الشعار 34 يمين، «دخول» شمال، حشو 18px 20px 8px.
  * على الكمبيوتر بتظهر الروابط: الجدول · الخريطة · القواعد · الكباتن.
  */
-export function Header() {
+export function Header({
+  hideToggle = false,
+}: {
+  /** مسار /shoghl/* — الوضع النهاري مقفول فمفيش زر تبديل */
+  hideToggle?: boolean
+}) {
   const t = useT()
+  const [theme] = useTheme()
   const [loggedIn, setLoggedIn] = useState(false)
   useEffect(() => setLoggedIn(isLoggedIn()), [])
+  // رابط «الشغل» نهاري بس — الشغل منتج الصبح
+  const showWork = theme === 'day'
 
   return (
     <header className="flex items-center justify-between gap-4 px-5 pb-2 pt-[18px]">
@@ -25,13 +34,27 @@ export function Header() {
 
       <nav className="hidden items-center gap-5 font-body text-16 font-semibold lg:flex">
         <Link href="/">{t('shared.text.18')}</Link>
+        {showWork && (
+          <Link href="/shoghl" style={{ color: 'var(--accent-text)' }}>
+            {t('shoghl.nav')}
+          </Link>
+        )}
         <Link href="/map">{t('shared.text.17')}</Link>
         <Link href="/rules">{t('shared.text.16')}</Link>
         <Link href="/captains">{t('shared.text.15')}</Link>
       </nav>
 
       <div className="flex items-center gap-1">
-        <ThemeToggle />
+        {showWork && (
+          <Link
+            href="/shoghl"
+            className="grid min-h-[44px] place-items-center px-2 font-body text-16 font-semibold lg:hidden"
+            style={{ color: 'var(--accent-text)' }}
+          >
+            {t('shoghl.nav')}
+          </Link>
+        )}
+        {!hideToggle && <ThemeToggle />}
         <Link
           href={loggedIn ? '/me' : '/login'}
           className="grid min-h-[44px] place-items-center px-2 font-body text-16 font-semibold"
@@ -53,6 +76,7 @@ export function InnerHeader({
   href = '/',
   padded = true,
   onBack,
+  hideToggle = false,
 }: {
   /** لو مااتبعتش بياخد «رجوع» من النصوص */
   back?: string
@@ -61,6 +85,8 @@ export function InnerHeader({
   padded?: boolean
   /** لو موجودة بتشتغل بدل الرابط — زي الرجوع لسؤال قبله في اللعبة */
   onBack?: () => void
+  /** مسار /shoghl/* — الوضع النهاري مقفول فمفيش زر تبديل */
+  hideToggle?: boolean
 }) {
   const t = useT()
   const backClass =
@@ -86,7 +112,7 @@ export function InnerHeader({
         </Link>
       )}
       <div className="flex items-center gap-1">
-        <ThemeToggle />
+        {!hideToggle && <ThemeToggle />}
         <Link href="/" aria-label={t('shared.label.11')}>
           <Logo size={22} />
         </Link>

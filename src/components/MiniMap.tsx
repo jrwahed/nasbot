@@ -75,6 +75,27 @@ export function MiniMap({ height = 260 }: { height?: number }) {
         />
       ))}
 
+      {/* لابتوب — مكان شغل في التجمع (نفس موضع نقطة work-cafe-tagamo3 على الخريطة الكبيرة) */}
+      <Link
+        href="/shoghl"
+        aria-label={t('shoghl.map.workPin')}
+        title={t('shoghl.map.workPin')}
+        className="absolute grid place-items-center"
+        style={{
+          insetInlineEnd: 22,
+          top: 18,
+          width: 26,
+          height: 26,
+          borderRadius: 8,
+          background: '#F4632A',
+        }}
+      >
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#14161A" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true">
+          <rect x="4" y="5" width="16" height="11" rx="2" />
+          <path d="M2 19h20" />
+        </svg>
+      </Link>
+
       <span
         className="absolute grid place-items-center font-display text-18 font-black"
         style={{

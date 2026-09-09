@@ -13,8 +13,16 @@ import type {
   Booking,
   Clue,
   PersonaId,
+  DaySchedule,
+  GroupProfession,
+  NoiseLevel,
+  OutletsLevel,
+  WorkPass,
+  WorkSettings,
+  WorkVenue,
 } from '@/types'
 import { personas } from '@/data/personas'
+import { workScheduleDefaults, workSettingsDefaults } from '@/data/lists'
 
 /* ---------------------------------------------------------- الأنواع البسيطة */
 
@@ -323,5 +331,198 @@ export function clueFromDb(row: Record<string, unknown>): Clue {
     label: `الدليل ${['', 'الأول', 'التاني', 'التالت', 'الرابع', 'الخامس', 'السادس', 'السابع'][r.day_index]}`,
     content: r.path_or_text,
     unlocked: new Date(r.unlocks_at).getTime() <= Date.now(),
+  }
+}
+
+/* ---------------------------------------------------------- الشغل */
+
+
+export const outletsFromDb = (v?: string | null): OutletsLevel | null =>
+  v === 'few' || v === 'enough' || v === 'plenty' ? v : null
+
+export const noiseFromDb = (v?: string | null): NoiseLevel | null =>
+  v === 'quiet' || v === 'medium' || v === 'lively' ? v : null
+
+const venueKindFromDb = (k?: string | null): WorkVenue['kind'] =>
+  k === 'cafe_work' || k === 'coworking' ? k : 'other'
+
+/** «10:00:00» → «10:00» */
+export const clockFromDb = (t?: string | null): string => {
+  if (!t) return ''
+  const m = String(t).match(/^(\d{1,2}):(\d{2})/)
+  return m ? `${m[1].padStart(2, '0')}:${m[2]}` : String(t)
+}
+
+/** «13:00» → «1 الضهر» · «14:30» → «2:30 الضهر» */
+export function hourLabel(hhmm: string): string {
+  const m = hhmm.match(/^(\d{1,2}):(\d{2})/)
+  if (!m) return hhmm
+  const h24 = Number(m[1])
+  const min = m[2]
+  const h12 = h24 % 12 === 0 ? 12 : h24 % 12
+  const part =
+    h24 < 5 ? 'بالليل' : h24 < 12 ? 'الصبح' : h24 < 16 ? 'الضهر' : h24 < 19 ? 'العصر' : 'بالليل'
+  return `${h12}${min === '00' ? '' : `:${min}`} ${part}`
+}
+
+/** صف settings → أرقام الشغل بالجنيه. أي عمود ناقص بياخد الافتراضي. */
+export function workSettingsFromDb(row: Record<string, unknown> | null): WorkSettings {
+  const n = (k: string, d: number) => {
+    const v = row?.[k]
+    return typeof v === 'number' && Number.isFinite(v) ? v : d
+  }
+  const s = (k: string, d: string) => {
+    const v = row?.[k]
+    return typeof v === 'string' && v ? v : d
+  }
+  const D = workSettingsDefaults
+  return {
+    pass4Price: row?.work_pass4_price != null ? toPounds(n('work_pass4_price', 0)) : D.pass4Price,
+    pass4Weeks: n('work_pass4_weeks', D.pass4Weeks),
+    pass8Price: row?.work_pass8_price != null ? toPounds(n('work_pass8_price', 0)) : D.pass8Price,
+    pass8Weeks: n('work_pass8_weeks', D.pass8Weeks),
+    singlePrice:
+      row?.work_single_price != null ? toPounds(n('work_single_price', 0)) : D.singlePrice,
+    firstTimePrice:
+      row?.work_first_time_price != null
+        ? toPounds(n('work_first_time_price', 0))
+        : D.firstTimePrice,
+    vodafoneNumber: s('vodafone_number', D.vodafoneNumber),
+    instapayHandle: s('instapay_handle', D.instapayHandle),
+    reviewHours: n('manual_review_hours', D.reviewHours),
+  }
+}
+
+/** صف من work_venues_public → WorkVenue. سعر الجملة مش في العرض أصلًا. */
+export function workVenueFromDb(
+  row: Record<string, unknown>,
+  hasUpcomingSbota = false
+): WorkVenue {
+  const r = row as {
+    venue_id: string
+    name: string | null
+    kind: string | null
+    area: string | null
+    area_label_ar: string | null
+    desks_count: number | null
+    wifi_mbps: number | null
+    wifi_note_ar: string | null
+    power_outlets: string | null
+    noise_level: string | null
+    has_meeting_room: boolean | null
+    has_parking: boolean | null
+    has_ac: boolean | null
+    min_consumption: number | null
+    open_from: string | null
+    open_to: string | null
+    best_days: string[] | null
+    photos: string[] | null
+    address: string | null
+  }
+  return {
+    venueId: r.venue_id,
+    name: r.name ?? '',
+    area: r.area_label_ar ?? areaFromDb(r.area),
+    kind: venueKindFromDb(r.kind),
+    desksCount: r.desks_count ?? null,
+    wifiMbps: r.wifi_mbps ?? null,
+    wifiNote: r.wifi_note_ar ?? '',
+    outlets: outletsFromDb(r.power_outlets),
+    noise: noiseFromDb(r.noise_level),
+    hasMeetingRoom: Boolean(r.has_meeting_room),
+    hasParking: Boolean(r.has_parking),
+    hasAc: Boolean(r.has_ac),
+    minConsumption: r.min_consumption != null ? toPounds(r.min_consumption) : null,
+    openFrom: clockFromDb(r.open_from),
+    openTo: clockFromDb(r.open_to),
+    bestDays: slotsFromDb(r.best_days),
+    photos: r.photos ?? [],
+    // العنوان بيتعرض بس لو فيه سبوطة شغل معلنة — حتى لو العرض رجّعه
+    address: hasUpcomingSbota ? (r.address ?? '') : '',
+    hasUpcomingSbota,
+  }
+}
+
+/** sbota_templates.work_config → جدول اليوم. أي حقل ناقص بياخد الافتراضي. */
+export function workScheduleFromConfig(cfg: unknown): DaySchedule {
+  const c = (cfg && typeof cfg === 'object' ? cfg : {}) as Record<string, unknown>
+  const str = (k: string, d: string) => {
+    const v = c[k]
+    return typeof v === 'string' && v ? clockFromDb(v) : d
+  }
+  const D = workScheduleDefaults
+  const start = str('start', D.start)
+  const end = str('end', D.end)
+  const lunchAt = str('lunch_hour_at', D.lunchAt)
+  const complaintAt = str('complaint_hour_at', D.complaintAt)
+  const raw = Array.isArray(c.focus_blocks) ? c.focus_blocks : []
+  const focusBlocks = raw
+    .map((b) => {
+      if (typeof b === 'string') return b
+      if (b && typeof b === 'object') {
+        const o = b as { from?: string; to?: string; start?: string; end?: string }
+        const f = clockFromDb(o.from ?? o.start)
+        const t = clockFromDb(o.to ?? o.end)
+        return f && t ? `${f}–${t}` : ''
+      }
+      return ''
+    })
+    .filter(Boolean)
+  return {
+    start,
+    end,
+    lunchAt,
+    complaintAt,
+    focusBlocks: focusBlocks.length ? focusBlocks : [`${start}–${lunchAt}`],
+    deskType: typeof c.desk_type === 'string' ? c.desk_type : '',
+  }
+}
+
+/**
+ * ناتج fn_group_professions → قائمة مجالات.
+ * الدالة بترجّع jsonb: {revealed, count, professions: [{key, name_ar, icon_key, color, n}]}
+ * (وقبل الكشف من غير professions). بنقبل كمان مصفوفة مباشرة علشان شكلها ما يكسرش الصفحة.
+ */
+export function professionsFromDb(data: unknown): GroupProfession[] {
+  const list = Array.isArray(data)
+    ? data
+    : data && typeof data === 'object' && Array.isArray((data as { professions?: unknown }).professions)
+      ? ((data as { professions: unknown[] }).professions)
+      : []
+  const out: GroupProfession[] = []
+  for (const row of list) {
+    if (typeof row === 'string') {
+      out.push({ name: row, count: 1 })
+      continue
+    }
+    if (row && typeof row === 'object') {
+      const r = row as { name_ar?: unknown; profession_ar?: unknown; name?: unknown; n?: unknown; count?: unknown }
+      const name = [r.name_ar, r.profession_ar, r.name].find((x) => typeof x === 'string' && x)
+      if (typeof name !== 'string') continue
+      const n = [r.n, r.count].find((x) => typeof x === 'number')
+      out.push({ name, count: typeof n === 'number' ? n : 1 })
+    }
+  }
+  return out
+}
+
+export function workPassFromDb(row: Record<string, unknown>): WorkPass {
+  const r = row as {
+    id: string; kind: string; sessions_total: number; sessions_used: number
+    expires_at: string | null; status: string
+  }
+  const total = r.sessions_total ?? 0
+  const used = r.sessions_used ?? 0
+  const status = (['pending', 'active', 'used_up', 'expired', 'refunded'] as const).find(
+    (s) => s === r.status
+  )
+  return {
+    id: r.id,
+    kind: r.kind === 'eight' ? 'eight' : 'four',
+    sessionsTotal: total,
+    sessionsUsed: used,
+    sessionsLeft: Math.max(0, total - used),
+    expiresAt: r.expires_at ?? null,
+    status: status ?? 'pending',
   }
 }
