@@ -5,6 +5,8 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { InnerHeader } from '@/components/Header'
 import { loadAdminMe, NO_ADMIN, type AdminMe } from '@/lib/admin'
+import { supabase } from '@/lib/supabase'
+import { setAdminPageSize } from '@/components/admin-ui'
 
 /**
  * الإطار المشترك لصفحات اللوحة: بيتأكد إن اللي فاتح من الفريق،
@@ -48,7 +50,19 @@ export function AdminShell({
   const [me, setMe] = useState<AdminMe | null>(null)
 
   useEffect(() => {
-    loadAdminMe()
+    // حجم صفحة اللوحة من settings (0071) — بيتقرا **قبل** ما نرسم أي صفحة،
+    // فكل الاستعلامات جوه children بتشوف الرقم الصح من أول طلب. لو القراية
+    // فشلت أو الهجرة لسه ما اتلزقتش، بيفضل على الافتراضي من غير ما يكسر حاجة.
+    const boot = async () => {
+      try {
+        const { data } = await supabase().from('settings').select('admin_page_size').maybeSingle()
+        setAdminPageSize((data as { admin_page_size?: number } | null)?.admin_page_size)
+      } catch {
+        // الافتراضي كفاية
+      }
+      return loadAdminMe()
+    }
+    boot()
       .then(setMe)
       .catch(() => setMe(NO_ADMIN))
   }, [])

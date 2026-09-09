@@ -428,13 +428,15 @@ export function Empty({ children }: { children: ReactNode }) {
 /**
  * حجم الصفحة في جداول اللوحة.
  *
- * ⚠ الرقم ده مكانه الصح `settings` مش الكود (القاعدة الحاكمة رقم ٢ في CLAUDE.md).
- * إضافة عمود في `settings` محتاجة هجرة، والهجرات مش من شغل الجزء ده —
- * فالرقم مؤقتًا هنا، **في مكان واحد بالظبط** علشان نقله بعدين يبقى سطر واحد.
- * أول ما يتضاف `settings.admin_page_size`: اقراه، مرّره لـ Pager كـ pageSize،
- * وامسح الثابت ده.
+ * القيمة الحقيقية من `settings.admin_page_size` (هجرة 0071) — `AdminShell`
+ * بيقراها مرة واحدة وبينده `setAdminPageSize` **قبل** ما يرسم أي صفحة، فكل
+ * الاستعلامات بتشوف الرقم الصح. الرقم اللي هنا مجرد قيمة أولية لو القراية
+ * فشلت أو الهجرة لسه ما اتلزقتش.
+ *
+ * `let` مش `const` عن قصد: ESM بتصدّر ربط حي، فكل اللي مستورد الرقم بيشوف
+ * التحديث من غير ما نمرّره في props عبر سبع صفحات.
  */
-export const ADMIN_PAGE_SIZE = 50
+export let ADMIN_PAGE_SIZE = 50
 
 /**
  * أقصى عدد صفوف بنمسحه لما نحتاج نبص على أكتر من صفحة —
@@ -442,7 +444,18 @@ export const ADMIN_PAGE_SIZE = 50
  * مشتق من حجم الصفحة علشان يفضل رقم واحد بس في المشروع، ونفس الملاحظة فوق:
  * مكانه الصح `settings`.
  */
-export const ADMIN_SCAN_MAX = ADMIN_PAGE_SIZE * 20
+export let ADMIN_SCAN_MAX = ADMIN_PAGE_SIZE * 20
+
+/**
+ * بيتنده من AdminShell بعد ما يقرا الإعدادات. بيتجاهل أي قيمة بره المعقول
+ * (نفس حدود القيد في القاعدة: 10..200) علشان صف إعدادات بايظ ما يكسرش اللوحة.
+ */
+export function setAdminPageSize(n: unknown) {
+  const v = Number(n)
+  if (!Number.isFinite(v) || v < 10 || v > 200) return
+  ADMIN_PAGE_SIZE = Math.floor(v)
+  ADMIN_SCAN_MAX = ADMIN_PAGE_SIZE * 20
+}
 
 /** رقم بالعربي — نفس أسلوب money() */
 const arNum = (n: number) => n.toLocaleString('ar-EG')

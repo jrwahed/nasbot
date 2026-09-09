@@ -165,7 +165,7 @@ psql -h 127.0.0.1 -p 5433 -U postgres -d nasbot --single-transaction -f WORK_MIG
 - 🟢 **الدفعة الأولى اتلزقت على القاعدة** (`WORK_MIGRATION_5.sql`) — أحمر الأمان والفلوس والقاعدة كله واقع.
 - 🟡 **الدفعة التانية في الكود ومستنية اللزق**: `WORK_MIGRATION_6.sql` (`0065` قوايم التسجيل · `0066` كتل الخريطة · `0067` اختبارها · `0070` تخمين رمز الدخول S7). لحد ما تتلزق، **تخمين الرمز بالتوازي لسه ممكن على الإنتاج** (المسار بيرجع للطريق القديم لوحده — أضعف بس مش مقفول).
 - ⚠ **قبل توزيع اللينك:** (١) الزق `WORK_MIGRATION_5.sql` وشغّل `test_review_fixes()` و`test_caller_guards()` — كلهم لازم «نجح». (٢) رقم فودافون كاش/إنستا باي في `settings` لسه وهمي. (٣) `CRON_SECRET` اتعرض في محادثة — يتغيّر (وهو كمان الـpepper الاحتياطي لهاشات OTP والأدمن).
-- 📌 **باقي من المراجعة:** `A2` مفاتيح المزايا لسه ديكور · `A3` الصيانة مستثنية منها `/api/*` و`allow_roles` محدش بيقراها · `ADMIN_PAGE_SIZE` ثابت في الكود المفروض ينتقل لـ`settings` · `/admin/map` مفيهوش محرّر لـ`map_areas` · `activityToDb` بيرجّع «سباحة» لأي نشاط جديد فـ`skill_activities` ما ينفعش تكبر.
+- 📌 **باقي من المراجعة:** `A2` مفاتيح المزايا لسه ديكور · `maintenance.allow_roles` بتتعدّل ومحدش بيقراها · `/admin/map` مفيهوش محرّر لـ`map_areas` · `activityToDb` بيرجّع «سباحة» لأي نشاط جديد فـ`skill_activities` ما ينفعش تكبر · `/admin/matching`·`captains`·`templates`·`shoghl` لسه من غير ترقيم.
 
 ### ملفات التوثيق
 `README.md` · `DB_PLAN.md` · `ADMIN_PLAN.md` · `WORK_PLAN.md` · `DESIGN_TOKENS.md` · `COPY.md` · `ADMIN_GUIDE.md` · `RUNBOOK.md` · `DEPLOY_CHECKLIST.md` · **`REVIEW*.md`** (المراجعة) · ملفات `WORK_MIGRATION_*.sql` و`WORK_CRON.sql` (تتلزق في SQL Editor).

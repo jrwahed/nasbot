@@ -59,6 +59,16 @@ export async function POST(req: Request) {
 
   const db = admin()
 
+  // الموقع مقفول للصيانة؟ ما ياخدش فلوس وهو مقفول (A3). نفس المصدر اللي
+  // fn_can_book بتقرا منه، علشان الحجز والكارت يتوقفوا مع بعض.
+  const { data: maint } = await db.rpc('fn_maintenance_on')
+  if (maint === true) {
+    return NextResponse.json(
+      { error: 'الموقع مقفول دلوقتي لشوية صيانة. ارجعلنا بعد شوية.' },
+      { status: 503 }
+    )
+  }
+
   // طلب مستني قبل كده؟ ما ينفعش يتراكم كروت pending على نفس العضو —
   // الإدارة بتبص على تحويل واحد وما تعرفش هو لأنهي واحد فيهم.
   const { data: waiting } = await db

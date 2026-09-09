@@ -750,6 +750,29 @@ function AllTab({ say }: { say: (m: string) => void }) {
     [rows]
   )
 
+  /**
+   * المجموع الحقيقي على **كل** الصفوف — من القاعدة (fn_payments_totals، هجرة
+   * 0071). بعد الترقيم الصفحة بتشوف ٥٠ صف بس، فمجموعها مش دخل النادي. الرقم
+   * ده اللي المالك بيقراه، فلازم يكون كامل.
+   */
+  const [grandTotal, setGrandTotal] = useState<number | null>(null)
+  const [grandCount, setGrandCount] = useState<number | null>(null)
+  useEffect(() => {
+    let alive = true
+    const load = async () => {
+      const { data, error } = await supabase().rpc('fn_payments_totals')
+      if (!alive || error || !data) return
+      const rowsT = data as { status: string; n: number; total_piastres: number }[]
+      const done = rowsT.find((t) => t.status === 'succeeded')
+      setGrandTotal(Number(done?.total_piastres ?? 0))
+      setGrandCount(Number(done?.n ?? 0))
+    }
+    load()
+    return () => {
+      alive = false
+    }
+  }, [])
+
   async function openReceipt(p: PayRow) {
     if (!p.receipt_path) return
     const { data, error } = await supabase()
@@ -795,7 +818,15 @@ function AllTab({ say }: { say: (m: string) => void }) {
           />
         </div>
         <div className="font-body text-14" style={{ color: 'var(--muted)' }}>
-          {count ?? 0} معاملة · مجموع الصفحة دي من اللي تمّ {money(pageTotal)}
+          {count ?? 0} معاملة في الفلتر ده · مجموع الصفحة {money(pageTotal)}
+          {grandTotal !== null && (
+            <>
+              {' · '}
+              <b style={{ color: 'var(--fg)' }}>
+                إجمالي اللي تمّ من غير فلتر: {money(grandTotal)} ({grandCount} معاملة)
+              </b>
+            </>
+          )}
         </div>
         <Btn onClick={reload}>حدّث</Btn>
       </div>

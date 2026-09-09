@@ -12,11 +12,17 @@
 --   0066  كتل الخريطة في جدول map_areas بدل ما تكون مثبّتة في الكود.
 --   0067  اختبار 0065 و 0066.
 --   0070  تخمين رمز الدخول بالتوازي (S7) — وده كمان طريق دخول اللوحة.
+--   0071  حجم صفحة اللوحة في settings + مجموع الفلوس الحقيقي من القاعدة.
+--   0072  وضع الصيانة بيوقف الحجز فعلًا (كان تعليق الجدول بيقول كده من زمان
+--         وعمره ما حصل).
 --
--- بعد ما يخلص شغّل السطرين دول، كل واحد لوحده:
+-- بعد ما يخلص شغّل الأربع سطور دول، كل واحد لوحده:
 --     select * from test_public_lists();
 --     select * from test_otp_hardening();
--- المفروض كل الصفوف تقول «نجح». أي «فشل» ابعتهولي بالحرف.
+--     select * from test_admin_page_and_totals();
+--     select * from test_maintenance_blocks();
+-- المفروض كل الصفوف تقول «نجح» (آخر صف في اختبار الصيانة بيقول حالة الموقع
+-- بس — «الموقع شغّال» ده تمام). أي «فشل» ابعتهولي بالحرف.
 -- ============================================================================
 
 
@@ -618,9 +624,232 @@ comment on function test_otp_hardening() is 'بتتأكد إن تخمين الر
 revoke execute on function test_otp_hardening() from public, anon, authenticated;
 
 
+-- ############################################################################
+-- # 20260909180000_0071_admin_page_size_and_totals.sql
+-- ############################################################################
+
+-- ============================================================================
+-- 0071 — حجم صفحة اللوحة في settings + مجموع الفلوس الحقيقي
+--
+-- حاجتين طلعوا من تصليح A17 (الترقيم من الخادم):
+--
+-- ١) `ADMIN_PAGE_SIZE` اتكتب ثابت في `src/components/admin-ui.tsx` — مخالفة
+--    صريحة لقاعدة المشروع رقم ٢ (كل رقم في settings). الوكيل اللي عمل الترقيم
+--    مكانش معاه صلاحية يكتب هجرة، فسابه ثابت وسجّله. هنا بنكمّله.
+--
+-- ٢) صفحة الفلوس كانت بتعرض «مجموع اللي تمّ» محسوب من الصفوف اللي محمّلة.
+--    بعد الترقيم بقت بتشوف ٥٠ صف بس، فالمجموع بقى مجموع الصفحة مش المجموع
+--    الحقيقي. المالك بيقرا الرقم ده علشان يعرف دخل النادي — رقم ناقص أسوأ من
+--    رقم مش موجود. الحل: نحسبه في القاعدة (sum) بدل ما نجمع في المتصفح.
+-- ============================================================================
+
+-- ===== ١) حجم الصفحة =====
+alter table settings
+  add column if not exists admin_page_size int not null default 50;
+
+comment on column settings.admin_page_size is
+  'عدد الصفوف في صفحة اللوحة الواحدة. أكبر = تقليب أقل بس تحميل أتقل.';
+
+do $$
+begin
+  if not exists (select 1 from pg_constraint where conname = 'settings_admin_page_size_sane') then
+    alter table settings add constraint settings_admin_page_size_sane
+      check (admin_page_size between 10 and 200);
+  end if;
+end $$;
+
+-- ===== ٢) مجاميع الفلوس الحقيقية =====
+/**
+ * مجموع وعدد المعاملات لكل حالة — محسوبين في القاعدة على **كل** الصفوف.
+ * المبالغ بالقروش زي ما هي متخزّنة؛ الواجهة بتحوّلها لجنيه.
+ *
+ * الصلاحية: `payments.view` — نفس اللي بيفتح الصفحة. الفحص جوه الدالة لأنها
+ * definer (السطر ده هو الحد الأمني، مش إخفاء الزرار).
+ */
+create or replace function fn_payments_totals()
+returns table (status payment_status_t, n bigint, total_piastres bigint)
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if not fn_has_permission('payments.view') then
+    raise exception 'محتاج صلاحية payments.view';
+  end if;
+
+  return query
+    select p.status, count(*)::bigint, coalesce(sum(p.amount), 0)::bigint
+      from payments p
+     group by p.status;
+end;
+$$;
+
+comment on function fn_payments_totals() is
+  'مجموع وعدد المعاملات لكل حالة على كل الصفوف — علشان اللوحة ما تجمعش الصفحة اللي قدامها بس.';
+revoke execute on function fn_payments_totals() from public, anon;
+grant  execute on function fn_payments_totals() to authenticated;
+
+-- ===== اختبار =====
+create or replace function test_admin_page_and_totals()
+returns table (test text, result text)
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v int;
+begin
+  test := '0071 · admin_page_size في settings';
+  select admin_page_size into v from settings limit 1;
+  if v is null then
+    result := 'فشل — العمود مش موجود';
+  elsif v between 10 and 200 then
+    result := format('نجح — %s صف', v);
+  else
+    result := format('فشل — قيمة غريبة: %s', v);
+  end if;
+  return next;
+
+  test := '0071 · fn_payments_totals موجودة ومقفولة على الزائر';
+  if not exists (select 1 from pg_proc where proname = 'fn_payments_totals') then
+    result := 'فشل — الدالة مش موجودة';
+  elsif has_function_privilege('anon', 'fn_payments_totals()', 'execute') then
+    result := 'فشل — الزائر يقدر ينفّذها';
+  else
+    result := 'نجح';
+  end if;
+  return next;
+
+  test := '0071 · الدالة بتتحقق من الصلاحية جوّاها';
+  if (select prosrc from pg_proc where proname = 'fn_payments_totals')
+     like '%fn_has_permission(''payments.view'')%' then
+    result := 'نجح';
+  else
+    result := 'فشل — مفيش فحص صلاحية جوه definer';
+  end if;
+  return next;
+end;
+$$;
+
+revoke execute on function test_admin_page_and_totals() from public, anon, authenticated;
+
+
+-- ############################################################################
+-- # 20260909180100_0072_maintenance_blocks_booking.sql
+-- ############################################################################
+
+-- ============================================================================
+-- 0072 — وضع الصيانة بيوقف الحجز فعلًا (A3)
+--
+-- تعليق الجدول نفسه من يوم ما اتعمل بيقول:
+--     'وضع الصيانة — بيوقف الحجز الجديد فورًا. owner بس.'
+-- وده **عمره ما حصل**. مفيش سطر واحد في القاعدة ولا في الكود كان بيقرا
+-- `maintenance.is_on` قبل الحجز. الميدل وير (اتصلّح قبل كده) بيقفل الصفحات،
+-- بس `/api/*` مستثنى منه — يعني الموقع بيقول «مقفول» و/api/pay/create لسه
+-- بياخد فلوس عادي.
+--
+-- الحل هنا: القاعدة هي اللي تقرر، مش الواجهة.
+--   • fn_maintenance_on() — مصدر وحيد للحقيقة.
+--   • fn_can_book بترجّع سبب المنع لما الصيانة شغّالة، فكل اللي بينده عليها
+--     (الواجهة ومسارات الدفع) بيتوقف من نفس المكان.
+--
+-- الأدمن مستثنى عن قصد: لازم يقدر يجرّب الحجز وهو قافل الموقع.
+-- ============================================================================
+
+create or replace function fn_maintenance_on()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select coalesce((select is_on from maintenance where id), false);
+$$;
+comment on function fn_maintenance_on() is 'الموقع مقفول للصيانة؟ مصدر وحيد للحقيقة — متقراش الجدول مباشرة.';
+grant execute on function fn_maintenance_on() to anon, authenticated, service_role;
+
+/**
+ * نفس fn_can_book بالحرف، بفحص الصيانة مضاف في الأول.
+ * بنعدّل النص المتخزّن بدل ما نعيد كتابة الجسم كله — علشان أي تعديل نزل على
+ * الدالة بعد 0007 ما يضيعش.
+ */
+do $$
+declare
+  src     text;
+  new_src text;
+  guard   text := $g$
+  -- ===== الصيانة (0072) =====
+  -- الموقع مقفول؟ محدش يحجز — إلا الأدمن، لازم يقدر يجرّب وهو قافل.
+  if fn_maintenance_on() and not fn_is_admin() then
+    return 'الموقع مقفول دلوقتي لشوية صيانة. ارجعلنا بعد شوية.';
+  end if;
+$g$;
+begin
+  select prosrc into src from pg_proc
+   where proname = 'fn_can_book' and pronamespace = 'public'::regnamespace;
+
+  if src is null then
+    raise exception 'fn_can_book مش موجودة';
+  end if;
+
+  if src like '%fn_maintenance_on()%' then
+    raise notice '0072: fn_can_book فيها فحص الصيانة أصلًا — عدّينا';
+  else
+    -- بنحقن الحارس بعد **أول `begin`** — يعني بعد قسم declare، أول سطر في
+    -- الجسم. (المحاولة الأولى حقنته قبل declare فوقع بـ syntax error:
+    -- `if` ما ينفعش يقف في قسم التعريفات.)
+    new_src := regexp_replace(src, '\mbegin\M', 'begin' || guard, '');
+
+    if new_src = src then
+      raise exception '0072: مقدرناش نحقن الحارس في fn_can_book — راجعها بإيدك';
+    end if;
+
+    execute format(
+      'create or replace function fn_can_book(p_id uuid, s_id uuid) returns text language plpgsql stable security definer set search_path = public as %L',
+      new_src
+    );
+    raise notice '0072: اتحقن فحص الصيانة في fn_can_book';
+  end if;
+end $$;
+
+-- ===== اختبار =====
+create or replace function test_maintenance_blocks()
+returns table (test text, result text)
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  test := '0072 · fn_maintenance_on موجودة';
+  if exists (select 1 from pg_proc where proname = 'fn_maintenance_on') then
+    result := 'نجح';
+  else
+    result := 'فشل — الدالة مش موجودة';
+  end if;
+  return next;
+
+  test := '0072 · fn_can_book بتفحص الصيانة';
+  if (select prosrc from pg_proc where proname = 'fn_can_book') like '%fn_maintenance_on()%' then
+    result := 'نجح';
+  else
+    result := 'فشل — الحارس مش موجود، الحجز هيعدّي والموقع مقفول';
+  end if;
+  return next;
+
+  test := '0072 · الصيانة مقفولة دلوقتي؟ (للعلم بس)';
+  result := case when fn_maintenance_on() then 'الموقع مقفول' else 'الموقع شغّال' end;
+  return next;
+end;
+$$;
+
+revoke execute on function test_maintenance_blocks() from public, anon, authenticated;
+
+
 -- ============================================================================
 -- خلصنا. شغّل دول كل واحد لوحده وابعتلي النتيجة:
 --
 --   select * from test_public_lists();
 --   select * from test_otp_hardening();
+--   select * from test_admin_page_and_totals();
+--   select * from test_maintenance_blocks();
 -- ============================================================================

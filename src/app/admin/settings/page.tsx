@@ -412,6 +412,14 @@ const GROUPS: Group[] = [
         min: 0,
       },
       {
+        col: 'admin_page_size',
+        label: 'عدد الصفوف في صفحة اللوحة',
+        suffix: 'صف',
+        hint: 'كل جداول اللوحة بتقلّب بالرقم ده. أكبر = تقليب أقل بس تحميل أتقل. (10–200)',
+        min: 10,
+        max: 200,
+      },
+      {
         col: 'notify_max_stale_hours',
         label: 'أقصى تأخير قبل ما نلغي الإشعار',
         suffix: 'ساعة',
