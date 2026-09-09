@@ -72,6 +72,16 @@ export async function POST(req: Request) {
   const { data: prof } = await db
     .from('profiles').select('wallet_balance').eq('id', uid).maybeSingle()
 
+  // الحجز الموجود (لو العضو رجع يغيّر طريقة الدفع/الكوبون) — علشان ما نحرقش
+  // استخدام كوبون مرتين على نفس الحجز
+  const { data: existingBooking } = await db
+    .from('bookings')
+    .select('id, referral_code_used')
+    .eq('sbota_id', sbota.id)
+    .eq('profile_id', uid)
+    .maybeSingle()
+  const prevCode = (existingBooking as { referral_code_used: string | null } | null)?.referral_code_used ?? null
+
   // ===== سبوطة الشغل: السعر من settings.work_* حسب الاختيار =====
   // بنسأل الجدول نفسه مش العرض — لو العمود لسه مش موجود بنعتبرها مش شغل ومفيش كسر.
   let isWork = false
@@ -100,6 +110,8 @@ export async function POST(req: Request) {
   // ===== الحساب =====
   let amount = basePrice
   let discount = 0
+  // الكوبون اللي اتطبّق فعلًا (لو فيه) — بنحجز استخدامه ذرّيًا قبل ما نثبّت الحجز
+  let appliedCoupon: { id: string; used_count: number } | null = null
 
   if (referralCode) {
     const { data: owner } = await db
@@ -109,18 +121,35 @@ export async function POST(req: Request) {
     } else {
       const { data: c } = await db
         .from('coupons')
-        .select('kind, value, expires_at, max_uses, used_count')
+        .select('id, kind, value, expires_at, max_uses, used_count, first_booking_only')
         .eq('code', referralCode).maybeSingle()
       const cp = c as {
-        kind: string; value: number; expires_at: string | null
-        max_uses: number | null; used_count: number
+        id: string; kind: string; value: number; expires_at: string | null
+        max_uses: number | null; used_count: number; first_booking_only: boolean
       } | null
-      if (
-        cp &&
-        (!cp.expires_at || new Date(cp.expires_at) > new Date()) &&
-        (cp.max_uses === null || cp.used_count < cp.max_uses)
-      ) {
+      if (cp) {
+        // منتهي؟
+        if (cp.expires_at && new Date(cp.expires_at) <= new Date()) {
+          return NextResponse.json({ error: 'الكوبون ده خلصت مدته' }, { status: 400 })
+        }
+        // اتستخدم بالكامل؟
+        if (cp.max_uses !== null && cp.used_count >= cp.max_uses) {
+          return NextResponse.json({ error: 'الكوبون ده خلص عدد مرات استخدامه' }, { status: 400 })
+        }
+        // لأول حجز بس؟ نتأكد إن العضو ماعندوش حجز مدفوع/حاضر قبل كده (D3)
+        if (cp.first_booking_only) {
+          const { data: paidBefore } = await db
+            .from('bookings')
+            .select('id')
+            .eq('profile_id', uid)
+            .in('status', ['paid', 'attended'])
+            .limit(1)
+          if ((paidBefore ?? []).length > 0) {
+            return NextResponse.json({ error: 'الكوبون ده لأول حجز بس' }, { status: 400 })
+          }
+        }
         discount = cp.kind === 'percent' ? Math.round((amount * cp.value) / 100) : cp.value
+        appliedCoupon = { id: cp.id, used_count: cp.used_count }
       }
     }
   }
@@ -131,7 +160,29 @@ export async function POST(req: Request) {
     : 0
   amount -= walletUsed
 
+  // ===== حجز استخدام الكوبون (D2) — ذرّي بـ compare-and-swap =====
+  // بنزوّد used_count بس لو الكوبون لسه على نفس القيمة اللي قريناها. لو طلب تاني
+  // متوازي سبقنا، الـ update بيطابق صفر صفوف → الكوبون خلص، بنرفض قبل ما نثبّت.
+  // بنحجز مرة واحدة بس لكل حجز: لو الحجز موجود بنفس الكود يبقى محجوز خلاص.
+  let reservedCouponId: string | null = null
+  if (appliedCoupon && prevCode !== referralCode) {
+    const { data: bumped } = await db
+      .from('coupons')
+      .update({ used_count: appliedCoupon.used_count + 1 })
+      .eq('id', appliedCoupon.id)
+      .eq('used_count', appliedCoupon.used_count)
+      .select('id')
+      .maybeSingle()
+    if (!bumped) {
+      return NextResponse.json({ error: 'الكوبون ده خلص عدد مرات استخدامه' }, { status: 400 })
+    }
+    reservedCouponId = appliedCoupon.id
+  }
+
   // ===== الحجز المبدئي — مهلته ساعة علشان يحوّل ويرفع =====
+  // price_paid = الكاش اللي اتدفع فعلًا (بعد خصم الرصيد) — مش السعر قبل المحفظة.
+  // fn_cancel_booking بيرجّع price_paid كاش، فلازم يساوي الكاش بالظبط (D1).
+  // جزء المحفظة متسجّل في wallet_used (واتخصم من wallet_ledger في fn_booking_paid).
   const { data: booking, error: bErr } = await db
     .from('bookings')
     .upsert(
@@ -139,7 +190,7 @@ export async function POST(req: Request) {
         sbota_id: sbota.id,
         profile_id: uid,
         status: 'pending_payment',
-        price_paid: basePrice - discount,
+        price_paid: amount,
         discount,
         wallet_used: walletUsed,
         referral_code_used: referralCode ?? null,
@@ -151,6 +202,14 @@ export async function POST(req: Request) {
     .single()
 
   if (bErr || !booking) {
+    // فشل الحجز — نرجّع حجز الكوبون اللي كنا زوّدناه (CAS عكسي)
+    if (reservedCouponId && appliedCoupon) {
+      await db
+        .from('coupons')
+        .update({ used_count: appliedCoupon.used_count })
+        .eq('id', reservedCouponId)
+        .eq('used_count', appliedCoupon.used_count + 1)
+    }
     return NextResponse.json({ error: 'مقدرناش نعمل الحجز' }, { status: 500 })
   }
   const bookingId = (booking as { id: string }).id
