@@ -12,11 +12,13 @@ import {
   Loading,
   NumberField,
   SelectField,
+  Stat,
   Table,
   Tabs,
   Tag,
   TextField,
   Toggle,
+  day,
   money,
   useFlash,
 } from '@/components/admin-ui'
@@ -62,11 +64,57 @@ const TABS: { id: TabId; label: string }[] = [
 
 /** التبويبات اللي لسه ما اتبنتش — والمرحلة اللي هتيجي فيها */
 const PLACEHOLDER_PHASE: Partial<Record<TabId, number>> = {
-  passes: 3,
-  recurring: 4,
   reports: 6,
   metrics: 6,
   leads: 6,
+}
+
+/** حالات الكارت زي ما هي في pass_status_t (الهجرة 0040) */
+const PASS_STATUS: { value: string; label: string }[] = [
+  { value: 'pending', label: 'مستني الاعتماد' },
+  { value: 'active', label: 'شغال' },
+  { value: 'used_up', label: 'خلص' },
+  { value: 'expired', label: 'انتهت مدته' },
+  { value: 'refunded', label: 'اترد' },
+  { value: 'cancelled', label: 'اتلغى' },
+]
+
+const passStatusLabel = (s: string) => PASS_STATUS.find((x) => x.value === s)?.label ?? s
+
+const PASS_STATUS_COLOR: Record<string, string | undefined> = {
+  pending: '#F2C94C',
+  active: '#6FCF97',
+  used_up: undefined,
+  expired: undefined,
+  refunded: '#F2994A',
+  cancelled: '#EB5757',
+}
+
+const PASS_KIND: { value: string; label: string }[] = [
+  { value: 'four', label: 'كارت ٤ أيام' },
+  { value: 'eight', label: 'كارت ٨ أيام' },
+]
+
+const passKindLabel = (k: string) => PASS_KIND.find((x) => x.value === k)?.label ?? k
+
+/**
+ * `recurring_bookings.weekday` بنمط بوستجرس: 0 = الحد … 6 = السبت.
+ * الترتيب ده **مش** ترتيب شرايط الموقع (بتبدأ بالسبت) — الجدول ده الترجمة.
+ */
+const DOW_AR: Record<number, string> = {
+  0: 'الحد',
+  1: 'الاتنين',
+  2: 'التلات',
+  3: 'الأربع',
+  4: 'الخميس',
+  5: 'الجمعة',
+  6: 'السبت',
+}
+
+const RECURRING_STATUS: Record<string, string> = {
+  active: 'شغال',
+  paused: 'موقوف',
+  cancelled: 'ملغي',
 }
 
 const AREAS: { value: string; label: string }[] = [
@@ -427,6 +475,8 @@ function ShoghlEditor({ me }: { me: AdminMe }) {
   const canFields = me.permissions.has('fields.edit')
   const canVenues = me.permissions.has('sbotat.edit')
   const canSettings = me.permissions.has('settings.edit')
+  const canPasses = me.permissions.has('payments.review')
+  const canBookings = me.permissions.has('bookings.edit')
 
   const [tab, setTab] = useState<TabId>('fields')
   const { flash, node: flashNode } = useFlash()
@@ -448,6 +498,8 @@ function ShoghlEditor({ me }: { me: AdminMe }) {
         {tab === 'fields' && <ProfessionsTab canEdit={canFields} say={say} />}
         {tab === 'venues' && <VenuesTab canEdit={canVenues} say={say} />}
         {tab === 'settings' && <WorkSettingsTab canEdit={canSettings} say={say} />}
+        {tab === 'passes' && <PassesTab canEdit={canPasses} say={say} />}
+        {tab === 'recurring' && <RecurringTab canEdit={canBookings} say={say} />}
         {phase !== undefined && (
           <Card>
             <Empty>بيتبني في المرحلة {phase}</Empty>
@@ -1534,6 +1586,570 @@ function WorkSettingsTab({ canEdit, say }: { canEdit: boolean; say: (m: string) 
       <Note>
         الأسعار متخزّنة قروش في القاعدة زي باقي الموقع — إنت بتكتب بالجنيه وإحنا بنضرب في ١٠٠.
         الأوقات بتوقيت القاهرة.
+      </Note>
+    </div>
+  )
+}
+
+/* ================================================== ٤ · الكروت */
+
+interface PassAdminRow {
+  id: string
+  profile_id: string
+  kind: string
+  sessions_total: number
+  sessions_used: number
+  price_paid: number
+  status: string
+  starts_at: string | null
+  expires_at: string | null
+  note: string | null
+  created_at: string
+  profiles: { first_name: string | null; phone: string | null } | null
+}
+
+/** الشكل اللي بييجي من PostgREST — الواحد-لواحد ساعات بيرجع مصفوفة */
+interface PassAdminRaw extends Omit<PassAdminRow, 'profiles'> {
+  profiles: { first_name: string | null; phone: string | null }[] | { first_name: string | null; phone: string | null } | null
+}
+
+interface PassPayRow {
+  id: string
+  pass_id: string
+  status: string
+  amount: number
+  provider: string
+  receipt_path: string | null
+}
+
+const PASS_COLS_ADMIN =
+  'id, profile_id, kind, sessions_total, sessions_used, price_paid, status, starts_at, ' +
+  'expires_at, note, created_at, profiles(first_name, phone)'
+
+/** 01001234567 → +201001234567 (نفس منطق normalizePhone على الخادم) */
+function toE164(raw: string): string | null {
+  let d = raw.replace(/\D/g, '')
+  if (d.startsWith('00')) d = d.slice(2)
+  if (d.startsWith('20')) d = d.slice(2)
+  if (d.startsWith('0')) d = d.slice(1)
+  if (!/^1[0125][0-9]{8}$/.test(d)) return null
+  return `+20${d}`
+}
+
+/** «٢٠٢٦-٠٩» من تاريخ ISO بتوقيت القاهرة */
+const monthKey = (iso: string) => {
+  const d = new Date(iso)
+  const y = d.toLocaleDateString('en-CA', { timeZone: 'Africa/Cairo', year: 'numeric' })
+  const m = d.toLocaleDateString('en-CA', { timeZone: 'Africa/Cairo', month: '2-digit' })
+  return `${y}-${m}`
+}
+
+function PassesTab({ canEdit, say }: { canEdit: boolean; say: (m: string) => void }) {
+  const [rows, setRows] = useState<PassAdminRow[]>([])
+  const [pays, setPays] = useState<Record<string, PassPayRow>>({})
+  const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [filter, setFilter] = useState('pending')
+  const [busy, setBusy] = useState<Record<string, boolean>>({})
+
+  // «ضيف كارت يدوي»
+  const [phone, setPhone] = useState('')
+  const [kind, setKind] = useState('four')
+  const [note, setNote] = useState('')
+  const [adding, setAdding] = useState(false)
+
+  const reload = useCallback(async () => {
+    const { data, error } = await supabase()
+      .from('work_passes')
+      .select(PASS_COLS_ADMIN)
+      .order('created_at', { ascending: false })
+      .limit(400)
+    setLoading(false)
+    if (error) {
+      setLoadError(error.message)
+      return
+    }
+    setLoadError(null)
+    const list = ((data ?? []) as unknown as PassAdminRaw[]).map((r) => ({
+      ...r,
+      profiles: Array.isArray(r.profiles) ? (r.profiles[0] ?? null) : r.profiles,
+    }))
+    setRows(list)
+
+    // الدفعات بتلزمنا للاعتماد بس — فبنجيب دفعات الكروت المعلّقة لوحدها
+    // بدل ما نحشر 400 معرّف في رابط GET واحد.
+    const ids = list.filter((r) => r.status === 'pending').map((r) => r.id)
+    if (ids.length) {
+      const { data: pd } = await supabase()
+        .from('payments')
+        .select('id, pass_id, status, amount, provider, receipt_path')
+        .in('pass_id', ids)
+      const map: Record<string, PassPayRow> = {}
+      for (const p of (pd ?? []) as PassPayRow[]) map[p.pass_id] = p
+      setPays(map)
+    } else {
+      setPays({})
+    }
+  }, [])
+
+  useEffect(() => {
+    reload()
+  }, [reload])
+
+  const shown = useMemo(
+    () => (filter === 'all' ? rows : rows.filter((r) => r.status === filter)),
+    [rows, filter]
+  )
+
+  /** مبيعات الشهر — الكروت اللي اتدفعت فعلًا بس (المعلّق مش مبيعة) */
+  const sales = useMemo(() => {
+    const out = new Map<string, { n: number; total: number }>()
+    for (const r of rows) {
+      if (!['active', 'used_up', 'expired', 'refunded'].includes(r.status)) continue
+      if (r.price_paid <= 0) continue
+      const k = monthKey(r.starts_at ?? r.created_at)
+      const cur = out.get(k) ?? { n: 0, total: 0 }
+      out.set(k, { n: cur.n + 1, total: cur.total + r.price_paid })
+    }
+    return Array.from(out.entries()).sort((a, b) => b[0].localeCompare(a[0])).slice(0, 6)
+  }, [rows])
+
+  /** الاعتماد بيمشي من fn_approve_transfer بس — هي اللي بتنادي fn_activate_pass */
+  async function review(r: PassAdminRow, ok: boolean) {
+    if (!canEdit) return say('الاعتماد محتاج صلاحية payments.review.')
+    const pay = pays[r.id]
+    if (!pay) return say('مفيش دفعة مربوطة بالكارت ده — مينفعش يتعتمد من هنا.')
+    const who = r.profiles?.first_name?.trim() || 'من غير اسم'
+    const reason = ok ? '' : (note.trim() || '')
+    if (!ok && reason.length < 4) {
+      return say('اكتب سبب الرفض في خانة «السبب» تحت الأول — العضو هيوصله الكلام ده.')
+    }
+    const q = ok
+      ? `هتأكد تحويل ${money(r.price_paid)} من ${who} وتفعّل الكارت؟`
+      : `هترفض تحويل ${who} وتلغي الكارت؟\n\nالسبب: ${reason}`
+    if (!confirm(q)) return
+
+    setBusy((b) => ({ ...b, [r.id]: true }))
+    const { error } = await supabase().rpc('fn_approve_transfer', {
+      p_payment_id: pay.id,
+      p_ok: ok,
+      p_note: reason || null,
+    })
+    setBusy((b) => ({ ...b, [r.id]: false }))
+    if (error) return say(`مقدرناش: ${error.message}`)
+    await reload()
+    say(ok ? `الكارت اتفعّل لـ ${who} ✓` : `الكارت اترفض — و${who} هيوصله السبب`)
+  }
+
+  /** كارت هدية/تعويض: بيتعمل active على طول بصفر جنيه ومدته من settings */
+  async function addManual() {
+    if (!canEdit) return say('إضافة كارت محتاجة صلاحية payments.review.')
+    const e164 = toE164(phone)
+    if (!e164) return say('الرقم مش مظبوط — اكتبه زي 01001234567.')
+    if (note.trim().length < 4) return say('اكتب سبب الكارت (تعويض، هدية، …) — بيتسجّل مع الكارت.')
+
+    setAdding(true)
+    const { data: prof, error: pErr } = await supabase()
+      .from('profiles')
+      .select('id, first_name')
+      .eq('phone', e164)
+      .maybeSingle()
+    if (pErr || !prof) {
+      setAdding(false)
+      return say('مفيش عضو بالرقم ده.')
+    }
+    const person = prof as { id: string; first_name: string | null }
+
+    const { data: cfg } = await supabase()
+      .from('settings')
+      .select('work_pass4_weeks, work_pass8_weeks')
+      .single()
+    const weeks =
+      kind === 'eight'
+        ? Number((cfg as { work_pass8_weeks?: number } | null)?.work_pass8_weeks ?? 10)
+        : Number((cfg as { work_pass4_weeks?: number } | null)?.work_pass4_weeks ?? 6)
+
+    const now = new Date()
+    const end = new Date(now.getTime() + weeks * 7 * 24 * 3600_000)
+
+    const { data, error } = await supabase()
+      .from('work_passes')
+      .insert({
+        profile_id: person.id,
+        kind,
+        sessions_total: kind === 'eight' ? 8 : 4,
+        sessions_used: 0,
+        price_paid: 0,
+        status: 'active',
+        starts_at: now.toISOString(),
+        expires_at: end.toISOString(),
+        note: note.trim(),
+      })
+      .select('id')
+    setAdding(false)
+    if (error) return say(`مقدرناش نضيف: ${error.message}`)
+    if (rejected(data)) return say('مااتضافش — القاعدة رفضت، محتاج صلاحية payments.review')
+    setPhone('')
+    setNote('')
+    await reload()
+    say(`الكارت اتضاف لـ ${person.first_name?.trim() || e164} ✓`)
+  }
+
+  if (loading) return <Loading />
+
+  if (loadError)
+    return (
+      <Card title="مقدرناش نجيب الكروت">
+        <Empty>{loadError}</Empty>
+      </Card>
+    )
+
+  return (
+    <div className="flex flex-col gap-4">
+      <Card title="مبيعات الكروت بالشهر" hint="الكروت المعتمدة بس — المعلّق مش محسوب.">
+        {sales.length === 0 ? (
+          <Empty>لسه مفيش كارت اتباع.</Empty>
+        ) : (
+          <div className="mt-3 flex flex-wrap gap-3">
+            {sales.map(([m, v]) => (
+              <Stat key={m} label={m} value={money(v.total)} hint={`${v.n} كارت`} />
+            ))}
+          </div>
+        )}
+      </Card>
+
+      <Card>
+        <div className="flex flex-wrap items-end gap-3">
+          <SelectField
+            label="الحالة"
+            value={filter}
+            options={[{ value: 'all', label: 'الكل' }, ...PASS_STATUS]}
+            onChange={setFilter}
+          />
+          <div className="font-body text-14" style={{ color: 'var(--muted)' }}>
+            {shown.length} كارت
+          </div>
+        </div>
+
+        <div className="mt-4">
+          {shown.length === 0 ? (
+            <Empty>مفيش كروت في الحالة دي.</Empty>
+          ) : (
+            <Table head={['العضو', 'النوع', 'الاستهلاك', 'الحالة', 'بينتهي', 'السعر', '']}>
+              {shown.map((r) => {
+                const pay = pays[r.id]
+                return (
+                  <tr key={r.id} style={{ borderTop: '1px solid var(--line)' }}>
+                    <td className="p-2">
+                      <div className="font-display text-15 font-black">
+                        {r.profiles?.first_name?.trim() || 'من غير اسم'}
+                      </div>
+                      <div dir="ltr" className="font-body text-13" style={{ color: 'var(--muted)' }}>
+                        {r.profiles?.phone ?? '—'}
+                      </div>
+                      {r.note && (
+                        <div className="font-body text-12" style={{ color: 'var(--muted)' }}>
+                          {r.note}
+                        </div>
+                      )}
+                    </td>
+                    <td className="p-2">{passKindLabel(r.kind)}</td>
+                    <td className="p-2" dir="ltr">
+                      {r.sessions_used} / {r.sessions_total}
+                    </td>
+                    <td className="p-2">
+                      <Tag color={PASS_STATUS_COLOR[r.status]}>{passStatusLabel(r.status)}</Tag>
+                    </td>
+                    <td className="p-2">{day(r.expires_at)}</td>
+                    <td className="p-2">{money(r.price_paid)}</td>
+                    <td className="p-2">
+                      {r.status === 'pending' && (
+                        <div className="flex flex-wrap gap-2">
+                          <Btn
+                            kind="primary"
+                            disabled={!canEdit || busy[r.id] || !pay}
+                            onClick={() => review(r, true)}
+                          >
+                            اعتمد
+                          </Btn>
+                          <Btn
+                            kind="danger"
+                            disabled={!canEdit || busy[r.id] || !pay}
+                            onClick={() => review(r, false)}
+                          >
+                            ارفض
+                          </Btn>
+                          {!pay && (
+                            <span className="font-body text-12" style={{ color: 'var(--muted)' }}>
+                              مفيش دفعة
+                            </span>
+                          )}
+                          {pay && pay.status !== 'pending_review' && (
+                            <span className="font-body text-12" style={{ color: 'var(--muted)' }}>
+                              لسه مرفعش صورة
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                )
+              })}
+            </Table>
+          )}
+        </div>
+      </Card>
+
+      <Card
+        title="ضيف كارت يدوي"
+        hint="للتعويض أو الهدية — بيتعمل شغّال على طول بصفر جنيه، ومدته من الإعدادات."
+      >
+        <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <Field label="رقم العضو" value={phone} onChange={setPhone} placeholder="01001234567" />
+          <SelectField label="النوع" value={kind} options={PASS_KIND} onChange={setKind} />
+          <Field
+            label="السبب"
+            value={note}
+            onChange={setNote}
+            hint="بيتسجّل مع الكارت — وبيستعمل كسبب الرفض كمان."
+          />
+          <div className="flex items-end">
+            <Btn kind="primary" disabled={!canEdit || adding} onClick={addManual}>
+              ضيف الكارت
+            </Btn>
+          </div>
+        </div>
+        {!canEdit && (
+          <Note>إنت شايف بس — الاعتماد وإضافة الكروت محتاجين صلاحية payments.review.</Note>
+        )}
+      </Card>
+
+      <Note>
+        الاعتماد بيمشي من <code>fn_approve_transfer</code> بس، وهي اللي بتنادي{' '}
+        <code>fn_activate_pass</code> — الكارت بيبقى شغّال من لحظة الاعتماد ومدته بتتحسب من
+        الإعدادات. متعدلش الحالة بإيدك من القاعدة، هتفصل الكارت عن الدفعة.
+      </Note>
+    </div>
+  )
+}
+
+/* ================================================== ٥ · الأيام الثابتة */
+
+interface RecurringAdminRow {
+  id: string
+  profile_id: string
+  weekday: number
+  time_of_day: string | null
+  auto_book: boolean
+  pause_until: string | null
+  status: string
+  last_generated_for: string | null
+  venue_id: string | null
+  profiles: { first_name: string | null; phone: string | null } | null
+  sbota_templates: { name_ar: string | null } | null
+}
+
+interface RecurringAdminRaw
+  extends Omit<RecurringAdminRow, 'profiles' | 'sbota_templates'> {
+  profiles:
+    | { first_name: string | null; phone: string | null }[]
+    | { first_name: string | null; phone: string | null }
+    | null
+  sbota_templates: { name_ar: string | null }[] | { name_ar: string | null } | null
+}
+
+const RECURRING_COLS_ADMIN =
+  'id, profile_id, weekday, time_of_day, auto_book, pause_until, status, ' +
+  'last_generated_for, venue_id, profiles(first_name, phone), sbota_templates(name_ar)'
+
+const one = <T,>(v: T[] | T | null): T | null => (Array.isArray(v) ? (v[0] ?? null) : v)
+
+function RecurringTab({ canEdit, say }: { canEdit: boolean; say: (m: string) => void }) {
+  const [rows, setRows] = useState<RecurringAdminRow[]>([])
+  const [venueNames, setVenueNames] = useState<Record<string, string>>({})
+  const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [filter, setFilter] = useState('active')
+  const [busy, setBusy] = useState<Record<string, boolean>>({})
+
+  const reload = useCallback(async () => {
+    const [{ data, error }, { data: vs }] = await Promise.all([
+      supabase()
+        .from('recurring_bookings')
+        .select(RECURRING_COLS_ADMIN)
+        .order('weekday')
+        .limit(400),
+      supabase().from('venues').select('id, name'),
+    ])
+    setLoading(false)
+    if (error) {
+      setLoadError(error.message)
+      return
+    }
+    setLoadError(null)
+    setRows(
+      ((data ?? []) as unknown as RecurringAdminRaw[]).map((r) => ({
+        ...r,
+        profiles: one(r.profiles),
+        sbota_templates: one(r.sbota_templates),
+      }))
+    )
+    const map: Record<string, string> = {}
+    for (const v of (vs ?? []) as { id: string; name: string }[]) map[v.id] = v.name
+    setVenueNames(map)
+  }, [])
+
+  useEffect(() => {
+    reload()
+  }, [reload])
+
+  const shown = useMemo(
+    () => (filter === 'all' ? rows : rows.filter((r) => r.status === filter)),
+    [rows, filter]
+  )
+
+  async function patch(r: RecurringAdminRow, p: Record<string, unknown>, msg: string) {
+    if (!canEdit) return say('التعديل هنا محتاج صلاحية bookings.edit.')
+    setBusy((b) => ({ ...b, [r.id]: true }))
+    const { data, error } = await supabase()
+      .from('recurring_bookings')
+      .update(p)
+      .eq('id', r.id)
+      .select('id')
+    setBusy((b) => ({ ...b, [r.id]: false }))
+    if (error) return say(`مقدرناش: ${error.message}`)
+    if (rejected(data)) return say('مااتحفظش — القاعدة رفضت، محتاج صلاحية bookings.edit')
+    await reload()
+    say(msg)
+  }
+
+  const pauseTwoWeeks = (r: RecurringAdminRow) => {
+    const until = new Date()
+    until.setDate(until.getDate() + 14)
+    patch(r, { pause_until: until.toISOString().slice(0, 10), status: 'active' }, 'اتوقف أسبوعين ✓')
+  }
+
+  if (loading) return <Loading />
+
+  if (loadError)
+    return (
+      <Card title="مقدرناش نجيب الأيام الثابتة">
+        <Empty>{loadError}</Empty>
+      </Card>
+    )
+
+  const today = new Date().toISOString().slice(0, 10)
+
+  return (
+    <div className="flex flex-col gap-4">
+      <Card>
+        <div className="flex flex-wrap items-end gap-3">
+          <SelectField
+            label="الحالة"
+            value={filter}
+            options={[
+              { value: 'all', label: 'الكل' },
+              { value: 'active', label: 'شغال' },
+              { value: 'paused', label: 'موقوف' },
+              { value: 'cancelled', label: 'ملغي' },
+            ]}
+            onChange={setFilter}
+          />
+          <div className="font-body text-14" style={{ color: 'var(--muted)' }}>
+            {shown.length} يوم ثابت
+          </div>
+        </div>
+
+        <div className="mt-4">
+          {shown.length === 0 ? (
+            <Empty>مفيش حد عنده يوم ثابت في الحالة دي.</Empty>
+          ) : (
+            <Table
+              head={['العضو', 'اليوم', 'المكان', 'القالب', 'حجز تلقائي', 'الحالة', 'آخر توليد', '']}
+            >
+              {shown.map((r) => {
+                const paused = Boolean(r.pause_until && r.pause_until >= today)
+                return (
+                  <tr key={r.id} style={{ borderTop: '1px solid var(--line)' }}>
+                    <td className="p-2">
+                      <div className="font-display text-15 font-black">
+                        {r.profiles?.first_name?.trim() || 'من غير اسم'}
+                      </div>
+                      <div dir="ltr" className="font-body text-13" style={{ color: 'var(--muted)' }}>
+                        {r.profiles?.phone ?? '—'}
+                      </div>
+                    </td>
+                    <td className="p-2">
+                      {DOW_AR[r.weekday] ?? r.weekday}
+                      {r.time_of_day && (
+                        <span dir="ltr" className="ms-1" style={{ color: 'var(--muted)' }}>
+                          {hhmm(r.time_of_day)}
+                        </span>
+                      )}
+                    </td>
+                    <td className="p-2">{r.venue_id ? (venueNames[r.venue_id] ?? '—') : 'أي مكان'}</td>
+                    <td className="p-2">{r.sbota_templates?.name_ar ?? '—'}</td>
+                    <td className="p-2">{r.auto_book ? 'أيوه' : 'لأ'}</td>
+                    <td className="p-2">
+                      <Tag color={paused ? '#F2C94C' : r.status === 'active' ? '#6FCF97' : undefined}>
+                        {paused ? `موقوف لحد ${day(r.pause_until)}` : (RECURRING_STATUS[r.status] ?? r.status)}
+                      </Tag>
+                    </td>
+                    <td className="p-2">{day(r.last_generated_for)}</td>
+                    <td className="p-2">
+                      <div className="flex flex-wrap gap-2">
+                        {r.status !== 'cancelled' &&
+                          (paused ? (
+                            <Btn
+                              disabled={!canEdit || busy[r.id]}
+                              onClick={() => patch(r, { pause_until: null, status: 'active' }, 'رجع شغال ✓')}
+                            >
+                              رجّعه
+                            </Btn>
+                          ) : (
+                            <Btn disabled={!canEdit || busy[r.id]} onClick={() => pauseTwoWeeks(r)}>
+                              أوقف أسبوعين
+                            </Btn>
+                          ))}
+                        {r.status !== 'cancelled' && (
+                          <Btn
+                            kind="danger"
+                            disabled={!canEdit || busy[r.id]}
+                            onClick={() => {
+                              if (!confirm('تلغي اليوم الثابت ده؟')) return
+                              patch(r, { status: 'cancelled' }, 'اتلغى ✓')
+                            }}
+                          >
+                            ألغِ
+                          </Btn>
+                        )}
+                        <Btn
+                          disabled={!canEdit || busy[r.id] || r.status === 'cancelled'}
+                          onClick={() =>
+                            patch(r, { auto_book: !r.auto_book }, r.auto_book ? 'اتقفل التلقائي ✓' : 'اتفتح التلقائي ✓')
+                          }
+                        >
+                          {r.auto_book ? 'اقفل التلقائي' : 'افتح التلقائي'}
+                        </Btn>
+                      </div>
+                    </td>
+                  </tr>
+                )
+              })}
+            </Table>
+          )}
+        </div>
+      </Card>
+
+      <Note>
+        التوليد بيحصل لوحده كل يوم ٩ الصبح بتوقيت القاهرة من مهمة{' '}
+        <code>nasbot-work-recurring</code> على pg_cron، قبل الموعد بـ{' '}
+        <code>settings.work_recurring_lead_days</code> يوم. مفيش زر «ولّد دلوقتي» هنا لأن{' '}
+        <code>job_work_recurring()</code> ممنوحة لـ <code>service_role</code> بس (الهجرة 0045)،
+        فنداءها من اللوحة كان هيرجع «permission denied» دايمًا. لو عايزها بزر، لازم هجرة تعمل
+        غلاف <code>security definer</code> بيتأكد من <code>fn_has_permission(&apos;bookings.edit&apos;)</code>{' '}
+        وتمنحه لـ <code>authenticated</code>. لحد ساعتها شغّلها من SQL Editor:{' '}
+        <code>select job_work_recurring();</code>
       </Note>
     </div>
   )

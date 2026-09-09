@@ -2926,5 +2926,581 @@
     "value_ar": "سبوطة شغل",
     "screen": "الشغل",
     "context_ar": "أيقونة اللابتوب على الخريطة"
+  },
+  {
+    "key": "shoghl.me.link",
+    "value_ar": "الشغل بتاعي",
+    "screen": "الشغل",
+    "context_ar": "رابط في صفحة حسابي"
+  },
+  {
+    "key": "shoghl.me.back",
+    "value_ar": "حسابي",
+    "screen": "الشغل",
+    "context_ar": "زر الرجوع في /me/shoghl"
+  },
+  {
+    "key": "shoghl.me.title",
+    "value_ar": "الشغل بتاعي",
+    "screen": "الشغل",
+    "context_ar": "عنوان /me/shoghl"
+  },
+  {
+    "key": "shoghl.me.sub",
+    "value_ar": "كارتك، ويومك الثابت، ومين شغال معاك.",
+    "screen": "الشغل",
+    "context_ar": "سطر تحت العنوان"
+  },
+  {
+    "key": "shoghl.me.err",
+    "value_ar": "مقدرناش نحفظ. جرب تاني.",
+    "screen": "الشغل",
+    "context_ar": "رسالة خطأ عامة"
+  },
+  {
+    "key": "shoghl.me.pass.title",
+    "value_ar": "كارتي",
+    "screen": "الشغل",
+    "context_ar": "قسم الكارت في /me/shoghl"
+  },
+  {
+    "key": "shoghl.me.pass.none",
+    "value_ar": "مفيش كارت شغال دلوقتي.",
+    "screen": "الشغل",
+    "context_ar": "حالة فاضية للكارت"
+  },
+  {
+    "key": "shoghl.me.pass.buy",
+    "value_ar": "خد كارت",
+    "screen": "الشغل",
+    "context_ar": "زر الشراء"
+  },
+  {
+    "key": "shoghl.me.pass.book",
+    "value_ar": "احجز يوم شغل",
+    "screen": "الشغل",
+    "context_ar": "زر الحجز وانت معاك كارت"
+  },
+  {
+    "key": "shoghl.me.pass.left",
+    "value_ar": "فاضل {{n}} من {{total}}",
+    "screen": "الشغل",
+    "context_ar": "رصيد الكارت"
+  },
+  {
+    "key": "shoghl.me.pass.until",
+    "value_ar": "بينتهي {{date}}",
+    "screen": "الشغل",
+    "context_ar": "تاريخ انتهاء الكارت"
+  },
+  {
+    "key": "shoghl.me.pass.pending",
+    "value_ar": "طلب كارت مستني المراجعة — هنفعّله أول ما نتأكد من التحويل.",
+    "screen": "الشغل",
+    "context_ar": "كارت لسه معلّق"
+  },
+  {
+    "key": "shoghl.me.pass.pendingCta",
+    "value_ar": "كمّل التحويل",
+    "screen": "الشغل",
+    "context_ar": "زر يودّي لصفحة الكارت"
+  },
+  {
+    "key": "shoghl.me.day.title",
+    "value_ar": "يومي الثابت",
+    "screen": "الشغل",
+    "context_ar": "قسم اليوم الثابت"
+  },
+  {
+    "key": "shoghl.me.day.note",
+    "value_ar": "بنحجزلك قبل الموعد بأسبوع لو في رصيد في كارتك.",
+    "screen": "الشغل",
+    "context_ar": "شرح اليوم الثابت"
+  },
+  {
+    "key": "shoghl.me.day.none",
+    "value_ar": "مفيش يوم ثابت لسه. اختار يوم ونحجزلك فيه كل أسبوع.",
+    "screen": "الشغل",
+    "context_ar": "حالة فاضية"
+  },
+  {
+    "key": "shoghl.me.day.pick",
+    "value_ar": "اختار اليوم",
+    "screen": "الشغل",
+    "context_ar": "عنوان شرايط الأيام"
+  },
+  {
+    "key": "shoghl.me.day.kind",
+    "value_ar": "نوع السبوطة",
+    "screen": "الشغل",
+    "context_ar": "اختيار القالب"
+  },
+  {
+    "key": "shoghl.me.day.place",
+    "value_ar": "المكان",
+    "screen": "الشغل",
+    "context_ar": "اختيار المكان"
+  },
+  {
+    "key": "shoghl.me.day.anyPlace",
+    "value_ar": "أي مكان",
+    "screen": "الشغل",
+    "context_ar": "الاختيار الافتراضي للمكان"
+  },
+  {
+    "key": "shoghl.me.day.create",
+    "value_ar": "ثبّت اليوم ده",
+    "screen": "الشغل",
+    "context_ar": "زر إنشاء اليوم الثابت"
+  },
+  {
+    "key": "shoghl.me.day.created",
+    "value_ar": "تمام — ثبتنالك اليوم ده.",
+    "screen": "الشغل",
+    "context_ar": "تأكيد الإنشاء"
+  },
+  {
+    "key": "shoghl.me.day.every",
+    "value_ar": "كل {{day}}",
+    "screen": "الشغل",
+    "context_ar": "عنوان اليوم الثابت"
+  },
+  {
+    "key": "shoghl.me.day.auto",
+    "value_ar": "بنحجزلك لوحدنا",
+    "screen": "الشغل",
+    "context_ar": "الحجز التلقائي شغال"
+  },
+  {
+    "key": "shoghl.me.day.manual",
+    "value_ar": "بنفكّرك بس",
+    "screen": "الشغل",
+    "context_ar": "الحجز التلقائي مقفول"
+  },
+  {
+    "key": "shoghl.me.day.paused",
+    "value_ar": "موقوف لحد {{date}}",
+    "screen": "الشغل",
+    "context_ar": "اليوم متوقف"
+  },
+  {
+    "key": "shoghl.me.day.pause",
+    "value_ar": "أوقف أسبوعين",
+    "screen": "الشغل",
+    "context_ar": "زر الإيقاف"
+  },
+  {
+    "key": "shoghl.me.day.pausedOk",
+    "value_ar": "أوقفناه أسبوعين. هيرجع لوحده بعدها.",
+    "screen": "الشغل",
+    "context_ar": "تأكيد الإيقاف"
+  },
+  {
+    "key": "shoghl.me.day.resume",
+    "value_ar": "رجّعه",
+    "screen": "الشغل",
+    "context_ar": "زر الرجوع"
+  },
+  {
+    "key": "shoghl.me.day.resumed",
+    "value_ar": "رجع شغال.",
+    "screen": "الشغل",
+    "context_ar": "تأكيد الرجوع"
+  },
+  {
+    "key": "shoghl.me.day.cancel",
+    "value_ar": "ألغِ اليوم",
+    "screen": "الشغل",
+    "context_ar": "زر الإلغاء"
+  },
+  {
+    "key": "shoghl.me.day.cancelAsk",
+    "value_ar": "تلغي يومك الثابت؟",
+    "screen": "الشغل",
+    "context_ar": "سؤال التأكيد"
+  },
+  {
+    "key": "shoghl.me.day.cancelled",
+    "value_ar": "اتلغى.",
+    "screen": "الشغل",
+    "context_ar": "تأكيد الإلغاء"
+  },
+  {
+    "key": "shoghl.me.day.noTemplates",
+    "value_ar": "مفيش سبوطات شغل متاحة دلوقتي — تعالى بعدين.",
+    "screen": "الشغل",
+    "context_ar": "مفيش قوالب"
+  },
+  {
+    "key": "shoghl.me.collab.title",
+    "value_ar": "شغالين معاك",
+    "screen": "الشغل",
+    "context_ar": "قسم التعاون"
+  },
+  {
+    "key": "shoghl.me.collab.empty",
+    "value_ar": "لسه فاضي. بعد سبوطة الشغل بنسألك عايز تشتغل مع مين — ولو هو كمان قالك، هتلاقوا بعض هنا.",
+    "screen": "الشغل",
+    "context_ar": "حالة فاضية للتعاون"
+  },
+  {
+    "key": "shoghl.me.profile.title",
+    "value_ar": "مجالي وأسلوبي",
+    "screen": "الشغل",
+    "context_ar": "قسم التعديل السريع"
+  },
+  {
+    "key": "shoghl.me.profile.status",
+    "value_ar": "بتشتغل إيه؟",
+    "screen": "الشغل",
+    "context_ar": "حقل work_status"
+  },
+  {
+    "key": "shoghl.me.profile.profession",
+    "value_ar": "مجالك",
+    "screen": "الشغل",
+    "context_ar": "حقل المجال"
+  },
+  {
+    "key": "shoghl.me.profile.style",
+    "value_ar": "أسلوبك في الشغل",
+    "screen": "الشغل",
+    "context_ar": "حقل work_style"
+  },
+  {
+    "key": "shoghl.me.profile.none",
+    "value_ar": "مش محدد",
+    "screen": "الشغل",
+    "context_ar": "اختيار فاضي"
+  },
+  {
+    "key": "shoghl.me.profile.save",
+    "value_ar": "احفظ",
+    "screen": "الشغل",
+    "context_ar": "زر الحفظ"
+  },
+  {
+    "key": "shoghl.me.profile.saved",
+    "value_ar": "اتحفظ.",
+    "screen": "الشغل",
+    "context_ar": "تأكيد الحفظ"
+  },
+  {
+    "key": "shoghl.day.sat",
+    "value_ar": "سبت",
+    "screen": "الشغل",
+    "context_ar": "اسم اليوم"
+  },
+  {
+    "key": "shoghl.day.sun",
+    "value_ar": "حد",
+    "screen": "الشغل",
+    "context_ar": "اسم اليوم"
+  },
+  {
+    "key": "shoghl.day.mon",
+    "value_ar": "اتنين",
+    "screen": "الشغل",
+    "context_ar": "اسم اليوم"
+  },
+  {
+    "key": "shoghl.day.tue",
+    "value_ar": "تلات",
+    "screen": "الشغل",
+    "context_ar": "اسم اليوم"
+  },
+  {
+    "key": "shoghl.day.wed",
+    "value_ar": "أربع",
+    "screen": "الشغل",
+    "context_ar": "اسم اليوم"
+  },
+  {
+    "key": "shoghl.day.thu",
+    "value_ar": "خميس",
+    "screen": "الشغل",
+    "context_ar": "اسم اليوم"
+  },
+  {
+    "key": "shoghl.day.fri",
+    "value_ar": "جمعة",
+    "screen": "الشغل",
+    "context_ar": "اسم اليوم"
+  },
+  {
+    "key": "shoghl.workStatus.freelancer",
+    "value_ar": "فريلانسر",
+    "screen": "الشغل",
+    "context_ar": "قيمة work_status"
+  },
+  {
+    "key": "shoghl.workStatus.remote_employee",
+    "value_ar": "موظف من البيت",
+    "screen": "الشغل",
+    "context_ar": "قيمة work_status"
+  },
+  {
+    "key": "shoghl.workStatus.business_owner",
+    "value_ar": "صاحب شغل",
+    "screen": "الشغل",
+    "context_ar": "قيمة work_status"
+  },
+  {
+    "key": "shoghl.workStatus.student",
+    "value_ar": "طالب",
+    "screen": "الشغل",
+    "context_ar": "قيمة work_status"
+  },
+  {
+    "key": "shoghl.workStatus.employee",
+    "value_ar": "موظف",
+    "screen": "الشغل",
+    "context_ar": "قيمة work_status"
+  },
+  {
+    "key": "shoghl.workStatus.other",
+    "value_ar": "غير كده",
+    "screen": "الشغل",
+    "context_ar": "قيمة work_status"
+  },
+  {
+    "key": "shoghl.workStyle.silent",
+    "value_ar": "بحب الهدوء",
+    "screen": "الشغل",
+    "context_ar": "قيمة work_style"
+  },
+  {
+    "key": "shoghl.workStyle.chatty",
+    "value_ar": "بحب الكلام",
+    "screen": "الشغل",
+    "context_ar": "قيمة work_style"
+  },
+  {
+    "key": "shoghl.workStyle.depends",
+    "value_ar": "حسب اليوم",
+    "screen": "الشغل",
+    "context_ar": "قيمة work_style"
+  },
+  {
+    "key": "shoghl.pass.method.title",
+    "value_ar": "هتحوّل بإيه؟",
+    "screen": "الشغل",
+    "context_ar": "اختيار طريقة التحويل في صفحة الكارت"
+  },
+  {
+    "key": "shoghl.pass.receipt.title",
+    "value_ar": "ابعتلنا صورة التحويل",
+    "screen": "الشغل",
+    "context_ar": "خطوة رفع الإيصال"
+  },
+  {
+    "key": "shoghl.pass.receipt.send",
+    "value_ar": "ابعت الصورة",
+    "screen": "الشغل",
+    "context_ar": "زر إرسال الإيصال"
+  },
+  {
+    "key": "shoghl.pass.receipt.need",
+    "value_ar": "اختار صورة التحويل الأول.",
+    "screen": "الشغل",
+    "context_ar": "تنبيه من غير صورة"
+  },
+  {
+    "key": "shoghl.pass.done.title",
+    "value_ar": "طلبك وصل.",
+    "screen": "الشغل",
+    "context_ar": "بعد رفع الإيصال"
+  },
+  {
+    "key": "shoghl.pass.done.body",
+    "value_ar": "هنفعّل الكارت أول ما نتأكد من التحويل.",
+    "screen": "الشغل",
+    "context_ar": "بعد رفع الإيصال"
+  },
+  {
+    "key": "shoghl.pass.active.title",
+    "value_ar": "كارتك شغال",
+    "screen": "الشغل",
+    "context_ar": "الكارت المفعّل"
+  },
+  {
+    "key": "shoghl.pass.active.left",
+    "value_ar": "فاضل {{n}} من {{total}}",
+    "screen": "الشغل",
+    "context_ar": "رصيد الكارت المفعّل"
+  },
+  {
+    "key": "shoghl.pass.active.until",
+    "value_ar": "بينتهي {{date}}",
+    "screen": "الشغل",
+    "context_ar": "انتهاء الكارت المفعّل"
+  },
+  {
+    "key": "shoghl.pass.active.book",
+    "value_ar": "احجز يوم شغل",
+    "screen": "الشغل",
+    "context_ar": "زر الحجز من صفحة الكارت"
+  },
+  {
+    "key": "review.work.title",
+    "value_ar": "عايز تشتغل مع مين؟",
+    "screen": "التقييم",
+    "context_ar": "قسم سبوطات الشغل — بيكتب في work_affinity"
+  },
+  {
+    "key": "review.work.note",
+    "value_ar": "محدش هيعرف إجابتك إلا لو هو كمان قال نفس الكلام.",
+    "screen": "التقييم",
+    "context_ar": "سرية اختيار الشغل"
+  },
+  {
+    "key": "join.work.q",
+    "value_ar": "بتشتغل إيه؟ (اختياري)",
+    "screen": "الانضمام",
+    "context_ar": "السؤال الصغير اللي بيفتح خطوة الشغل"
+  },
+  {
+    "key": "join.work.status.freelancer",
+    "value_ar": "فريلانسر",
+    "screen": "الانضمام",
+    "context_ar": "بتشتغل إيه؟"
+  },
+  {
+    "key": "join.work.status.remote_employee",
+    "value_ar": "موظف من البيت",
+    "screen": "الانضمام",
+    "context_ar": "بتشتغل إيه؟"
+  },
+  {
+    "key": "join.work.status.business_owner",
+    "value_ar": "صاحب شغل",
+    "screen": "الانضمام",
+    "context_ar": "بتشتغل إيه؟"
+  },
+  {
+    "key": "join.work.status.student",
+    "value_ar": "طالب",
+    "screen": "الانضمام",
+    "context_ar": "بتشتغل إيه؟"
+  },
+  {
+    "key": "join.work.status.employee",
+    "value_ar": "موظف",
+    "screen": "الانضمام",
+    "context_ar": "بتشتغل إيه؟"
+  },
+  {
+    "key": "join.work.status.other",
+    "value_ar": "حاجة تانية",
+    "screen": "الانضمام",
+    "context_ar": "بتشتغل إيه؟"
+  },
+  {
+    "key": "join.work.title",
+    "value_ar": "شغلك",
+    "screen": "الانضمام",
+    "context_ar": "عنوان خطوة الشغل الاختيارية"
+  },
+  {
+    "key": "join.work.hint",
+    "value_ar": "كله اختياري — بيساعدنا نقعّدك مع ناس تفهم شغلك.",
+    "screen": "الانضمام",
+    "context_ar": "تحت عنوان خطوة الشغل"
+  },
+  {
+    "key": "join.work.profession",
+    "value_ar": "بتشتغل في إيه؟",
+    "screen": "الانضمام",
+    "context_ar": "اختيار المجال من professions"
+  },
+  {
+    "key": "join.work.noProfessions",
+    "value_ar": "لسه بنجهّز قايمة المجالات — سيبها ودخلها بعدين من ملفك.",
+    "screen": "الانضمام",
+    "context_ar": "لما professions تكون فاضية"
+  },
+  {
+    "key": "join.work.style",
+    "value_ar": "بتحب تشتغل إزاي؟",
+    "screen": "الانضمام",
+    "context_ar": "work_style"
+  },
+  {
+    "key": "join.work.style.silent",
+    "value_ar": "في هدوء",
+    "screen": "الانضمام",
+    "context_ar": "work_style = silent"
+  },
+  {
+    "key": "join.work.style.chatty",
+    "value_ar": "وسط كلام",
+    "screen": "الانضمام",
+    "context_ar": "work_style = chatty"
+  },
+  {
+    "key": "join.work.style.depends",
+    "value_ar": "حسب اليوم",
+    "screen": "الانضمام",
+    "context_ar": "work_style = depends"
+  },
+  {
+    "key": "join.work.experience",
+    "value_ar": "بقالك قد إيه في المجال؟",
+    "screen": "الانضمام",
+    "context_ar": "years_experience"
+  },
+  {
+    "key": "join.work.exp.under_1",
+    "value_ar": "أقل من سنة",
+    "screen": "الانضمام",
+    "context_ar": "years_experience = under_1"
+  },
+  {
+    "key": "join.work.exp.one_to_three",
+    "value_ar": "من سنة لـ 3",
+    "screen": "الانضمام",
+    "context_ar": "years_experience = one_to_three"
+  },
+  {
+    "key": "join.work.exp.three_to_five",
+    "value_ar": "من 3 لـ 5",
+    "screen": "الانضمام",
+    "context_ar": "years_experience = three_to_five"
+  },
+  {
+    "key": "join.work.exp.five_plus",
+    "value_ar": "أكتر من 5",
+    "screen": "الانضمام",
+    "context_ar": "years_experience = five_plus"
+  },
+  {
+    "key": "join.work.days",
+    "value_ar": "بتحب تشتغل برّه البيت أنهي أيام؟",
+    "screen": "الانضمام",
+    "context_ar": "work_days_pref"
+  },
+  {
+    "key": "game.work.q",
+    "value_ar": "بتشتغل في إيه؟",
+    "screen": "اللعبة",
+    "context_ar": "سؤال أخير اختياري للفريلانسرز → profession_id"
+  },
+  {
+    "key": "game.work.progress",
+    "value_ar": "آخر سؤال — وده اختياري",
+    "screen": "اللعبة",
+    "context_ar": "شريط التقدم في سؤال الشغل"
+  },
+  {
+    "key": "game.work.skip",
+    "value_ar": "شوف نتيجتك",
+    "screen": "اللعبة",
+    "context_ar": "زر تخطّي سؤال الشغل"
+  },
+  {
+    "key": "game.work.empty",
+    "value_ar": "لسه بنجهّز قايمة المجالات — عدّي دي وقولنا بعدين.",
+    "screen": "اللعبة",
+    "context_ar": "لما professions تكون فاضية"
   }
 ]

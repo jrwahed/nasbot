@@ -15,6 +15,7 @@ import { ClockIcon, ArrowIcon, PinIcon, LevelIcon } from '@/components/Icons'
 import { VenueSpecs } from '@/components/work/VenueSpecs'
 import { DaySchedule } from '@/components/work/DaySchedule'
 import { ProfessionChips } from '@/components/work/ProfessionChips'
+import { PassRedeemButton } from '@/components/work/PassRedeemButton'
 import {
   getCaptain,
   getGroupProfessions,
@@ -285,15 +286,7 @@ export default function WorkSbotaPage() {
                 </PrimaryButton>
               )}
               {pass && pass.sessionsLeft > 0 && (
-                <SecondaryButton
-                  tone="cobalt"
-                  disabled
-                  className="w-full cursor-not-allowed opacity-60"
-                  title={t('shoghl.cta.soon')}
-                  aria-disabled
-                >
-                  {t('shoghl.cta.pass', { n: pass.sessionsLeft })} · {t('shoghl.cta.soon')}
-                </SecondaryButton>
+                <PassRedeemButton slug={sbota.slug} sessionsLeft={pass.sessionsLeft} />
               )}
             </div>
           )}

@@ -261,6 +261,11 @@ export default function MePage() {
             className="flex min-h-[52px] items-center rounded-16 px-4 font-body text-16 font-semibold"
             style={{ background: 'var(--surface)' }}
           >{t('me.text.3')}</Link>
+          <Link
+            href="/me/shoghl"
+            className="flex min-h-[52px] items-center rounded-16 px-4 font-body text-16 font-semibold"
+            style={{ background: 'var(--surface)' }}
+          >{t('shoghl.me.link')}</Link>
           <button
             type="button"
             onClick={async () => {
