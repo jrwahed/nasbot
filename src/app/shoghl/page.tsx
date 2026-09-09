@@ -6,6 +6,7 @@ import { Header } from '@/components/Header'
 import { Footer } from '@/components/Footer'
 import { Sticker } from '@/components/Sticker'
 import { PhotoPlaceholder } from '@/components/PhotoPlaceholder'
+import { publicMediaUrl } from '@/lib/supabase'
 import { CalendarIcon, FoodIcon, LaptopIcon, PairIcon } from '@/components/Icons'
 import { WorkSbotaCard } from '@/components/work/WorkSbotaCard'
 import { PassCard } from '@/components/work/PassCard'
@@ -216,9 +217,9 @@ export default function ShoghlPage() {
               >
                 <PhotoPlaceholder
                   label={v.photos[0] ?? v.name}
+                  src={publicMediaUrl(v.photos[0])}
                   variant="sandDeep"
                   className="w-full"
-                  style={{ aspectRatio: '4 / 3' }}
                 />
                 <div className="p-4">
                   <div className="font-display text-20 font-black leading-[1.15]">{v.name}</div>

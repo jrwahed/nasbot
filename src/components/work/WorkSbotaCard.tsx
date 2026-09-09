@@ -52,7 +52,7 @@ export function WorkSbotaCard({
     >
       <Link href={link} onClick={open} className="block">
         <div className="relative" style={{ aspectRatio: '4 / 3' }}>
-          <PhotoPlaceholder label={sbota.img} variant="sandDeep" className="h-full w-full" />
+          <PhotoPlaceholder label={sbota.img} src={sbota.imgSrc} variant="sandDeep" className="h-full w-full" />
           <span className="absolute end-[14px] top-[14px]">
             <Sticker
               color={sbota.full ? 'ink' : 'orange'}

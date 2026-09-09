@@ -21,6 +21,7 @@ import {
   day,
   money,
   useFlash,
+  PhotosField,
 } from '@/components/admin-ui'
 import {
   buildVenueReport,
@@ -1195,6 +1196,16 @@ function VenueEditor({
           suffix="جنيه"
           hint={`اللي المكان بيطلبه من كل واحد. دلوقتي ${money(w?.min_consumption)}`}
           onSave={(x) => onWork({ min_consumption: toPiastres(Math.max(0, x)) })}
+        />
+      </div>
+
+      <div className="mt-4">
+        <PhotosField
+          label="صور المكان"
+          hint="بتظهر للمسبوطين في صفحة «أماكن». وريهم الترابيزات والنت والركنة اللي بيشتغلوا فيها. كل الصور بتتقص 4:3."
+          value={w?.photos ?? []}
+          folder={`work-venues/${v.id}`}
+          onSave={(next) => onWork({ photos: next })}
         />
       </div>
 

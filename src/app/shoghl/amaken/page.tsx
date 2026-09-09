@@ -6,6 +6,7 @@ import { InnerHeader } from '@/components/Header'
 import { Footer } from '@/components/Footer'
 import { Sticker } from '@/components/Sticker'
 import { PhotoPlaceholder } from '@/components/PhotoPlaceholder'
+import { publicMediaUrl } from '@/lib/supabase'
 import { PinIcon } from '@/components/Icons'
 import { VenueSpecs } from '@/components/work/VenueSpecs'
 import { getWorkVenues } from '@/lib/api'
@@ -66,13 +67,14 @@ export default function AmakenPage() {
               {/* الصور */}
               <div className="relative">
                 <div className="nb-scroll-x gap-[10px] p-3 pb-0">
-                  {(v.photos.length ? v.photos : [v.name]).map((p) => (
+                  {(v.photos.length ? v.photos : [v.name]).map((p, pi) => (
                     <PhotoPlaceholder
-                      key={p}
+                      key={`${p}-${pi}`}
                       label={p}
+                      src={publicMediaUrl(p)}
                       variant="sandDeep"
                       className="shrink-0"
-                      style={{ width: 240, aspectRatio: '4 / 3', borderRadius: 16, padding: 16 }}
+                      style={{ width: 240, borderRadius: 16, padding: 16 }}
                     />
                   ))}
                 </div>

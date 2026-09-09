@@ -65,7 +65,7 @@ export function LastFriday() {
             <PhotoPlaceholder
               label={f.img}
               className="w-full"
-              style={{ aspectRatio: '1', borderRadius: 18, padding: 20 }}
+              style={{ borderRadius: 18, padding: 20 }}
             />
             <span
               className="absolute font-body text-15 italic"

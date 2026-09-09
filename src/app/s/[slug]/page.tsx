@@ -93,7 +93,7 @@ export default function SbotaPage() {
               label={g}
               src={publicMediaUrl(g)}
               className="shrink-0"
-              style={{ width: 300, aspectRatio: '1', borderRadius: 20, padding: 20 }}
+              style={{ width: 300, borderRadius: 20, padding: 20 }}
             />
           ))}
         </div>

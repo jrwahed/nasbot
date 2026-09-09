@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
 import { InnerHeader } from '@/components/Header'
 import { PhotoPlaceholder } from '@/components/PhotoPlaceholder'
+import { publicMediaUrl } from '@/lib/supabase'
 import { Sticker } from '@/components/Sticker'
 import { CaptainCard } from '@/components/CaptainCard'
 import { GuaranteeBox } from '@/components/WhoBooked'
@@ -124,12 +125,13 @@ export default function WorkSbotaPage() {
       {/* ===== المعرض + ستيكر «فاضل X من 6» ===== */}
       <div className="relative">
         <div className="nb-scroll-x gap-[10px] px-5 pt-[6px]">
-          {(sbota.gallery.length ? sbota.gallery : [sbota.img]).map((g) => (
+          {(sbota.gallery.length ? sbota.gallery : [sbota.img]).map((g, gi) => (
             <PhotoPlaceholder
-              key={g}
+              key={`${g}-${gi}`}
               label={g}
+              src={publicMediaUrl(g)}
               className="shrink-0"
-              style={{ width: 300, aspectRatio: '1', borderRadius: 20, padding: 20 }}
+              style={{ width: 300, borderRadius: 20, padding: 20 }}
             />
           ))}
         </div>
