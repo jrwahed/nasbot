@@ -7,7 +7,7 @@ import { InnerHeader } from '@/components/Header'
 import { PhotoPlaceholder } from '@/components/PhotoPlaceholder'
 import { Sticker } from '@/components/Sticker'
 import { Footer } from '@/components/Footer'
-import { getMe, getBookings, getMetBefore, signOut } from '@/lib/api'
+import { getMe, getBookings, getMetBefore, signOut, deleteMyAccount } from '@/lib/api'
 import { useTheme } from '@/lib/use-theme'
 import type { Booking, Me, Person } from '@/types'
 import { useT } from '@/components/CopyProvider'
@@ -23,6 +23,7 @@ export default function MePage() {
   const [met, setMet] = useState<Person[]>([])
   const [tab, setTab] = useState<'upcoming' | 'past'>('upcoming')
   const [copied, setCopied] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
   useEffect(() => {
     getMe().then(setMe)
@@ -277,13 +278,22 @@ export default function MePage() {
           >{t('me.text.2')}</button>
           <button
             type="button"
+            disabled={deleting}
             onClick={async () => {
-              await signOut()
-              router.push('/')
+              if (deleting) return
+              if (!window.confirm(t('me.delete.confirm'))) return
+              setDeleting(true)
+              const ok = await deleteMyAccount()
+              if (ok) {
+                router.push('/')
+              } else {
+                setDeleting(false)
+                window.alert(t('me.delete.failed'))
+              }
             }}
-            className="flex min-h-[52px] cursor-pointer items-center rounded-16 px-4 text-start font-body text-16 font-semibold"
+            className="flex min-h-[52px] cursor-pointer items-center rounded-16 px-4 text-start font-body text-16 font-semibold disabled:opacity-60"
             style={{ background: 'transparent', color: '#8E2F1F', border: '2px solid #8E2F1F' }}
-          >{t('me.text.1')}</button>
+          >{deleting ? t('me.delete.progress') : t('me.text.1')}</button>
         </div>
       </div>
 

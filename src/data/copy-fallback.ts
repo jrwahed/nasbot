@@ -629,4 +629,7 @@ export const copyFallback: Record<string, string> = {
   "game.work.progress": "آخر سؤال — وده اختياري",
   "game.work.skip": "شوف نتيجتك",
   "game.work.empty": "لسه بنجهّز قايمة المجالات — عدّي دي وقولنا بعدين.",
+  "me.delete.confirm": "متأكد إنك عايز تمسح حسابك؟ هنخفي بياناتك دلوقتي، وتتمسح نهائي بعد 30 يوم.",
+  "me.delete.progress": "بنمسح…",
+  "me.delete.failed": "مقدرناش نمسح الحساب دلوقتي. جرّب تاني أو كلّمنا.",
 }

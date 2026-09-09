@@ -340,6 +340,32 @@ export async function signOut() {
   if (DB) await supabase().auth.signOut()
 }
 
+/**
+ * حذف الحساب — بينادي fn_soft_delete_profile في القاعدة (بيخفي البيانات الشخصية
+ * فورًا، والمسح النهائي بعد 30 يوم عبر مهمة purge). بعد النجاح بيخرّج العضو.
+ * بيرجّع true لو المسح نجح. (S6: الزرار كان بيعمل signOut بس من غير أي مسح.)
+ */
+export async function deleteMyAccount(): Promise<boolean> {
+  if (!DB) {
+    clearSession()
+    return true
+  }
+  try {
+    const { error } = await supabase().rpc('fn_soft_delete_profile')
+    if (error) {
+      // eslint-disable-next-line no-console
+      console.warn('[الحساب] حذف الحساب وقع:', error.message)
+      return false
+    }
+  } catch (e) {
+    // eslint-disable-next-line no-console
+    console.warn('[الحساب] حذف الحساب وقع:', (e as Error).message)
+    return false
+  }
+  await signOut()
+  return true
+}
+
 /** بعد الدخول — نضمن إن للحساب ملف في profiles (بيتعمل على الخادم بمفتاح الخدمة) */
 export async function ensureAccount(phone: string, token?: string) {
   if (!DB) return { ok: true as const }
