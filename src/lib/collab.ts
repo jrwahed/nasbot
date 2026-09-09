@@ -369,3 +369,75 @@ export function takePendingProfession(): string | null {
     return null
   }
 }
+
+/* ============================================================ شغالين معاك */
+
+/**
+ * زميل شغل في تبادل معايا — اللي بيتعرض في «شغالين معاك» في /me/shoghl.
+ * مفيش أي حاجة هنا بتكشف اختيار الطرف التاني: الاسم والمجال بييجوا من
+ * work_group_members (زمايل مجموعتي بعد الكشف بس)، والتبادل نفسه بييجي من
+ * fn_work_collab_state اللي بترجّع mutual/none وخلاص.
+ */
+export interface WorkCollab {
+  /** معرّف الملف — بيتبعت لـ openOneOnOne */
+  id: string
+  firstName: string
+  professionAr: string | null
+  professionIcon: string | null
+  professionColor: string | null
+  /** «اتقابلنا في» — ممكن يكونوا فاضيين لو السبوطة عدّت وما بقتش مقروءة */
+  sbotaName: string | null
+  venueName: string | null
+}
+
+/**
+ * أكتر 3 سبوطات شغل حجزتهم — الحد ده مقصود.
+ * مفيش دالة بترجّع كل التبادلات بتاعتي دفعة واحدة (fn_work_collab_state
+ * بتفحص زوج واحد بس)، فبنسأل عن زمايل آخر 3 سبوطات وخلاص بدل عشرات النداءات.
+ */
+const COLLAB_MAX_SBOTAT = 3
+/** وحتى لو السبوطات الـ 3 مليانة: أقصى عدد نداء لـ fn_work_collab_state */
+const COLLAB_MAX_CANDIDATES = 18
+
+interface MateRow {
+  sbota_id?: string | null
+  profile_id?: string | null
+  first_name?: string | null
+  profession_ar?: string | null
+  profession_icon?: string | null
+  profession_color?: string | null
+}
+
+/**
+ * «شغالين معاك» — اللي بيني وبينهم تبادل في الشغل.
+ *
+ * الطريق الطويل ده سببه إن مفيش `fn_my_work_collabs()` في القاعدة:
+ *   1. حجوزاتي (الأحدث الأول) — علشان نعرف ترتيب سبوطاتي
+ *   2. `work_group_members` — زمايلي في سبوطات الشغل بعد الكشف بس
+ *   3. أحدث 3 سبوطات مشتركة → زمايلهم من غير تكرار
+ *   4. `fn_work_collab_state` لكل واحد — دي القراءة الوحيدة المسموحة لـ work_affinity
+ * الكل جوه safeCollab واحدة، فأقصى انتظار 8 ثواني وبعدها قايمة فاضية.
+ */
+export async function getMyWorkCollabs(): Promise<WorkCollab[]> {
+  if (!DB) return []
+  return safeCollab(
+    'getMyWorkCollabs',
+    async () => {
+      // نداء واحد بدل ٥ استعلامات + نداء لكل زميل. الدالة security definer
+      // (هجرة 0051) وبترجّع الصفوف اللي فيها تبادل بس — الاختيار من طرف
+      // واحد عمره ما يخرج منها. وبتقدر كمان تسمّي سبوطة خلصت، وده اللي
+      // البناء من الواجهة ما كانش يقدر عليه لأن sbotat_public بتعرض المفتوح بس.
+      const { data } = await supabase().rpc('fn_my_work_collabs')
+      return ((data ?? []) as Record<string, unknown>[]).map((r) => ({
+        id: String(r.profile_id ?? ''),
+        firstName: String(r.first_name ?? ''),
+        professionAr: (r.profession_ar as string | null) ?? null,
+        professionIcon: (r.profession_icon as string | null) ?? null,
+        professionColor: (r.profession_color as string | null) ?? null,
+        sbotaName: (r.sbota_name_ar as string | null) ?? null,
+        venueName: (r.venue_name as string | null) ?? null,
+      })).filter((c) => c.id && c.firstName)
+    },
+    []
+  )
+}

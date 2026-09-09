@@ -3502,5 +3502,41 @@
     "value_ar": "لسه بنجهّز قايمة المجالات — عدّي دي وقولنا بعدين.",
     "screen": "اللعبة",
     "context_ar": "لما professions تكون فاضية"
+  },
+  {
+    "key": "shoghl.me.collab.note",
+    "value_ar": "دول اللي انتوا اخترتوا بعض. محدش تاني بيشوف الليستة دي.",
+    "screen": "الشغل بتاعي",
+    "context_ar": "سطر تحت عنوان «شغالين معاك» لما يكون فيه ناس"
+  },
+  {
+    "key": "shoghl.me.collab.met",
+    "value_ar": "اتقابلنا في: {{sbota}} — {{venue}}",
+    "screen": "الشغل بتاعي",
+    "context_ar": "سطر «اتقابلنا في» — اسم السبوطة والمكان"
+  },
+  {
+    "key": "shoghl.me.collab.metSbota",
+    "value_ar": "اتقابلنا في: {{sbota}}",
+    "screen": "الشغل بتاعي",
+    "context_ar": "نفس السطر لما المكان مش معروف"
+  },
+  {
+    "key": "shoghl.me.collab.metWork",
+    "value_ar": "اتقابلنا في سبوطة شغل",
+    "screen": "الشغل بتاعي",
+    "context_ar": "نفس السطر لما السبوطة عدّت وما بقتش معروضة"
+  },
+  {
+    "key": "shoghl.me.collab.dm",
+    "value_ar": "ابعتله",
+    "screen": "الشغل بتاعي",
+    "context_ar": "زر فتح الشات الواحد-لواحد"
+  },
+  {
+    "key": "shoghl.me.collab.opening",
+    "value_ar": "ثانية…",
+    "screen": "الشغل بتاعي",
+    "context_ar": "حالة الزر وهو بيفتح الشات"
   }
 ]

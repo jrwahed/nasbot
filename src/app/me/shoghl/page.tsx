@@ -9,6 +9,8 @@ import { Sticker } from '@/components/Sticker'
 import { PrimaryButton, SecondaryButton } from '@/components/Buttons'
 import { isLoggedIn } from '@/lib/session'
 import { useT } from '@/components/CopyProvider'
+import { CollabList } from '@/components/work/CollabList'
+import { getMyWorkCollabs, type WorkCollab } from '@/lib/collab'
 import {
   DAY_CODES,
   EMPTY_PASS_STATE,
@@ -60,6 +62,7 @@ export default function MyWorkPage() {
   const [venues, setVenues] = useState<VenueOption[]>([])
   const [professions, setProfessions] = useState<ProfessionOption[]>([])
   const [profile, setProfile] = useState<MyWorkProfile>(EMPTY_WORK_PROFILE)
+  const [collabs, setCollabs] = useState<WorkCollab[]>([])
   const [msg, setMsg] = useState('')
   const [busy, setBusy] = useState(false)
 
@@ -69,15 +72,17 @@ export default function MyWorkPage() {
   const [pickVenue, setPickVenue] = useState('')
 
   const load = useCallback(async () => {
-    const [state, mine, tpls, vns, profs, prof] = await Promise.all([
+    const [state, mine, tpls, vns, profs, prof, mates] = await Promise.all([
       getMyPassState(),
       getMyRecurring(),
       getWorkTemplates(),
       getWorkVenueOptions(),
       getProfessions(),
       getMyWorkProfile(),
+      getMyWorkCollabs(),
     ])
     setPasses(state)
+    setCollabs(mates)
     setDays(mine)
     setTemplates(tpls)
     setVenues(vns)
@@ -393,11 +398,12 @@ export default function MyWorkPage() {
 
         {/* ===================================================== شغالين معاك */}
         <h2 className="mt-8 font-display text-24 font-black">{t('shoghl.me.collab.title')}</h2>
-        <div className="mt-3 rounded-20 p-5" style={{ background: 'var(--surface)' }}>
-          <div className="font-body text-15" style={{ color: 'var(--muted)' }}>
-            {t('shoghl.me.collab.empty')}
+        {collabs.length > 0 && (
+          <div className="mt-1 font-body text-14" style={{ color: 'var(--muted)' }}>
+            {t('shoghl.me.collab.note')}
           </div>
-        </div>
+        )}
+        <CollabList items={collabs} />
 
         {/* ===================================================== مجالي وأسلوبي */}
         <h2 className="mt-8 font-display text-24 font-black">{t('shoghl.me.profile.title')}</h2>

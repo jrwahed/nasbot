@@ -629,4 +629,12 @@ export const copyFallback: Record<string, string> = {
   "game.work.progress": "آخر سؤال — وده اختياري",
   "game.work.skip": "شوف نتيجتك",
   "game.work.empty": "لسه بنجهّز قايمة المجالات — عدّي دي وقولنا بعدين.",
+
+  /* ===== شغالين معاك في /me/shoghl — المرحلة 5 (WORK_PLAN §2) ===== */
+  "shoghl.me.collab.note": "دول اللي انتوا اخترتوا بعض. محدش تاني بيشوف الليستة دي.",
+  "shoghl.me.collab.met": "اتقابلنا في: {{sbota}} — {{venue}}",
+  "shoghl.me.collab.metSbota": "اتقابلنا في: {{sbota}}",
+  "shoghl.me.collab.metWork": "اتقابلنا في سبوطة شغل",
+  "shoghl.me.collab.dm": "ابعتله",
+  "shoghl.me.collab.opening": "ثانية…",
 }
