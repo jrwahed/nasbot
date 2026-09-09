@@ -80,6 +80,16 @@ interface TxtSpec {
   label: string
   hint: string
   unwired?: boolean
+  /** وجهة تحويل فلوس — لو لسه القيمة الوهمية، الدفع متوقف والتحذير بيبان */
+  payTo?: boolean
+}
+
+/** نفس فحص src/lib/server/pay-guard.ts — لازم الاتنين يتفقوا */
+function isPlaceholderPayTo(v: unknown): boolean {
+  const raw = String(v ?? '').trim()
+  if (!raw) return true
+  if (raw === '010 0000 0000' || raw === 'nasbot@instapay') return true
+  return /^\+?2?0?1?0{6,}$/.test(raw.replace(/[\s-]/g, ''))
 }
 
 interface Group {
@@ -177,11 +187,13 @@ const GROUPS: Group[] = [
       {
         col: 'vodafone_number',
         label: 'رقم فودافون كاش',
+        payTo: true,
         hint: 'الرقم اللي العضو بيحوّل عليه. غلطة هنا = فلوس رايحة لحد تاني.',
       },
       {
         col: 'instapay_handle',
         label: 'حساب إنستاباي',
+        payTo: true,
         hint: 'الاسم اللي بيظهر للعضو علشان يحوّل عليه.',
       },
       {
@@ -817,19 +829,36 @@ function NumbersTab({
                 )
               )}
 
-              {(g.txts ?? []).map((f) =>
-                canEdit ? (
-                  <TextField
-                    key={f.col}
-                    label={f.label}
-                    value={txt(settings, f.col)}
-                    hint={hintFor(f)}
-                    onSave={(v) => onSave(f.col, v, f.label)}
-                  />
-                ) : (
-                  <ReadOnly key={f.col} label={f.label} value={txt(settings, f.col)} hint={hintFor(f)} />
+              {(g.txts ?? []).map((f) => {
+                // وجهة تحويل لسه وهمية = الدفع متوقف على الموقع. لازم تبان
+                // هنا بصوت عالي، مش نستنى عضو يشتكي إن فلوسه ضاعت.
+                const badPayTo = Boolean(f.payTo) && isPlaceholderPayTo(txt(settings, f.col))
+                return (
+                  <div key={f.col} className="flex flex-col gap-1">
+                    {canEdit ? (
+                      <TextField
+                        label={f.label}
+                        value={txt(settings, f.col)}
+                        hint={hintFor(f)}
+                        onSave={(v) => onSave(f.col, v, f.label)}
+                      />
+                    ) : (
+                      <ReadOnly label={f.label} value={txt(settings, f.col)} hint={hintFor(f)} />
+                    )}
+                    {badPayTo && (
+                      <div
+                        role="alert"
+                        className="rounded-14 p-3 font-body text-13 font-semibold"
+                        style={{ background: '#8E2F1F', color: '#FBF7EF' }}
+                      >
+                        ⚠ ده لسه الرقم الوهمي اللي بيجي مع القاعدة. الدفع بالطريقة دي
+                        **متوقف** على الموقع لحد ما تحط رقمك الحقيقي — العضو بيشوف رسالة
+                        إن الدفع مقفول مؤقتًا بدل ما يحوّل لحد تاني.
+                      </div>
+                    )}
+                  </div>
                 )
-              )}
+              })}
             </div>
           </Card>
         </Section>

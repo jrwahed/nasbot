@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { randomUUID } from 'node:crypto'
+import { isPlaceholderPayTo, PAY_TO_MISSING } from '@/lib/server/pay-guard'
 import { admin } from '@/lib/server/supabase-admin'
 
 export const runtime = 'nodejs'
@@ -67,6 +68,16 @@ export async function POST(req: Request) {
     manual_review_hours: number
     work_single_price?: number | null
     work_first_time_price?: number | null
+  }
+
+  /**
+   * وجهة التحويل لسه القيمة الوهمية اللي بتيجي مع القاعدة؟
+   * نرفض **قبل** ما نعمل أي حجز — بدل ما العضو يبعت فلوسه لرقم مش بتاعنا،
+   * وبدل ما نسيب حجز معلّق ورانا. (شوف src/lib/server/pay-guard.ts)
+   */
+  const payTo = method === 'vodafone_cash' ? s.vodafone_number : s.instapay_handle
+  if (isPlaceholderPayTo(payTo)) {
+    return NextResponse.json({ error: PAY_TO_MISSING }, { status: 503 })
   }
 
   const { data: prof } = await db
@@ -244,7 +255,7 @@ export async function POST(req: Request) {
     amount,
     manual: true,
     method,
-    payTo: method === 'vodafone_cash' ? s.vodafone_number : s.instapay_handle,
+    payTo,
     reviewHours: s.manual_review_hours,
   })
 }

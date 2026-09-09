@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { isPlaceholderPayTo, PAY_TO_MISSING } from '@/lib/server/pay-guard'
 import { admin } from '@/lib/server/supabase-admin'
 
 export const runtime = 'nodejs'
@@ -97,6 +98,12 @@ export async function POST(req: Request) {
   }
   const sessions = kind === 'eight' ? 8 : 4
 
+  /** نفس حارس /api/pay/create — قبل ما نعمل الكارت مش بعده */
+  const payTo = method === 'vodafone_cash' ? s.vodafone_number : s.instapay_handle
+  if (isPlaceholderPayTo(payTo)) {
+    return NextResponse.json({ error: PAY_TO_MISSING }, { status: 503 })
+  }
+
   // الكارت pending. starts_at/expires_at بيتحددوا عند الاعتماد مش دلوقتي.
   const { data: made, error: passErr } = await db
     .from('work_passes')
@@ -147,7 +154,7 @@ export async function POST(req: Request) {
     passId,
     amount,
     method,
-    payTo: method === 'vodafone_cash' ? (s.vodafone_number ?? '') : (s.instapay_handle ?? ''),
+    payTo,
     reviewHours: s.manual_review_hours ?? 24,
   })
 }
