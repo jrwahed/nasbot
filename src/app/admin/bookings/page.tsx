@@ -6,10 +6,13 @@ import { supabase } from '@/lib/supabase'
 import { rejected } from '@/lib/admin'
 import type { AdminMe } from '@/lib/admin'
 import {
+  ADMIN_PAGE_SIZE,
+  ADMIN_SCAN_MAX,
   Btn,
   Card,
   Empty,
   Loading,
+  Pager,
   SelectField,
   Stat,
   Table,
@@ -33,6 +36,11 @@ import {
  * شاشة الحضور بتتفتح على الموبايل عند البوابة، فخلّيناها عمود واحد
  * وأزرار كبيرة، وبتكتب checked_in_at و checked_in_by بس — الحالة نفسها
  * بيظبطها job_after_sbota بعد ما السبوطة تخلص.
+ *
+ * الترقيم من القاعدة: فلتر السبوطة والحالة بيروحوا كـ `eq`، والبحث بالاسم أو
+ * الرقم بيروح كـ `ilike` على جدول الناس المرتبط (بـ `!inner` علشان يفلتر
+ * الحجز نفسه مش الملف المدمج بس)، والصفوف بتيجي صفحة صفحة بـ range.
+ * ما بقاش فيه أي فلترة في المتصفح — كانت بتجيب ٥٠٠ صف وتفلترهم عندك.
  */
 
 /* ---------------------------------------------------------- أنواع */
@@ -173,8 +181,22 @@ function chunk<T>(list: T[], size: number): T[][] {
   return out
 }
 
-const BOOKING_COLS =
-  'id, sbota_id, profile_id, status, price_paid, discount, wallet_used, checked_in_at, cancel_reason, refund_kind, created_at, profiles!bookings_profile_id_fkey(id, first_name, phone, no_show_count, sbota_count)'
+/** بنستنى ثانية تلت بعد آخر حرف قبل ما نروح للقاعدة — مش مع كل ضغطة */
+const SEARCH_DELAY_MS = 300
+
+/**
+ * بننضّف اللي المستخدم كتبه من الرموز اللي بتكسر فلتر postgrest
+ * (الفاصلة والأقواس والنجمة هما لغة الفلتر نفسه).
+ */
+const safeLike = (s: string) => s.replace(/[,()*%".:\\]/g, ' ').trim()
+
+const BOOKING_BASE =
+  'id, sbota_id, profile_id, status, price_paid, discount, wallet_used, checked_in_at, cancel_reason, refund_kind, created_at'
+const PROFILE_EMBED = '(id, first_name, phone, no_show_count, sbota_count)'
+
+const BOOKING_COLS = `${BOOKING_BASE}, profiles!bookings_profile_id_fkey${PROFILE_EMBED}`
+/** نفس الأعمدة بس بـ !inner — علشان الفلتر على اسم العضو يفلتر الحجز نفسه */
+const BOOKING_COLS_SEARCH = `${BOOKING_BASE}, profiles!bookings_profile_id_fkey!inner${PROFILE_EMBED}`
 
 const TABS = [
   { id: 'list', label: 'الحجوزات' },
@@ -208,10 +230,12 @@ function BookingsEditor({ me }: { me: AdminMe }) {
       const { data: auth } = await db.auth.getUser()
       setMyId(auth.user?.id ?? null)
 
+      // دي قايمة اختيار مش جدول — بنجيب أحدث السبوطات وبس، مش الجدول كله
       const { data, error } = await db
         .from('sbotat')
         .select('id, starts_at, capacity, status, price, girls_only, sbota_templates(name_ar)')
         .order('starts_at', { ascending: false })
+        .range(0, ADMIN_SCAN_MAX - 1)
       if (error) setErr(error.message)
       setSbotat((data ?? []) as unknown as SbotaRow[])
       setLoading(false)
@@ -268,24 +292,51 @@ function BookingsTab({
   const [sbotaId, setSbotaId] = useState('all')
   const [status, setStatus] = useState('all')
   const [q, setQ] = useState('')
+  /** اللي راح للقاعدة فعلًا — بيتأخر شوية عن اللي بتكتبه */
+  const [needle, setNeedle] = useState('')
+  const [page, setPage] = useState(0)
   const [rows, setRows] = useState<BookingRow[] | null>(null)
+  const [total, setTotal] = useState<number | null>(null)
   const [pays, setPays] = useState<Record<string, PayRow>>({})
   const [busy, setBusy] = useState(false)
 
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setPage(0)
+      setNeedle(safeLike(q))
+    }, SEARCH_DELAY_MS)
+    return () => clearTimeout(t)
+  }, [q])
+
   const reload = useCallback(async () => {
     setRows(null)
+    setBusy(true)
     const db = supabase()
-    let query = db.from('bookings').select(BOOKING_COLS).order('created_at', { ascending: false })
+    let query = db
+      .from('bookings')
+      .select(needle ? BOOKING_COLS_SEARCH : BOOKING_COLS, { count: 'exact' })
+      .order('created_at', { ascending: false })
     if (sbotaId !== 'all') query = query.eq('sbota_id', sbotaId)
     if (status !== 'all') query = query.eq('status', status)
-    const { data, error } = await query.limit(500)
+    if (needle) {
+      query = query.or(`first_name.ilike.*${needle}*,phone.ilike.*${needle}*`, {
+        referencedTable: 'profiles',
+      })
+    }
+    const { data, count, error } = await query.range(
+      page * ADMIN_PAGE_SIZE,
+      page * ADMIN_PAGE_SIZE + ADMIN_PAGE_SIZE - 1
+    )
+    setBusy(false)
     if (error) {
       flash(`مقدرناش نجيب الحجوزات: ${error.message}`)
       setRows([])
+      setTotal(0)
       return
     }
     const list = (data ?? []) as unknown as BookingRow[]
     setRows(list)
+    setTotal(count ?? null)
 
     // الدفعات بتتجاب على دفعات صغيرة علشان الرابط ما يطولش
     const map: Record<string, PayRow> = {}
@@ -297,23 +348,11 @@ function BookingsTab({
       for (const row of (p ?? []) as unknown as PayRow[]) map[row.booking_id] = row
     }
     setPays(map)
-  }, [sbotaId, status, flash])
+  }, [sbotaId, status, needle, page, flash])
 
   useEffect(() => {
     reload()
   }, [reload])
-
-  const shown = useMemo(() => {
-    const needle = q.trim().toLowerCase()
-    if (!needle || !rows) return rows ?? []
-    return rows.filter((b) => {
-      const p = one(b.profiles)
-      return (
-        (p?.first_name ?? '').toLowerCase().includes(needle) ||
-        (p?.phone ?? '').includes(needle)
-      )
-    })
-  }, [rows, q])
 
   const byId = useMemo(() => new Map(sbotat.map((s) => [s.id, s])), [sbotat])
 
@@ -350,13 +389,24 @@ function BookingsTab({
         <SelectField
           label="السبوطة"
           value={sbotaId}
-          onChange={setSbotaId}
+          onChange={(v) => {
+            setPage(0)
+            setSbotaId(v)
+          }}
           options={[
             { value: 'all', label: 'كل السبوطات' },
             ...sbotat.map((s) => ({ value: s.id, label: sbotaLabel(s) })),
           ]}
         />
-        <SelectField label="الحالة" value={status} onChange={setStatus} options={STATUS_OPTIONS} />
+        <SelectField
+          label="الحالة"
+          value={status}
+          onChange={(v) => {
+            setPage(0)
+            setStatus(v)
+          }}
+          options={STATUS_OPTIONS}
+        />
         <label className="flex flex-col gap-1">
           <span className="font-body text-13" style={{ color: 'var(--muted)' }}>
             دوّر باسم العضو أو رقمه
@@ -374,7 +424,7 @@ function BookingsTab({
           />
         </label>
         <div className="font-body text-14" style={{ color: 'var(--muted)' }}>
-          {shown.length} حجز
+          {total ?? 0} حجز
         </div>
         <div className="ms-auto">
           <Btn onClick={() => reload()}>حدّث</Btn>
@@ -384,7 +434,7 @@ function BookingsTab({
       <div className="mt-4">
         {rows === null ? (
           <Loading />
-        ) : shown.length === 0 ? (
+        ) : rows.length === 0 ? (
           <Empty>مفيش حجوزات بالفلتر ده.</Empty>
         ) : (
           <Table
@@ -398,7 +448,7 @@ function BookingsTab({
               ...(canEdit ? ['إلغاء'] : []),
             ]}
           >
-            {shown.map((b) => {
+            {rows.map((b) => {
               const p = one(b.profiles)
               const s = byId.get(b.sbota_id) ?? null
               const pay = pays[b.id]
@@ -488,6 +538,14 @@ function BookingsTab({
             })}
           </Table>
         )}
+
+        <Pager
+          page={page}
+          shown={rows?.length ?? 0}
+          total={total}
+          onPage={setPage}
+          busy={busy || rows === null}
+        />
       </div>
 
       {canEdit && (
@@ -514,6 +572,8 @@ function WaitlistTab({
   const flash = useSay(rawFlash)
   const [sbotaId, setSbotaId] = useState(sbotat[0]?.id ?? '')
   const [rows, setRows] = useState<WaitRow[] | null>(null)
+  const [total, setTotal] = useState<number | null>(null)
+  const [page, setPage] = useState(0)
   const [taken, setTaken] = useState(0)
   const [busy, setBusy] = useState(false)
 
@@ -522,6 +582,7 @@ function WaitlistTab({
   const reload = useCallback(async () => {
     if (!sbotaId) {
       setRows([])
+      setTotal(0)
       return
     }
     setRows(null)
@@ -530,20 +591,29 @@ function WaitlistTab({
       db
         .from('waitlist')
         .select(
-          'id, sbota_id, profile_id, position, notified_at, created_at, profiles(id, first_name, phone, no_show_count, sbota_count)'
+          'id, sbota_id, profile_id, position, notified_at, created_at, profiles(id, first_name, phone, no_show_count, sbota_count)',
+          { count: 'exact' }
         )
         .eq('sbota_id', sbotaId)
-        .order('position'),
-      db.from('bookings').select('id, status').eq('sbota_id', sbotaId).in('status', LIVE),
+        .order('position')
+        .range(page * ADMIN_PAGE_SIZE, page * ADMIN_PAGE_SIZE + ADMIN_PAGE_SIZE - 1),
+      // العدّ من القاعدة — مش بنجيب الصفوف علشان نعدّها في المتصفح
+      db
+        .from('bookings')
+        .select('id', { count: 'exact', head: true })
+        .eq('sbota_id', sbotaId)
+        .in('status', LIVE),
     ])
     if (w.error) {
       flash(`مقدرناش نجيب قايمة الانتظار: ${w.error.message}`)
       setRows([])
+      setTotal(0)
       return
     }
     setRows((w.data ?? []) as unknown as WaitRow[])
-    setTaken(((b.data ?? []) as unknown[]).length)
-  }, [sbotaId, flash])
+    setTotal(w.count ?? null)
+    setTaken(b.count ?? 0)
+  }, [sbotaId, page, flash])
 
   useEffect(() => {
     reload()
@@ -644,7 +714,10 @@ function WaitlistTab({
         <SelectField
           label="السبوطة"
           value={sbotaId}
-          onChange={setSbotaId}
+          onChange={(v) => {
+            setPage(0)
+            setSbotaId(v)
+          }}
           options={
             sbotat.length
               ? sbotat.map((s) => ({ value: s.id, label: sbotaLabel(s) }))
@@ -661,7 +734,7 @@ function WaitlistTab({
           <Stat label="سعة السبوطة" value={String(sbota.capacity)} />
           <Stat label="واخدين مكان" value={String(taken)} hint="دافعين + مستنيين الدفع + حضروا" />
           <Stat label="أماكن فاضية" value={String(free)} />
-          <Stat label="في الانتظار" value={String(rows?.length ?? 0)} />
+          <Stat label="في الانتظار" value={total === null ? '…' : String(total)} />
         </div>
       )}
 
@@ -710,6 +783,14 @@ function WaitlistTab({
             })}
           </Table>
         )}
+
+        <Pager
+          page={page}
+          shown={rows?.length ?? 0}
+          total={total}
+          onPage={setPage}
+          busy={busy || rows === null}
+        />
       </div>
 
       {canEdit && free <= 0 && (rows?.length ?? 0) > 0 && (
@@ -747,11 +828,13 @@ function CheckinTab({
       return
     }
     setRows(null)
+    // كشف سبوطة واحدة — محدود بسعتها أصلًا، والسقف هنا حزام أمان بس
     const { data, error } = await supabase()
       .from('bookings')
       .select(BOOKING_COLS)
       .eq('sbota_id', sbotaId)
       .in('status', ['paid', 'attended', 'no_show'])
+      .range(0, ADMIN_SCAN_MAX - 1)
     if (error) {
       flash(`مقدرناش نجيب الكشف: ${error.message}`)
       setRows([])

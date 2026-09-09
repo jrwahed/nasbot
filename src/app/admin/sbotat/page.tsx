@@ -1,15 +1,18 @@
 'use client'
 
-import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
+import { Fragment, useCallback, useEffect, useState } from 'react'
 import { AdminShell } from '@/components/AdminShell'
 import { supabase } from '@/lib/supabase'
 import { revalidateSite } from '@/lib/admin'
 import type { AdminMe } from '@/lib/admin'
 import {
+  ADMIN_PAGE_SIZE,
+  ADMIN_SCAN_MAX,
   Card,
   Section,
   Tabs,
   Btn,
+  Pager,
   Toggle,
   SelectField,
   Table,
@@ -17,6 +20,12 @@ import {
   Loading,
   Tag,
   Stat,
+  cairoDay,
+  cairoDayStart,
+  cairoParts,
+  cairoToIso,
+  dayAdd,
+  todayCairo,
   useFlash,
   money,
   when,
@@ -37,6 +46,11 @@ import {
  * الإلغاء بيمرّ على fn_cancel_booking لكل حجز شغّال بـ p_by='us' —
  * ده اللي بيرجّع الفلوس كاملة وبيزوّد رصيد الاعتذار وبيبلّغ اللي في الانتظار.
  * ممنوع نغيّر الحالة على طول من غير ما نعدّي على الدالة دي.
+ *
+ * الترقيم من القاعدة: فلاتر الحالة والمنطقة والوقت بتتحوّل لشروط على الخادم
+ * (`eq` و `gte`/`lt` على starts_at بحدود يوم القاهرة)، والصفوف بتيجي صفحة
+ * صفحة بـ range. عدد المحجوز مابيتجابش لكل الحجوزات — بس للسبوطات اللي
+ * قدامك دلوقتي (`in('sbota_id', …)`).
  */
 
 /* ---------------------------------------------------------- أنواع */
@@ -133,54 +147,41 @@ const SEAT_TAKEN = ['paid', 'pending_payment', 'attended']
 
 /* ---------------------------------------------------------- وقت القاهرة */
 
-/** فرق توقيت القاهرة عن UTC بالملي ثانية في اللحظة دي (بيحسب الصيفي لوحده) */
-function cairoOffsetMs(at: Date): number {
-  const utc = new Date(at.toLocaleString('en-US', { timeZone: 'UTC' }))
-  const cairo = new Date(at.toLocaleString('en-US', { timeZone: 'Africa/Cairo' }))
-  return cairo.getTime() - utc.getTime()
-}
+/* حساب أيام القاهرة نفسه في admin-ui — هنا اللي يخص الأسابيع بس */
 
-/** تاريخ ووقت بتوقيت القاهرة → ISO بتوقيت UTC للتخزين */
-function cairoToIso(date: string, time: string): string {
-  const guess = new Date(`${date}T${(time || '00:00').slice(0, 5)}:00Z`)
-  if (Number.isNaN(guess.getTime())) return new Date().toISOString()
-  let ms = guess.getTime() - cairoOffsetMs(guess)
-  const again = cairoOffsetMs(new Date(ms))
-  if (again !== cairoOffsetMs(guess)) ms = guess.getTime() - again
-  return new Date(ms).toISOString()
-}
-
-/** ISO → { date: 'YYYY-MM-DD', time: 'HH:MM' } بتوقيت القاهرة */
-function cairoParts(iso: string): { date: string; time: string } {
-  const d = new Date(iso)
-  const date = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Africa/Cairo',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(d)
-  const time = new Intl.DateTimeFormat('en-GB', {
-    timeZone: 'Africa/Cairo',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-  }).format(d)
-  return { date, time }
-}
-
-const cairoDate = (iso: string) => cairoParts(iso).date
 const cairoTime = (iso: string) => cairoParts(iso).time
-const todayCairo = () => cairoDate(new Date().toISOString())
 
-/** بيزوّد أيام على 'YYYY-MM-DD' من غير ما التوقيت يلعب */
-function dateAdd(ymd: string, days: number): string {
-  const d = new Date(`${ymd}T12:00:00Z`)
-  d.setUTCDate(d.getUTCDate() + days)
-  return d.toISOString().slice(0, 10)
-}
 const weekdayOf = (ymd: string) => new Date(`${ymd}T12:00:00Z`).getUTCDay()
 /** أول يوم في أسبوع اليوم ده (السبت) */
-const weekStart = (ymd: string) => dateAdd(ymd, -((weekdayOf(ymd) + 1) % 7))
+const weekStart = (ymd: string) => dayAdd(ymd, -((weekdayOf(ymd) + 1) % 7))
+
+function chunk<T>(list: T[], size: number): T[][] {
+  const out: T[][] = []
+  for (let i = 0; i < list.length; i += size) out.push(list.slice(i, i + size))
+  return out
+}
+
+/**
+ * عدد المحجوز لكل سبوطة من السبوطات اللي اتطلبت بس.
+ * الأصل كان بيجيب كل الحجوزات (20 ألف صف) ويعدّهم في المتصفح.
+ */
+async function countBooked(ids: string[]): Promise<Record<string, number>> {
+  const map: Record<string, number> = {}
+  if (ids.length === 0) return map
+  const db = supabase()
+  for (const part of chunk(ids, 100)) {
+    for (const id of part) map[id] = 0
+    const { data } = await db
+      .from('bookings')
+      .select('sbota_id')
+      .in('sbota_id', part)
+      .in('status', SEAT_TAKEN)
+    for (const r of (data ?? []) as { sbota_id: string }[]) {
+      map[r.sbota_id] = (map[r.sbota_id] ?? 0) + 1
+    }
+  }
+  return map
+}
 
 /* ---------------------------------------------------------- حقول صغيرة */
 
@@ -242,53 +243,176 @@ type PanelMode = 'edit' | 'repeat' | 'cancel'
 
 function SbotatEditor({ canEdit, canCancel }: { canEdit: boolean; canCancel: boolean }) {
   const [rows, setRows] = useState<Sbota[]>([])
+  const [total, setTotal] = useState<number | null>(null)
+  const [calRows, setCalRows] = useState<Sbota[]>([])
   const [templates, setTemplates] = useState<Template[]>([])
   const [venues, setVenues] = useState<Venue[]>([])
   const [captains, setCaptains] = useState<Captain[]>([])
   const [booked, setBooked] = useState<Record<string, number>>({})
+  const [stats, setStats] = useState<{ soon: number; open: number; risky: number } | null>(null)
   const [loading, setLoading] = useState(true)
+  const [busy, setBusy] = useState(false)
 
   const [tab, setTab] = useState<TabId>('table')
   const [fStatus, setFStatus] = useState('الكل')
   const [fArea, setFArea] = useState('الكل')
   const [fWeek, setFWeek] = useState('next')
+  const [page, setPage] = useState(0)
   const [weekOff, setWeekOff] = useState(0)
   const [adding, setAdding] = useState(false)
   const [panel, setPanel] = useState<{ id: string; mode: PanelMode } | null>(null)
 
   const { flash, node: flashNode } = useFlash()
 
-  const reload = useCallback(async () => {
+  /** القوايم الصغيرة (قوالب · أماكن · كباتن) — جداول تعريفية، بتتجاب مرة واحدة */
+  const loadLists = useCallback(async () => {
     const db = supabase()
-    const [s, t, v, c, b] = await Promise.all([
-      db.from('sbotat').select('*').order('starts_at'),
+    const [t, v, c] = await Promise.all([
       db
         .from('sbota_templates')
         .select(
           'id, name_ar, default_price, org_fee, duration_min, min_group, max_group, is_day, girls_only'
         )
-        .order('name_ar'),
-      db.from('venues').select('id, name, area, area_label_ar, is_active').order('name'),
-      db.from('captains').select('id, display_name, bio_line, is_active'),
-      db.from('bookings').select('sbota_id, status').in('status', SEAT_TAKEN).limit(20000),
+        .order('name_ar')
+        .range(0, ADMIN_SCAN_MAX - 1),
+      db
+        .from('venues')
+        .select('id, name, area, area_label_ar, is_active')
+        .order('name')
+        .range(0, ADMIN_SCAN_MAX - 1),
+      db
+        .from('captains')
+        .select('id, display_name, bio_line, is_active')
+        .range(0, ADMIN_SCAN_MAX - 1),
     ])
-
-    setRows((s.data ?? []) as Sbota[])
     setTemplates((t.data ?? []) as Template[])
     setVenues((v.data ?? []) as Venue[])
     setCaptains((c.data ?? []) as Captain[])
-
-    const map: Record<string, number> = {}
-    for (const r of (b.data ?? []) as { sbota_id: string }[]) {
-      map[r.sbota_id] = (map[r.sbota_id] ?? 0) + 1
-    }
-    setBooked(map)
-    setLoading(false)
   }, [])
 
+  /** صفحة الجدول — كل الفلاتر بتتنفّذ في القاعدة */
+  const loadTable = useCallback(async () => {
+    setBusy(true)
+    const today = todayCairo()
+    const ws = weekStart(today)
+
+    let q = supabase().from('sbotat').select('*', { count: 'exact' })
+    if (fStatus !== 'الكل') q = q.eq('status', fStatus)
+    if (fArea !== 'الكل') q = q.eq('area', fArea)
+    if (fWeek === 'this') {
+      q = q.gte('starts_at', cairoDayStart(ws)).lt('starts_at', cairoDayStart(dayAdd(ws, 7)))
+    } else if (fWeek === 'nextweek') {
+      q = q
+        .gte('starts_at', cairoDayStart(dayAdd(ws, 7)))
+        .lt('starts_at', cairoDayStart(dayAdd(ws, 14)))
+    } else if (fWeek === 'next') {
+      q = q.gte('starts_at', cairoDayStart(today))
+    } else if (fWeek === 'past') {
+      q = q.lt('starts_at', cairoDayStart(today))
+    }
+
+    const { data, count, error } = await q
+      // اللي فات بيتعرض من الأحدث للأقدم، غير كده الأقرب الأول
+      .order('starts_at', { ascending: fWeek !== 'past' })
+      .range(page * ADMIN_PAGE_SIZE, page * ADMIN_PAGE_SIZE + ADMIN_PAGE_SIZE - 1)
+
+    setLoading(false)
+    setBusy(false)
+    if (error) {
+      flash(`مقدرناش نجيب السبوطات: ${error.message}`)
+      setRows([])
+      setTotal(0)
+      return
+    }
+    const list = (data ?? []) as Sbota[]
+    setRows(list)
+    setTotal(count ?? null)
+    const map = await countBooked(list.map((r) => r.id))
+    setBooked((old) => ({ ...old, ...map }))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fStatus, fArea, fWeek, page])
+
+  /** أسبوع التقويم بس — مش الجدول كله */
+  const calStart = dayAdd(weekStart(todayCairo()), weekOff * 7)
+
+  const loadCal = useCallback(async () => {
+    const { data, error } = await supabase()
+      .from('sbotat')
+      .select('*')
+      .gte('starts_at', cairoDayStart(calStart))
+      .lt('starts_at', cairoDayStart(dayAdd(calStart, 7)))
+      .order('starts_at')
+      .range(0, ADMIN_SCAN_MAX - 1)
+    if (error) {
+      flash(`مقدرناش نجيب أسبوع التقويم: ${error.message}`)
+      return
+    }
+    const list = (data ?? []) as Sbota[]
+    setCalRows(list)
+    const map = await countBooked(list.map((r) => r.id))
+    setBooked((old) => ({ ...old, ...map }))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [calStart])
+
+  /** الأرقام اللي فوق — عدّ من القاعدة، والخطر بيتحسب من الجاي بس */
+  const loadStats = useCallback(async () => {
+    const db = supabase()
+    const todayIso = cairoDayStart(todayCairo())
+    const [soon, open, upcoming] = await Promise.all([
+      db
+        .from('sbotat')
+        .select('id', { count: 'exact', head: true })
+        .gte('starts_at', todayIso)
+        .neq('status', 'cancelled'),
+      db
+        .from('sbotat')
+        .select('id', { count: 'exact', head: true })
+        .gte('starts_at', todayIso)
+        .eq('status', 'open'),
+      db
+        .from('sbotat')
+        .select('id, min_to_run')
+        .gte('starts_at', todayIso)
+        .neq('status', 'cancelled')
+        .neq('status', 'draft')
+        .order('starts_at')
+        .range(0, ADMIN_SCAN_MAX - 1),
+    ])
+    const list = (upcoming.data ?? []) as { id: string; min_to_run: number }[]
+    const map = await countBooked(list.map((r) => r.id))
+    setBooked((old) => ({ ...old, ...map }))
+    setStats({
+      soon: soon.count ?? 0,
+      open: open.count ?? 0,
+      risky: list.filter((r) => (map[r.id] ?? 0) < r.min_to_run).length,
+    })
+  }, [])
+
+  const reload = useCallback(async () => {
+    await Promise.all([loadTable(), tab === 'cal' ? loadCal() : Promise.resolve(), loadStats()])
+  }, [loadTable, loadCal, loadStats, tab])
+
   useEffect(() => {
-    reload()
-  }, [reload])
+    loadLists()
+  }, [loadLists])
+
+  useEffect(() => {
+    loadTable()
+  }, [loadTable])
+
+  useEffect(() => {
+    if (tab === 'cal') loadCal()
+  }, [tab, loadCal])
+
+  useEffect(() => {
+    loadStats()
+  }, [loadStats])
+
+  /** أي تغيير في الفلتر بيرجّعنا لأول صفحة */
+  const setFilter = (set: (v: string) => void) => (v: string) => {
+    setPage(0)
+    set(v)
+  }
 
   const tplOf = useCallback(
     (id: string) => templates.find((t) => t.id === id),
@@ -307,39 +431,12 @@ function SbotatEditor({ canEdit, canCancel }: { canEdit: boolean; canCancel: boo
     [captainOf]
   )
 
-  /* ------------------------------------------------ الفلاتر */
-
-  const shown = useMemo(() => {
-    const today = todayCairo()
-    const ws = weekStart(today)
-    return rows.filter((r) => {
-      if (fStatus !== 'الكل' && r.status !== fStatus) return false
-      if (fArea !== 'الكل' && r.area !== fArea) return false
-      const d = cairoDate(r.starts_at)
-      if (fWeek === 'this') return d >= ws && d <= dateAdd(ws, 6)
-      if (fWeek === 'nextweek') return d >= dateAdd(ws, 7) && d <= dateAdd(ws, 13)
-      if (fWeek === 'next') return d >= today
-      if (fWeek === 'past') return d < today
-      return true
-    })
-  }, [rows, fStatus, fArea, fWeek])
-
   /* ------------------------------------------------ حسابات */
 
   const under = useCallback(
     (r: Sbota) => (booked[r.id] ?? 0) < r.min_to_run,
     [booked]
   )
-
-  const stats = useMemo(() => {
-    const today = todayCairo()
-    const soon = rows.filter((r) => cairoDate(r.starts_at) >= today && r.status !== 'cancelled')
-    return {
-      soon: soon.length,
-      open: soon.filter((r) => r.status === 'open').length,
-      risky: soon.filter((r) => r.status !== 'draft' && under(r)).length,
-    }
-  }, [rows, under])
 
   /* ------------------------------------------------ التعديلات */
 
@@ -367,7 +464,7 @@ function SbotatEditor({ canEdit, canCancel }: { canEdit: boolean; canCancel: boo
   /** نسخة من نفس السبوطة بعد أسبوع — مسودة علشان تراجعها الأول */
   async function duplicate(r: Sbota) {
     const parts = cairoParts(r.starts_at)
-    const newDate = dateAdd(parts.date, 7)
+    const newDate = dayAdd(parts.date, 7)
     const startsAt = cairoToIso(newDate, parts.time)
     const lenMs = new Date(r.ends_at).getTime() - new Date(r.starts_at).getTime()
     const endsAt = new Date(new Date(startsAt).getTime() + lenMs).toISOString()
@@ -406,17 +503,16 @@ function SbotatEditor({ canEdit, canCancel }: { canEdit: boolean; canCancel: boo
 
   /* ------------------------------------------------ التقويم */
 
-  const calStart = dateAdd(weekStart(todayCairo()), weekOff * 7)
-  const calDays = Array.from({ length: 7 }, (_, i) => dateAdd(calStart, i))
+  const calDays = Array.from({ length: 7 }, (_, i) => dayAdd(calStart, i))
 
   return (
     <div>
       <div className="mt-6 flex flex-wrap gap-3">
-        <Stat label="سبوطات جاية" value={String(stats.soon)} />
-        <Stat label="مفتوحة للحجز" value={String(stats.open)} />
+        <Stat label="سبوطات جاية" value={stats ? String(stats.soon) : '…'} />
+        <Stat label="مفتوحة للحجز" value={stats ? String(stats.open) : '…'} />
         <Stat
           label="تحت الحد الأدنى"
-          value={String(stats.risky)}
+          value={stats ? String(stats.risky) : '…'}
           hint="محتاجة ناس تكمّل قبل ما تمشي"
         />
       </div>
@@ -461,19 +557,19 @@ function SbotatEditor({ canEdit, canCancel }: { canEdit: boolean; canCancel: boo
             <SelectField
               label="الحالة"
               value={fStatus}
-              onChange={setFStatus}
+              onChange={setFilter(setFStatus)}
               options={[{ value: 'الكل', label: 'كل الحالات' }, ...STATUSES]}
             />
             <SelectField
               label="المنطقة"
               value={fArea}
-              onChange={setFArea}
+              onChange={setFilter(setFArea)}
               options={[{ value: 'الكل', label: 'كل المناطق' }, ...AREAS]}
             />
             <SelectField
               label="الوقت"
               value={fWeek}
-              onChange={setFWeek}
+              onChange={setFilter(setFWeek)}
               options={[
                 { value: 'next', label: 'من النهارده ورايح' },
                 { value: 'this', label: 'الأسبوع ده' },
@@ -482,13 +578,13 @@ function SbotatEditor({ canEdit, canCancel }: { canEdit: boolean; canCancel: boo
                 { value: 'الكل', label: 'الكل' },
               ]}
             />
-            <div className="font-body text-14" style={{ color: 'var(--muted)' }}>
-              {shown.length} من {rows.length}
+            <div className="ms-auto">
+              <Btn onClick={() => reload()}>حدّث</Btn>
             </div>
           </div>
 
           <div className="mt-4">
-            {shown.length === 0 ? (
+            {rows.length === 0 ? (
               <Empty>مفيش سبوطة بالفلتر ده.</Empty>
             ) : (
               <Table
@@ -503,7 +599,7 @@ function SbotatEditor({ canEdit, canCancel }: { canEdit: boolean; canCancel: boo
                   '',
                 ]}
               >
-                {shown.map((r) => {
+                {rows.map((r) => {
                   const n = booked[r.id] ?? 0
                   return (
                     <Fragment key={r.id}>
@@ -566,6 +662,8 @@ function SbotatEditor({ canEdit, canCancel }: { canEdit: boolean; canCancel: boo
                 })}
               </Table>
             )}
+
+            <Pager page={page} shown={rows.length} total={total} onPage={setPage} busy={busy} />
           </div>
         </>
       )}
@@ -580,8 +678,8 @@ function SbotatEditor({ canEdit, canCancel }: { canEdit: boolean; canCancel: boo
 
           <div className="mt-4 grid grid-cols-2 gap-2 md:grid-cols-4 lg:grid-cols-7">
             {calDays.map((d, i) => {
-              const dayRows = rows
-                .filter((r) => cairoDate(r.starts_at) === d)
+              const dayRows = calRows
+                .filter((r) => cairoDay(r.starts_at) === d)
                 .sort((a, b) => a.starts_at.localeCompare(b.starts_at))
               const isToday = d === todayCairo()
               return (
@@ -749,7 +847,7 @@ function NewSbota({
   const [templateId, setTemplateId] = useState('')
   const [venueId, setVenueId] = useState('')
   const [captainId, setCaptainId] = useState('')
-  const [date, setDate] = useState(dateAdd(todayCairo(), 7))
+  const [date, setDate] = useState(dayAdd(todayCairo(), 7))
   const [time, setTime] = useState('18:00')
   const [price, setPrice] = useState('')
   const [capacity, setCapacity] = useState('')
@@ -1113,10 +1211,10 @@ function RepeatPanel({
   /** أول يوم بعد تاريخ السبوطة دي بيقع في اليوم اللي اخترته */
   function firstDate(): string {
     const want = Number(weekday)
-    let d = dateAdd(parts.date, 1)
+    let d = dayAdd(parts.date, 1)
     for (let i = 0; i < 7; i++) {
       if (weekdayOf(d) === want) return d
-      d = dateAdd(d, 1)
+      d = dayAdd(d, 1)
     }
     return d
   }
@@ -1126,7 +1224,7 @@ function RepeatPanel({
     if (n < 1 || n > 26) return flash('العدد من 1 لـ 26 أسبوع')
 
     const start = firstDate()
-    const dates = Array.from({ length: n }, (_, i) => dateAdd(start, i * 7))
+    const dates = Array.from({ length: n }, (_, i) => dayAdd(start, i * 7))
     if (!confirm(`هنعمل ${n} سبوطة، أولهم ${day(`${start}T12:00:00Z`)}. تمام؟`)) return
 
     setBusy(true)

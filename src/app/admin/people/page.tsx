@@ -5,11 +5,13 @@ import { AdminShell } from '@/components/AdminShell'
 import { supabase } from '@/lib/supabase'
 import type { AdminMe } from '@/lib/admin'
 import {
+  ADMIN_PAGE_SIZE,
   Btn,
   Card,
   Empty,
   Loading,
   NumberField,
+  Pager,
   SelectField,
   Stat,
   Table,
@@ -33,6 +35,12 @@ import {
  *
  * الصلاحيات: الدخول people.view · التعديل people.edit · الحظر people.ban.
  * ده إخفاء واجهة بس — المنع الحقيقي في RLS.
+ *
+ * الترقيم من القاعدة: البحث بالاسم `ilike`، والمنطقة والنوع `eq`،
+ * وفلتر «فيه ملاحظات / من غيرها» بيتعمل على العلاقة نفسها
+ * (`behavior_flags=is.null` و `not.is.null`) — مش بجلب جدول الملاحظات كله.
+ * وملاحظات كل شخص بتيجي مدمجة مع صفّه، فاختفى الاستعلام اللي كان بيجيب
+ * ٥٠٠٠ ملاحظة مرة واحدة.
  */
 
 /* ---------------------------------------------------------- الأنواع */
@@ -60,11 +68,12 @@ interface PRow {
   ban_reason: string | null
   deleted_at: string | null
   created_at: string
+  /** ملاحظات السلوك بتيجي مدمجة مع الصف — مش استعلام تاني */
+  behavior_flags: FlagRow[] | null
 }
 
 interface FlagRow {
   id: string
-  profile_id: string
   kind: string
   note: string | null
   weight: number
@@ -202,6 +211,17 @@ function maskPhone(p: string | null | undefined) {
   return `${s.slice(0, 3)}••••${s.slice(-3)}`
 }
 
+/** بنستنى ثانية تلت بعد آخر حرف قبل ما نروح للقاعدة */
+const SEARCH_DELAY_MS = 300
+
+/** بننضّف اللي المستخدم كتبه من الرموز اللي بتكسر فلتر postgrest */
+const safeLike = (s: string) => s.replace(/[,()*%".:\\]/g, ' ').trim()
+
+const FLAG_EMBED = 'behavior_flags(id, kind, note, weight, created_at)'
+
+const PROFILE_COLS =
+  'id, first_name, phone, area, area_other, gender, birth_year, girls_only_pref, social_energy, group_pref, budget_max, wish_text, type, role, sbota_count, no_show_count, wallet_balance, avatar_path, banned_at, ban_reason, deleted_at, created_at'
+
 /* ---------------------------------------------------------- الصفحة */
 
 export default function AdminPeoplePage() {
@@ -218,68 +238,111 @@ function People({ me }: { me: AdminMe }) {
   const canSeePhone = me.permissions.has('people.view')
 
   const [rows, setRows] = useState<PRow[]>([])
-  const [flags, setFlags] = useState<FlagRow[]>([])
+  const [total, setTotal] = useState<number | null>(null)
+  const [page, setPage] = useState(0)
+  const [sums, setSums] = useState<{ all: number; flagged: number; banned: number } | null>(null)
   const [typeNames, setTypeNames] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(true)
+  const [busy, setBusy] = useState(false)
   const [selected, setSelected] = useState<string | null>(null)
   const [shown, setShown] = useState<Record<string, boolean>>({})
 
   const [q, setQ] = useState('')
+  /** اللي راح للقاعدة فعلًا — بيتأخر شوية عن اللي بتكتبه */
+  const [needle, setNeedle] = useState('')
   const [area, setArea] = useState('all')
   const [gender, setGender] = useState('all')
   const [flagged, setFlagged] = useState('all')
 
   const { flash, node } = useFlash()
 
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setPage(0)
+      setNeedle(safeLike(q))
+    }, SEARCH_DELAY_MS)
+    return () => clearTimeout(t)
+  }, [q])
+
+  /** صفحة القايمة — كل الفلاتر بتتنفّذ في القاعدة */
   const reload = useCallback(async () => {
+    setBusy(true)
+    let p = supabase()
+      .from('profiles')
+      .select(`${PROFILE_COLS}, ${FLAG_EMBED}`, { count: 'exact' })
+    if (area !== 'all') p = p.eq('area', area)
+    if (gender !== 'all') p = p.eq('gender', gender)
+    if (flagged === 'yes') p = p.not('behavior_flags', 'is', null)
+    if (flagged === 'no') p = p.is('behavior_flags', null)
+    if (needle) p = p.ilike('first_name', `%${needle}%`)
+
+    const { data, count, error } = await p
+      .order('created_at', { ascending: false })
+      .order('created_at', { referencedTable: 'behavior_flags', ascending: false })
+      .range(page * ADMIN_PAGE_SIZE, page * ADMIN_PAGE_SIZE + ADMIN_PAGE_SIZE - 1)
+
+    setLoading(false)
+    setBusy(false)
+    if (error) {
+      flash(`مقدرناش نجيب الناس: ${error.message}`)
+      setRows([])
+      setTotal(0)
+      return
+    }
+    setRows((data ?? []) as unknown as PRow[])
+    setTotal(count ?? null)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [area, gender, flagged, needle, page])
+
+  /** الأرقام اللي فوق — عدّ من القاعدة مش من صفوف محمّلة */
+  const loadSums = useCallback(async () => {
     const db = supabase()
-    const [p, f, t] = await Promise.all([
+    const [all, withFlags, banned] = await Promise.all([
+      db.from('profiles').select('id', { count: 'exact', head: true }),
       db
         .from('profiles')
-        .select(
-          'id, first_name, phone, area, area_other, gender, birth_year, girls_only_pref, social_energy, group_pref, budget_max, wish_text, type, role, sbota_count, no_show_count, wallet_balance, avatar_path, banned_at, ban_reason, deleted_at, created_at'
-        )
-        .order('created_at', { ascending: false })
-        .limit(2000),
+        .select(`id, ${FLAG_EMBED}`, { count: 'exact', head: true })
+        .not('behavior_flags', 'is', null),
       db
-        .from('behavior_flags')
-        .select('id, profile_id, kind, note, weight, created_at')
-        .order('created_at', { ascending: false })
-        .limit(5000),
-      db.from('personality_types').select('key, name_ar'),
+        .from('profiles')
+        .select('id', { count: 'exact', head: true })
+        .not('banned_at', 'is', null),
     ])
-    setRows((p.data ?? []) as PRow[])
-    setFlags((f.data ?? []) as FlagRow[])
+    setSums({
+      all: all.count ?? 0,
+      flagged: withFlags.count ?? 0,
+      banned: banned.count ?? 0,
+    })
+  }, [])
+
+  const loadTypes = useCallback(async () => {
+    const { data } = await supabase().from('personality_types').select('key, name_ar')
     const map: Record<string, string> = {}
-    for (const r of (t.data ?? []) as { key: string; name_ar: string }[]) map[r.key] = r.name_ar
+    for (const r of (data ?? []) as { key: string; name_ar: string }[]) map[r.key] = r.name_ar
     setTypeNames(map)
-    setLoading(false)
   }, [])
 
   useEffect(() => {
     reload()
   }, [reload])
 
-  const flagsByPerson = useMemo(() => {
-    const m: Record<string, FlagRow[]> = {}
-    for (const f of flags) (m[f.profile_id] ??= []).push(f)
-    return m
-  }, [flags])
+  useEffect(() => {
+    loadSums()
+  }, [loadSums])
 
-  const list = useMemo(() => {
-    const needle = q.trim().toLowerCase()
-    return rows.filter((r) => {
-      if (area !== 'all' && r.area !== area) return false
-      if (gender !== 'all' && r.gender !== gender) return false
-      const has = (flagsByPerson[r.id]?.length ?? 0) > 0
-      if (flagged === 'yes' && !has) return false
-      if (flagged === 'no' && has) return false
-      if (!needle) return true
-      return (r.first_name ?? '').toLowerCase().includes(needle)
-    })
-  }, [rows, q, area, gender, flagged, flagsByPerson])
+  useEffect(() => {
+    loadTypes()
+  }, [loadTypes])
+
+  const flagsOf = useCallback((r: PRow) => r.behavior_flags ?? [], [])
 
   const person = useMemo(() => rows.find((r) => r.id === selected) ?? null, [rows, selected])
+
+  /** أي تغيير في الفلتر بيرجّعنا لأول صفحة */
+  const setFilter = (set: (v: string) => void) => (v: string) => {
+    setPage(0)
+    set(v)
+  }
 
   if (loading) return <Loading />
 
@@ -287,10 +350,10 @@ function People({ me }: { me: AdminMe }) {
     <div className="mt-6">
       {/* أرقام سريعة */}
       <div className="flex flex-wrap gap-3">
-        <Stat label="كل الناس" value={String(rows.length)} />
-        <Stat label="المعروض دلوقتي" value={String(list.length)} />
-        <Stat label="عليهم ملاحظات" value={String(Object.keys(flagsByPerson).length)} />
-        <Stat label="محظورين" value={String(rows.filter((r) => r.banned_at).length)} />
+        <Stat label="كل الناس" value={sums ? String(sums.all) : '…'} />
+        <Stat label="اللي بالفلتر ده" value={total === null ? '…' : String(total)} />
+        <Stat label="عليهم ملاحظات" value={sums ? String(sums.flagged) : '…'} />
+        <Stat label="محظورين" value={sums ? String(sums.banned) : '…'} />
       </div>
 
       {/* الفلاتر */}
@@ -315,19 +378,19 @@ function People({ me }: { me: AdminMe }) {
         <SelectField
           label="المنطقة"
           value={area}
-          onChange={setArea}
+          onChange={setFilter(setArea)}
           options={[{ value: 'all', label: 'كل المناطق' }, ...AREAS]}
         />
         <SelectField
           label="بنت ولا شاب"
           value={gender}
-          onChange={setGender}
+          onChange={setFilter(setGender)}
           options={[{ value: 'all', label: 'الكل' }, ...GENDERS]}
         />
         <SelectField
           label="الملاحظات"
           value={flagged}
-          onChange={setFlagged}
+          onChange={setFilter(setFlagged)}
           options={[
             { value: 'all', label: 'الكل' },
             { value: 'yes', label: 'فيه ملاحظات' },
@@ -338,6 +401,7 @@ function People({ me }: { me: AdminMe }) {
         {(q || area !== 'all' || gender !== 'all' || flagged !== 'all') && (
           <Btn
             onClick={() => {
+              setPage(0)
               setQ('')
               setArea('all')
               setGender('all')
@@ -354,12 +418,12 @@ function People({ me }: { me: AdminMe }) {
       <div className="mt-5 grid gap-5 xl:grid-cols-[1fr_480px]">
         {/* القايمة */}
         <Card hint="اضغط على أي حد علشان تفتح صفحته على جنب.">
-          {list.length === 0 ? (
+          {rows.length === 0 ? (
             <Empty>مفيش حد بالفلتر ده.</Empty>
           ) : (
             <Table head={['الاسم', 'المنطقة', 'التليفون', 'سبوطات', 'من إمتى', 'ملاحظات']}>
-              {list.map((r) => {
-                const mine = flagsByPerson[r.id] ?? []
+              {rows.map((r) => {
+                const mine = flagsOf(r)
                 const on = r.id === selected
                 return (
                   <tr
@@ -417,6 +481,8 @@ function People({ me }: { me: AdminMe }) {
               })}
             </Table>
           )}
+
+          <Pager page={page} shown={rows.length} total={total} onPage={setPage} busy={busy} />
         </Card>
 
         {/* صفحة الشخص */}
@@ -425,7 +491,7 @@ function People({ me }: { me: AdminMe }) {
             <Detail
               key={person.id}
               person={person}
-              flags={flagsByPerson[person.id] ?? []}
+              flags={flagsOf(person)}
               typeName={person.type ? (typeNames[person.type] ?? person.type) : null}
               canEdit={canEdit}
               canBan={canBan}

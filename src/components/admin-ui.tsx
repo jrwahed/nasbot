@@ -44,6 +44,67 @@ export const day = (iso: string | null | undefined) =>
       })
     : '—'
 
+/* ------------------------------------------------------ حساب أيام القاهرة */
+
+/**
+ * الفلترة بالتاريخ لازم تروح للقاعدة (`.gte`/`.lt` على عمود timestamptz)،
+ * والقاعدة بتخزّن UTC واللوحة بتفكّر بيوم القاهرة. الدوال دي بتترجم بين
+ * الاتنين، وموجودة هنا مرة واحدة علشان ما تتكررش في كل صفحة.
+ */
+
+/** تاريخ القاهرة على شكل 2026-09-08 */
+export const cairoDay = (iso: string | number | Date) =>
+  new Date(iso).toLocaleDateString('en-CA', { timeZone: 'Africa/Cairo' })
+
+/** النهارده بتوقيت القاهرة */
+export const todayCairo = () => cairoDay(new Date())
+
+/** فرق توقيت القاهرة عن UTC بالملي ثانية في اللحظة دي (بيحسب الصيفي لوحده) */
+function cairoOffsetMs(at: Date): number {
+  const utc = new Date(at.toLocaleString('en-US', { timeZone: 'UTC' }))
+  const cairo = new Date(at.toLocaleString('en-US', { timeZone: 'Africa/Cairo' }))
+  return cairo.getTime() - utc.getTime()
+}
+
+/** تاريخ وساعة بتوقيت القاهرة → ISO بتوقيت UTC للتخزين والفلترة */
+export function cairoToIso(date: string, time: string): string {
+  const guess = new Date(`${date}T${(time || '00:00').slice(0, 5)}:00Z`)
+  if (Number.isNaN(guess.getTime())) return new Date().toISOString()
+  let ms = guess.getTime() - cairoOffsetMs(guess)
+  const again = cairoOffsetMs(new Date(ms))
+  if (again !== cairoOffsetMs(guess)) ms = guess.getTime() - again
+  return new Date(ms).toISOString()
+}
+
+/** ISO → { date: 'YYYY-MM-DD', time: 'HH:MM' } بتوقيت القاهرة */
+export function cairoParts(iso: string): { date: string; time: string } {
+  const d = new Date(iso)
+  const date = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Africa/Cairo',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(d)
+  const time = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Africa/Cairo',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).format(d)
+  return { date, time }
+}
+
+/** أول لحظة في يوم قاهرة (YYYY-MM-DD) بـ ISO — بداية مدى الفلتر */
+export const cairoDayStart = (ymd: string) => cairoToIso(ymd, '00:00')
+
+/** بيزوّد أيام على 'YYYY-MM-DD' من غير ما التوقيت يلعب */
+export function dayAdd(ymd: string, days: number): string {
+  const d = new Date(`${ymd}T12:00:00Z`)
+  if (Number.isNaN(d.getTime())) return ymd
+  d.setUTCDate(d.getUTCDate() + days)
+  return d.toISOString().slice(0, 10)
+}
+
 /* ---------------------------------------------------------- رسايل */
 
 /** رسالة صغيرة بتظهر وتختفي — كل صفحة بتستعملها لتأكيد الحفظ */
@@ -358,6 +419,101 @@ export function Empty({ children }: { children: ReactNode }) {
   return (
     <div className="py-8 font-body text-16" style={{ color: 'var(--muted)' }}>
       {children}
+    </div>
+  )
+}
+
+/* ---------------------------------------------------------- تقليب الصفحات */
+
+/**
+ * حجم الصفحة في جداول اللوحة.
+ *
+ * ⚠ الرقم ده مكانه الصح `settings` مش الكود (القاعدة الحاكمة رقم ٢ في CLAUDE.md).
+ * إضافة عمود في `settings` محتاجة هجرة، والهجرات مش من شغل الجزء ده —
+ * فالرقم مؤقتًا هنا، **في مكان واحد بالظبط** علشان نقله بعدين يبقى سطر واحد.
+ * أول ما يتضاف `settings.admin_page_size`: اقراه، مرّره لـ Pager كـ pageSize،
+ * وامسح الثابت ده.
+ */
+export const ADMIN_PAGE_SIZE = 50
+
+/**
+ * أقصى عدد صفوف بنمسحه لما نحتاج نبص على أكتر من صفحة —
+ * قوايم الفلاتر، الأرقام اللي فوق الجدول، وتنزيل CSV.
+ * مشتق من حجم الصفحة علشان يفضل رقم واحد بس في المشروع، ونفس الملاحظة فوق:
+ * مكانه الصح `settings`.
+ */
+export const ADMIN_SCAN_MAX = ADMIN_PAGE_SIZE * 20
+
+/** رقم بالعربي — نفس أسلوب money() */
+const arNum = (n: number) => n.toLocaleString('ar-EG')
+
+/** آخر رقم صفحة ممكن (من صفر) — بيتحسب من العدد الكلي */
+export const lastPage = (total: number, pageSize = ADMIN_PAGE_SIZE) =>
+  Math.max(0, Math.ceil(total / pageSize) - 1)
+
+/**
+ * تقليب الصفحات — القطعة الوحيدة اللي كل جداول اللوحة بتستعملها.
+ *
+ * الصفحة نفسها بتجيب الصفوف بـ `.range(from, to)` من القاعدة،
+ * ودي بترسم «من كام لكام» والزراير بس. لو `total` موجود (يعني الصفحة
+ * طلبت `{ count: 'exact' }`) بنبيّن العدد الكلي وعدد الصفحات،
+ * ولو مش موجود بنعرف إن فيه صفحة جاية من إن الصفحة دي جت كاملة.
+ */
+export function Pager({
+  page,
+  shown,
+  total,
+  pageSize = ADMIN_PAGE_SIZE,
+  onPage,
+  busy,
+  note,
+}: {
+  /** رقم الصفحة الحالية من صفر */
+  page: number
+  /** عدد الصفوف اللي رجعت في الصفحة دي */
+  shown: number
+  /** العدد الكلي بعد الفلتر — سيبه فاضي لو جيبه غالي */
+  total?: number | null
+  pageSize?: number
+  onPage: (page: number) => void
+  busy?: boolean
+  note?: string
+}) {
+  const hasTotal = typeof total === 'number'
+  const first = shown === 0 ? 0 : page * pageSize + 1
+  const last = page * pageSize + shown
+  const hasPrev = page > 0
+  const hasNext = hasTotal ? last < total : shown === pageSize
+  const pages = hasTotal ? lastPage(total, pageSize) + 1 : null
+
+  return (
+    <div className="mt-4 flex flex-wrap items-center gap-2">
+      <span className="font-body text-14" style={{ color: 'var(--muted)' }}>
+        {shown === 0
+          ? 'مفيش صفوف'
+          : `${arNum(first)}–${arNum(last)}${hasTotal ? ` من ${arNum(total)}` : ''}`}
+      </span>
+
+      {(hasPrev || hasNext) && (
+        <>
+          <Btn onClick={() => onPage(page - 1)} disabled={Boolean(busy) || !hasPrev}>
+            اللي قبله
+          </Btn>
+          <Btn onClick={() => onPage(page + 1)} disabled={Boolean(busy) || !hasNext}>
+            اللي بعده
+          </Btn>
+          <span className="font-body text-13" style={{ color: 'var(--muted)' }}>
+            صفحة {arNum(page + 1)}
+            {pages ? ` من ${arNum(pages)}` : ''}
+          </span>
+        </>
+      )}
+
+      {note && (
+        <span className="font-body text-12" style={{ color: 'var(--muted)' }}>
+          {note}
+        </span>
+      )}
     </div>
   )
 }

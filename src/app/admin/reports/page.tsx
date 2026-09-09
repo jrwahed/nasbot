@@ -1,10 +1,13 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { AdminShell } from '@/components/AdminShell'
 import { supabase } from '@/lib/supabase'
 import {
+  ADMIN_PAGE_SIZE,
+  ADMIN_SCAN_MAX,
   Btn,
+  Pager,
   SelectField,
   Empty,
   Loading,
@@ -29,6 +32,11 @@ import type { AdminMe } from '@/lib/admin'
  *
  * ملاحظة: «حظر» هنا بتسجّل القرار وتزوّد علامة — الحظر الفعلي للحساب
  * بيتعمل من قسم «الناس» (صلاحية people.ban).
+ *
+ * الترقيم من القاعدة: الفلتر بيروح كـ `eq`/`in` على الحالة، والصفوف بتيجي
+ * صفحة صفحة. «اللي لسه مستنية» بيترتّب بـ status الأول (open قبل reviewing
+ * أبجديًا) وبعدين بالأحدث — نفس ترتيب الطابور القديم بالظبط.
+ * أسامي الناس وعلامات السلوك بتتجاب للي في الصفحة دي بس.
  */
 
 interface ReportRow {
@@ -77,8 +85,17 @@ const STATUSES: Record<string, { label: string; color?: string }> = {
   dismissed: { label: 'اتقفلت' },
 }
 
-/** ترتيب الطابور: المستنية فوق، وبعدين اللي بنراجعها، وبعدين الباقي */
-const RANK: Record<string, number> = { open: 0, reviewing: 1, actioned: 2, dismissed: 3 }
+/** الحالات اللي لسه مستنية ردّنا */
+const PENDING = ['open', 'reviewing']
+
+const REPORT_COLS =
+  'id, reporter_id, target_profile_id, message_id, booking_id, reason, note, status, handled_by, handled_at, action, created_at'
+
+function chunk<T>(list: T[], size: number): T[][] {
+  const out: T[][] = []
+  for (let i = 0; i < list.length; i += size) out.push(list.slice(i, i + size))
+  return out
+}
 
 const ACTIONS = [
   { value: 'warn', label: 'نبّهناه' },
@@ -123,11 +140,18 @@ function ReportsQueue({ me }: { me: AdminMe }) {
   const canAct = me.permissions.has('reports.action')
 
   const [rows, setRows] = useState<ReportRow[] | null>(null)
+  const [total, setTotal] = useState<number | null>(null)
+  const [page, setPage] = useState(0)
   const [people, setPeople] = useState<Record<string, PersonRow>>({})
   const [flags, setFlags] = useState<FlagRow[]>([])
+  /** كام بلاغ على كل عضو من اللي في الصفحة دي */
+  const [reportsOn, setReportsOn] = useState<Record<string, number>>({})
+  const [counts, setCounts] = useState({ open: 0, reviewing: 0, actioned: 0, dismissed: 0 })
+  const [oldestOpen, setOldestOpen] = useState<ReportRow | null>(null)
   const [filter, setFilter] = useState('pending')
   const [meId, setMeId] = useState<string | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
+  const [loading, setLoading] = useState(false)
   const { flash, node: flashNode } = useFlash()
 
   useEffect(() => {
@@ -137,62 +161,117 @@ function ReportsQueue({ me }: { me: AdminMe }) {
       .catch(() => setMeId(null))
   }, [])
 
+  /** صفحة الطابور — الفلتر والترتيب في القاعدة */
   const reload = useCallback(async () => {
+    setLoading(true)
     const db = supabase()
-    const [r, p, f] = await Promise.all([
+    let q = db.from('reports').select(REPORT_COLS, { count: 'exact' })
+    if (filter === 'pending') q = q.in('status', PENDING)
+    else if (filter !== 'all') q = q.eq('status', filter)
+
+    // 'open' قبل 'reviewing' أبجديًا — نفس ترتيب الطابور القديم
+    if (filter === 'pending') q = q.order('status', { ascending: true })
+    const { data, count, error } = await q
+      .order('created_at', { ascending: false })
+      .range(page * ADMIN_PAGE_SIZE, page * ADMIN_PAGE_SIZE + ADMIN_PAGE_SIZE - 1)
+
+    setLoading(false)
+    if (error) {
+      flash(`مقدرناش نجيب البلاغات: ${error.message}`)
+      setRows([])
+      setTotal(0)
+      return
+    }
+    const list = (data ?? []) as ReportRow[]
+    setRows(list)
+    setTotal(count ?? null)
+
+    // الناس والعلامات وعدد البلاغات — للي في الصفحة دي بس
+    const targets = Array.from(
+      new Set(list.map((r) => r.target_profile_id).filter((x): x is string => Boolean(x)))
+    )
+    const ids = Array.from(
+      new Set(
+        [
+          ...list.map((r) => r.reporter_id),
+          ...list.map((r) => r.target_profile_id),
+          ...list.map((r) => r.handled_by),
+        ].filter((x): x is string => Boolean(x))
+      )
+    )
+
+    const map: Record<string, PersonRow> = {}
+    for (const part of chunk(ids, 100)) {
+      const { data: ps } = await db
+        .from('profiles')
+        .select('id, first_name, phone, banned_at, no_show_count')
+        .in('id', part)
+      for (const person of (ps ?? []) as PersonRow[]) map[person.id] = person
+    }
+    setPeople((old) => ({ ...old, ...map }))
+
+    const gathered: FlagRow[] = []
+    const seen: Record<string, number> = {}
+    for (const part of chunk(targets, 100)) {
+      const [fl, rp] = await Promise.all([
+        db
+          .from('behavior_flags')
+          .select('id, profile_id, kind, note, weight, created_at')
+          .in('profile_id', part)
+          .order('created_at', { ascending: false })
+          .range(0, ADMIN_SCAN_MAX - 1),
+        db
+          .from('reports')
+          .select('target_profile_id')
+          .in('target_profile_id', part)
+          .range(0, ADMIN_SCAN_MAX - 1),
+      ])
+      gathered.push(...((fl.data ?? []) as FlagRow[]))
+      for (const r of (rp.data ?? []) as { target_profile_id: string }[]) {
+        seen[r.target_profile_id] = (seen[r.target_profile_id] ?? 0) + 1
+      }
+    }
+    setFlags(gathered)
+    setReportsOn(seen)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filter, page])
+
+  /** الأرقام اللي فوق + أقدم بلاغ مستني — عدّ من القاعدة */
+  const loadCounts = useCallback(async () => {
+    const db = supabase()
+    const kinds = ['open', 'reviewing', 'actioned', 'dismissed'] as const
+    const [res, oldest] = await Promise.all([
+      Promise.all(
+        kinds.map((k) =>
+          db.from('reports').select('id', { count: 'exact', head: true }).eq('status', k)
+        )
+      ),
       db
         .from('reports')
-        .select(
-          'id, reporter_id, target_profile_id, message_id, booking_id, reason, note, status, handled_by, handled_at, action, created_at'
-        )
-        .order('created_at', { ascending: false })
-        .limit(500),
-      db.from('profiles').select('id, first_name, phone, banned_at, no_show_count').limit(2000),
-      db
-        .from('behavior_flags')
-        .select('id, profile_id, kind, note, weight, created_at')
-        .order('created_at', { ascending: false })
-        .limit(1000),
+        .select(REPORT_COLS)
+        .eq('status', 'open')
+        .order('created_at', { ascending: true })
+        .limit(1),
     ])
-
-    setRows((r.data ?? []) as ReportRow[])
-    const map: Record<string, PersonRow> = {}
-    for (const person of (p.data ?? []) as PersonRow[]) map[person.id] = person
-    setPeople(map)
-    setFlags((f.data ?? []) as FlagRow[])
+    const out = { open: 0, reviewing: 0, actioned: 0, dismissed: 0 }
+    kinds.forEach((k, i) => {
+      out[k] = res[i].count ?? 0
+    })
+    setCounts(out)
+    setOldestOpen((((oldest.data ?? []) as ReportRow[])[0] ?? null) as ReportRow | null)
   }, [])
 
   useEffect(() => {
     reload()
   }, [reload])
 
-  const sorted = useMemo(() => {
-    if (!rows) return []
-    return [...rows].sort((a, b) => {
-      const d = (RANK[a.status] ?? 9) - (RANK[b.status] ?? 9)
-      if (d !== 0) return d
-      return b.created_at.localeCompare(a.created_at)
-    })
-  }, [rows])
+  useEffect(() => {
+    loadCounts()
+  }, [loadCounts])
 
-  const shown = useMemo(() => {
-    if (filter === 'all') return sorted
-    if (filter === 'pending') return sorted.filter((r) => r.status === 'open' || r.status === 'reviewing')
-    return sorted.filter((r) => r.status === filter)
-  }, [sorted, filter])
-
-  const counts = useMemo(() => {
-    const c = { open: 0, reviewing: 0, actioned: 0, dismissed: 0 }
-    for (const r of rows ?? []) if (r.status in c) c[r.status as keyof typeof c]++
-    return c
-  }, [rows])
-
-  /** أقدم بلاغ مستني — علشان نعرف إحنا متأخرين قد إيه */
-  const oldestOpen = useMemo(() => {
-    const open = (rows ?? []).filter((r) => r.status === 'open')
-    if (!open.length) return null
-    return open.reduce((a, b) => (a.created_at < b.created_at ? a : b))
-  }, [rows])
+  const refresh = useCallback(async () => {
+    await Promise.all([reload(), loadCounts()])
+  }, [reload, loadCounts])
 
   const nameOf = (id: string | null) => {
     if (!id) return '—'
@@ -220,7 +299,7 @@ function ReportsQueue({ me }: { me: AdminMe }) {
     })
     setBusy(null)
     if (err) return flash(`مقدرناش: ${err}`)
-    await reload()
+    await refresh()
     flash('اتسجّلت إنها تحت المراجعة ✓')
   }
 
@@ -236,7 +315,7 @@ function ReportsQueue({ me }: { me: AdminMe }) {
     })
     setBusy(null)
     if (err) return flash(`مقدرناش: ${err}`)
-    await reload()
+    await refresh()
     flash('البلاغ اتقفل والسبب اتسجّل ✓')
   }
 
@@ -276,7 +355,7 @@ function ReportsQueue({ me }: { me: AdminMe }) {
     })
     setBusy(null)
     if (err) return flash(`العلامة اتزودت بس البلاغ ما اتقفلش: ${err}`)
-    await reload()
+    await refresh()
     flash(
       action === 'ban'
         ? 'اتسجّل ✓ — فاكر إن الحظر الفعلي للحساب بيتعمل من قسم «الناس».'
@@ -317,27 +396,35 @@ function ReportsQueue({ me }: { me: AdminMe }) {
       )}
 
       <div className="mt-4 flex flex-wrap items-end gap-3">
-        <SelectField label="اعرض" value={filter} options={FILTERS} onChange={setFilter} />
+        <SelectField
+          label="اعرض"
+          value={filter}
+          options={FILTERS}
+          onChange={(v) => {
+            setPage(0)
+            setFilter(v)
+          }}
+        />
         <div className="font-body text-14" style={{ color: 'var(--muted)' }}>
-          {shown.length} من {rows.length}
+          {total ?? 0} بلاغ بالفلتر ده
         </div>
         <div className="ms-auto">
-          <Btn onClick={() => reload()}>حدّث</Btn>
+          <Btn onClick={() => refresh()}>حدّث</Btn>
         </div>
       </div>
 
       {flashNode}
 
       <div className="mt-4 flex flex-col gap-3">
-        {shown.length === 0 && (
+        {rows.length === 0 && (
           <Empty>
-            {rows.length === 0
+            {counts.open + counts.reviewing + counts.actioned + counts.dismissed === 0
               ? 'مفيش بلاغات لحد دلوقتي. أول ما حد يبلّغ هتلاقيه هنا فورًا.'
               : 'مفيش بلاغ بالفلتر ده.'}
           </Empty>
         )}
 
-        {shown.map((r) => (
+        {rows.map((r) => (
           <ReportCard
             key={r.id}
             r={r}
@@ -348,16 +435,14 @@ function ReportsQueue({ me }: { me: AdminMe }) {
             targetBanned={Boolean(r.target_profile_id && people[r.target_profile_id]?.banned_at)}
             handler={r.handled_by ? nameOf(r.handled_by) : null}
             targetFlags={flags.filter((f) => f.profile_id === r.target_profile_id)}
-            openCount={
-              r.target_profile_id
-                ? (rows ?? []).filter((x) => x.target_profile_id === r.target_profile_id).length
-                : 0
-            }
+            openCount={r.target_profile_id ? (reportsOn[r.target_profile_id] ?? 0) : 0}
             onReview={(note) => markReviewing(r, note)}
             onDismiss={(note) => dismiss(r, note)}
             onAct={(note, action, kind, weight) => act(r, note, action, kind, weight)}
           />
         ))}
+
+        <Pager page={page} shown={rows.length} total={total} onPage={setPage} busy={loading} />
       </div>
     </div>
   )

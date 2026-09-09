@@ -5,11 +5,14 @@ import { AdminShell } from '@/components/AdminShell'
 import { supabase } from '@/lib/supabase'
 import type { AdminMe } from '@/lib/admin'
 import {
+  ADMIN_PAGE_SIZE,
+  ADMIN_SCAN_MAX,
   Btn,
   Card,
   Empty,
   Loading,
   NumberField,
+  Pager,
   SelectField,
   Stat,
   Table,
@@ -34,6 +37,11 @@ import {
  *
  * الفلوس كلها متخزنة **قروش** في القاعدة. 300 جنيه = 30000.
  * أي رقم بيتعرض بيعدي على money()، وأي رقم بندخّله بالجنيه بيتضرب في 100.
+ *
+ * الترقيم من القاعدة: كل تبويب بيجيب صفحة واحدة بـ range مع عدّ دقيق،
+ * والفلترة والبحث بيتعملوا على الخادم. postgrest ما بيعرفش يعمل «أو» بين
+ * أعمدة من جدولين، علشان كده البحث في «كل المعاملات» فيه اختيار «بندوّر في
+ * إيه» (العضو / رقم العملية / السبوطة) — بدل ما نجيب ٣٠٠ صف ونفلترهم عندك.
  */
 
 /* ============================================================ ثوابت */
@@ -113,15 +121,38 @@ const RECEIPTS_BUCKET = 'receipts'
 const SIGNED_SECONDS = 300
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000
 
-/** بدون مسافات — PostgREST بياخد الـ select كنص واحد */
-const PAY_SELECT = [
-  'id,booking_id,provider,provider_ref,amount,fee_amount,status,receipt_path,reviewed_at,created_at',
-  'bookings!payments_booking_id_fkey(',
-  'id,profile_id,status,price_paid,discount,wallet_used,',
-  'profiles!bookings_profile_id_fkey(first_name,phone),',
-  'sbotat(starts_at,sbota_templates(name_ar))',
-  ')',
-].join('')
+/** بنستنى ثانية تلت بعد آخر حرف قبل ما نروح للقاعدة */
+const SEARCH_DELAY_MS = 300
+
+/** أقصى عدد اقتراحات في خانة اختيار الدفعة للاسترداد */
+const PICK_MAX = 8
+
+/** بننضّف اللي المستخدم كتبه من الرموز اللي بتكسر فلتر postgrest */
+const safeLike = (s: string) => s.replace(/[,()*%".:\\]/g, ' ').trim()
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+/** الحالات اللي ينفع نسترد منها */
+const REFUNDABLE = ['succeeded', 'partially_refunded']
+
+/**
+ * بدون مسافات — PostgREST بياخد الـ select كنص واحد.
+ *
+ * `join` بيحدد فين نحط `!inner`. من غيره الفلتر على جدول مدمج بيفلتر
+ * الجزء المدمج بس والدفعة نفسها بتفضل ظاهرة فاضية — وده اللي بيخلي
+ * البحث «شغّال» في الشكل وغلط في النتيجة.
+ */
+const paySelect = (join: 'none' | 'person' | 'sbota' = 'none') =>
+  [
+    'id,booking_id,provider,provider_ref,amount,fee_amount,status,receipt_path,reviewed_at,created_at',
+    `bookings!payments_booking_id_fkey${join === 'none' ? '' : '!inner'}(`,
+    'id,profile_id,status,price_paid,discount,wallet_used,',
+    `profiles!bookings_profile_id_fkey${join === 'person' ? '!inner' : ''}(first_name,phone),`,
+    `sbotat${join === 'sbota' ? '!inner' : ''}(starts_at,sbota_templates${join === 'sbota' ? '!inner' : ''}(name_ar))`,
+    ')',
+  ].join('')
+
+const PAY_SELECT = paySelect()
 
 /* ============================================================ أنواع */
 
@@ -327,13 +358,19 @@ function PaymentsEditor({ me }: { me: AdminMe }) {
   const loadSums = useCallback(async () => {
     const db = supabase()
     const since = new Date(Date.now() - WEEK_MS).toISOString()
+    // أسبوع واحد بس، والسقف حزام أمان لو الأسبوع طلع ضخم
     const [income, waiting, refunded] = await Promise.all([
-      db.from('payments').select('amount').eq('status', 'succeeded').gte('created_at', since),
+      db
+        .from('payments')
+        .select('amount')
+        .eq('status', 'succeeded')
+        .gte('created_at', since)
+        .range(0, ADMIN_SCAN_MAX - 1),
       db
         .from('payments')
         .select('id', { count: 'exact', head: true })
         .eq('status', 'pending_review'),
-      db.from('refunds').select('amount').gte('created_at', since),
+      db.from('refunds').select('amount').gte('created_at', since).range(0, ADMIN_SCAN_MAX - 1),
     ])
     setSums({
       income: ((income.data ?? []) as { amount: number }[]).reduce((a, r) => a + r.amount, 0),
@@ -398,6 +435,8 @@ function PendingTab({
   afterChange: () => void
 }) {
   const [rows, setRows] = useState<PayRow[]>([])
+  const [total, setTotal] = useState<number | null>(null)
+  const [page, setPage] = useState(0)
   const [urls, setUrls] = useState<Record<string, string>>({})
   const [notes, setNotes] = useState<Record<string, string>>({})
   const [busy, setBusy] = useState<Record<string, boolean>>({})
@@ -420,12 +459,12 @@ function PendingTab({
 
   const reload = useCallback(async () => {
     setLoading(true)
-    const { data, error } = await supabase()
+    const { data, count, error } = await supabase()
       .from('payments')
-      .select(PAY_SELECT)
+      .select(PAY_SELECT, { count: 'exact' })
       .eq('status', 'pending_review')
       .order('created_at', { ascending: false })
-      .limit(100)
+      .range(page * ADMIN_PAGE_SIZE, page * ADMIN_PAGE_SIZE + ADMIN_PAGE_SIZE - 1)
     setLoading(false)
     if (error) {
       say(`مقدرناش نجيب التحويلات: ${error.message}`)
@@ -433,8 +472,9 @@ function PendingTab({
     }
     const list = (data ?? []) as unknown as PayRow[]
     setRows(list)
+    setTotal(count ?? null)
     sign(list)
-  }, [say, sign])
+  }, [say, sign, page])
 
   useEffect(() => {
     reload()
@@ -480,13 +520,14 @@ function PendingTab({
       return
     }
     setRows((rs) => rs.filter((r) => r.id !== p.id))
+    setTotal((n) => (n === null ? n : Math.max(0, n - 1)))
     say(ok ? `اتأكد ✓ — حجز ${who} بقى مدفوع` : `اترفض — و${who} هيوصله السبب`)
     afterChange()
   }
 
   if (loading) return <Loading />
 
-  if (!rows.length)
+  if (!rows.length && page === 0)
     return (
       <Card title="مفيش تحويل مستني" hint="أول ما حد يحوّل ويرفع صورة، هيطلع هنا على طول.">
         <Empty>خلّصت كل حاجة. 👏</Empty>
@@ -496,7 +537,7 @@ function PendingTab({
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="font-display text-18 font-black">{rows.length} تحويل مستني</span>
+        <span className="font-display text-18 font-black">{total ?? rows.length} تحويل مستني</span>
         <Btn onClick={reload}>حدّث</Btn>
         {!canReview && (
           <span className="font-body text-13" style={{ color: 'var(--muted)' }}>
@@ -626,56 +667,87 @@ function PendingTab({
           </Card>
         )
       })}
+
+      <Pager page={page} shown={rows.length} total={total} onPage={setPage} />
     </div>
   )
 }
 
 /* ================================================ ٢ · كل المعاملات */
 
+/** بندوّر في إيه — postgrest ما بيعملش «أو» بين جدولين، فالمدى بيتحدد */
+type SearchIn = 'person' | 'ref' | 'sbota'
+
+const SEARCH_IN: { value: SearchIn; label: string }[] = [
+  { value: 'person', label: 'اسم العضو أو رقمه' },
+  { value: 'ref', label: 'رقم العملية' },
+  { value: 'sbota', label: 'اسم السبوطة' },
+]
+
 function AllTab({ say }: { say: (m: string) => void }) {
   const [rows, setRows] = useState<PayRow[]>([])
+  const [count, setCount] = useState<number | null>(null)
+  const [page, setPage] = useState(0)
   const [loading, setLoading] = useState(true)
   const [status, setStatus] = useState('all')
   const [q, setQ] = useState('')
+  const [searchIn, setSearchIn] = useState<SearchIn>('person')
+  /** اللي راح للقاعدة فعلًا — بيتأخر شوية عن اللي بتكتبه */
+  const [needle, setNeedle] = useState('')
+
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setPage(0)
+      setNeedle(safeLike(q))
+    }, SEARCH_DELAY_MS)
+    return () => clearTimeout(t)
+  }, [q])
 
   const reload = useCallback(async () => {
     setLoading(true)
-    const { data, error } = await supabase()
-      .from('payments')
-      .select(PAY_SELECT)
+    const join = needle && searchIn !== 'ref' ? searchIn : 'none'
+    let query = supabase().from('payments').select(paySelect(join), { count: 'exact' })
+
+    if (status !== 'all') query = query.eq('status', status)
+    if (needle) {
+      if (searchIn === 'person') {
+        query = query.or(`first_name.ilike.*${needle}*,phone.ilike.*${needle}*`, {
+          referencedTable: 'bookings.profiles',
+        })
+      } else if (searchIn === 'sbota') {
+        query = query.ilike('bookings.sbotat.sbota_templates.name_ar', `%${needle}%`)
+      } else {
+        // رقم العملية عند المزوّد، أو رقم الدفعة عندنا لو مكتوب كامل
+        query = query.or(
+          UUID_RE.test(needle)
+            ? `provider_ref.ilike.*${needle}*,id.eq.${needle}`
+            : `provider_ref.ilike.*${needle}*`
+        )
+      }
+    }
+
+    const { data, count: n, error } = await query
       .order('created_at', { ascending: false })
-      .limit(300)
+      .range(page * ADMIN_PAGE_SIZE, page * ADMIN_PAGE_SIZE + ADMIN_PAGE_SIZE - 1)
     setLoading(false)
     if (error) {
       say(`مقدرناش نجيب المعاملات: ${error.message}`)
+      setRows([])
+      setCount(0)
       return
     }
     setRows((data ?? []) as unknown as PayRow[])
-  }, [say])
+    setCount(n ?? null)
+  }, [say, status, needle, searchIn, page])
 
   useEffect(() => {
     reload()
   }, [reload])
 
-  const shown = useMemo(() => {
-    const needle = q.trim().toLowerCase()
-    return rows.filter((p) => {
-      if (status !== 'all' && p.status !== status) return false
-      if (!needle) return true
-      const person = personOf(p)
-      return (
-        (person?.first_name ?? '').toLowerCase().includes(needle) ||
-        (person?.phone ?? '').includes(needle) ||
-        (p.provider_ref ?? '').toLowerCase().includes(needle) ||
-        outingOf(p).toLowerCase().includes(needle) ||
-        p.id.toLowerCase().startsWith(needle)
-      )
-    })
-  }, [rows, status, q])
-
-  const total = useMemo(
-    () => shown.filter((p) => p.status === 'succeeded').reduce((a, p) => a + p.amount, 0),
-    [shown]
+  /** مجموع اللي تمّ في الصفحة اللي قدامك — مش المجموع الكلي */
+  const pageTotal = useMemo(
+    () => rows.filter((p) => p.status === 'succeeded').reduce((a, p) => a + p.amount, 0),
+    [rows]
   )
 
   async function openReceipt(p: PayRow) {
@@ -691,27 +763,39 @@ function AllTab({ say }: { say: (m: string) => void }) {
   }
 
   return (
-    <Card title="كل المعاملات" hint="آخر ٣٠٠ عملية. فلتر وابحث زي ما تحب.">
+    <Card title="كل المعاملات" hint="الفلتر والبحث بيتنفّذوا في القاعدة، والصفوف بتيجي صفحة صفحة.">
       <div className="mt-3 flex flex-wrap items-end gap-3">
         <SelectField
           label="الحالة"
           value={status}
-          onChange={setStatus}
+          onChange={(v) => {
+            setPage(0)
+            setStatus(v)
+          }}
           options={[
             { value: 'all', label: 'الكل' },
             ...Object.keys(PAY_STATUS_AR).map((s) => ({ value: s, label: PAY_STATUS_AR[s] })),
           ]}
         />
+        <SelectField
+          label="بندوّر في إيه"
+          value={searchIn}
+          onChange={(v) => {
+            setPage(0)
+            setSearchIn(v as SearchIn)
+          }}
+          options={SEARCH_IN}
+        />
         <div className="min-w-[240px] flex-1">
           <Field
-            label="دوّر باسم أو رقم تليفون أو رقم عملية"
+            label="دوّر"
             value={q}
             onChange={setQ}
-            placeholder="مثلًا: منّة"
+            placeholder={searchIn === 'person' ? 'مثلًا: منّة' : 'اكتب اللي بتدوّر عليه'}
           />
         </div>
         <div className="font-body text-14" style={{ color: 'var(--muted)' }}>
-          {shown.length} من {rows.length} · اللي تمّ منها {money(total)}
+          {count ?? 0} معاملة · مجموع الصفحة دي من اللي تمّ {money(pageTotal)}
         </div>
         <Btn onClick={reload}>حدّث</Btn>
       </div>
@@ -719,13 +803,13 @@ function AllTab({ say }: { say: (m: string) => void }) {
       <div className="mt-4">
         {loading ? (
           <Loading />
-        ) : shown.length === 0 ? (
+        ) : rows.length === 0 ? (
           <Empty>مفيش معاملة بالفلتر ده.</Empty>
         ) : (
           <Table
             head={['مين', 'السبوطة', 'المبلغ', 'الطريقة', 'الحالة', 'امتى', 'الإيصال']}
           >
-            {shown.map((p) => {
+            {rows.map((p) => {
               const person = personOf(p)
               return (
                 <tr key={p.id} style={{ borderTop: '1px solid var(--line)' }}>
@@ -761,6 +845,8 @@ function AllTab({ say }: { say: (m: string) => void }) {
             })}
           </Table>
         )}
+
+        <Pager page={page} shown={rows.length} total={count} onPage={setPage} busy={loading} />
       </div>
     </Card>
   )
@@ -778,10 +864,13 @@ function RefundsTab({
   afterChange: () => void
 }) {
   const [refunds, setRefunds] = useState<RefundRow[]>([])
-  const [payable, setPayable] = useState<PayRow[]>([])
+  const [total, setTotal] = useState<number | null>(null)
+  const [page, setPage] = useState(0)
   const [loading, setLoading] = useState(true)
   const [pick, setPick] = useState<PayRow | null>(null)
   const [q, setQ] = useState('')
+  const [matches, setMatches] = useState<PayRow[]>([])
+  const [seeking, setSeeking] = useState(false)
   const [amount, setAmount] = useState('')
   const [kind, setKind] = useState('wallet_credit')
   const [state, setState] = useState('succeeded')
@@ -790,47 +879,78 @@ function RefundsTab({
 
   const reload = useCallback(async () => {
     setLoading(true)
-    const db = supabase()
-    const [r, p] = await Promise.all([
-      db
-        .from('refunds')
-        .select(
-          'id,payment_id,amount,kind,reason,status,created_at,payments(amount,provider,bookings!payments_booking_id_fkey(profiles!bookings_profile_id_fkey(first_name,phone)))'
-        )
-        .order('created_at', { ascending: false })
-        .limit(200),
-      db
-        .from('payments')
-        .select(PAY_SELECT)
-        .in('status', ['succeeded', 'partially_refunded'])
-        .order('created_at', { ascending: false })
-        .limit(200),
-    ])
+    const { data, count, error } = await supabase()
+      .from('refunds')
+      .select(
+        'id,payment_id,amount,kind,reason,status,created_at,payments(amount,provider,bookings!payments_booking_id_fkey(profiles!bookings_profile_id_fkey(first_name,phone)))',
+        { count: 'exact' }
+      )
+      .order('created_at', { ascending: false })
+      .range(page * ADMIN_PAGE_SIZE, page * ADMIN_PAGE_SIZE + ADMIN_PAGE_SIZE - 1)
     setLoading(false)
-    if (r.error) say(`مقدرناش نجيب الاستردادات: ${r.error.message}`)
-    if (p.error) say(`مقدرناش نجيب الدفعات: ${p.error.message}`)
-    setRefunds((r.data ?? []) as unknown as RefundRow[])
-    setPayable((p.data ?? []) as unknown as PayRow[])
-  }, [say])
+    if (error) {
+      say(`مقدرناش نجيب الاستردادات: ${error.message}`)
+      setRefunds([])
+      setTotal(0)
+      return
+    }
+    setRefunds((data ?? []) as unknown as RefundRow[])
+    setTotal(count ?? null)
+  }, [say, page])
 
   useEffect(() => {
     reload()
   }, [reload])
 
-  const matches = useMemo(() => {
-    const needle = q.trim().toLowerCase()
-    if (!needle) return []
-    return payable
-      .filter((p) => {
-        const person = personOf(p)
-        return (
-          (person?.first_name ?? '').toLowerCase().includes(needle) ||
-          (person?.phone ?? '').includes(needle) ||
-          outingOf(p).toLowerCase().includes(needle)
-        )
-      })
-      .slice(0, 8)
-  }, [payable, q])
+  /**
+   * البحث على الدفعة بيروح للقاعدة — استعلامين صغيرين (بالعضو وباسم السبوطة)
+   * لأن postgrest ما بيعملش «أو» بين جدولين، وبنلمّهم مع بعض.
+   * الأصل كان بيحمّل ٢٠٠ دفعة على الفاضي ويفلترهم عندك.
+   */
+  useEffect(() => {
+    const needle = safeLike(q)
+    if (!needle) {
+      setMatches([])
+      return
+    }
+    let alive = true
+    setSeeking(true)
+    const t = setTimeout(async () => {
+      const db = supabase()
+      const [byPerson, bySbota] = await Promise.all([
+        db
+          .from('payments')
+          .select(paySelect('person'))
+          .in('status', REFUNDABLE)
+          .or(`first_name.ilike.*${needle}*,phone.ilike.*${needle}*`, {
+            referencedTable: 'bookings.profiles',
+          })
+          .order('created_at', { ascending: false })
+          .range(0, PICK_MAX - 1),
+        db
+          .from('payments')
+          .select(paySelect('sbota'))
+          .in('status', REFUNDABLE)
+          .ilike('bookings.sbotat.sbota_templates.name_ar', `%${needle}%`)
+          .order('created_at', { ascending: false })
+          .range(0, PICK_MAX - 1),
+      ])
+      if (!alive) return
+      setSeeking(false)
+      const seen = new Map<string, PayRow>()
+      for (const r of [
+        ...((byPerson.data ?? []) as unknown as PayRow[]),
+        ...((bySbota.data ?? []) as unknown as PayRow[]),
+      ]) {
+        seen.set(r.id, r)
+      }
+      setMatches(Array.from(seen.values()).slice(0, PICK_MAX))
+    }, SEARCH_DELAY_MS)
+    return () => {
+      alive = false
+      clearTimeout(t)
+    }
+  }, [q])
 
   function choose(p: PayRow) {
     setPick(p)
@@ -905,7 +1025,12 @@ function RefundsTab({
             />
             {q.trim() && (
               <div className="mt-2 flex flex-col gap-2">
-                {matches.length === 0 && (
+                {seeking && (
+                  <span className="font-body text-14" style={{ color: 'var(--muted)' }}>
+                    ثانية واحدة…
+                  </span>
+                )}
+                {!seeking && matches.length === 0 && (
                   <span className="font-body text-14" style={{ color: 'var(--muted)' }}>
                     مفيش دفعة متأكدة بالاسم ده.
                   </span>
@@ -1018,6 +1143,8 @@ function RefundsTab({
             </Table>
           </div>
         )}
+
+        <Pager page={page} shown={refunds.length} total={total} onPage={setPage} busy={loading} />
       </Card>
     </div>
   )
@@ -1060,12 +1187,13 @@ function WalletTab({ canCredit, say }: { canCredit: boolean; say: (m: string) =>
     setWho(p)
     setFound([])
     setLoading(true)
+    // حركة شخص واحد — محدودة بصفحة، وفيها أحدث الحركات
     const { data } = await supabase()
       .from('wallet_ledger')
       .select('id,profile_id,delta,reason,note,created_at')
       .eq('profile_id', p.id)
       .order('created_at', { ascending: false })
-      .limit(100)
+      .range(0, ADMIN_PAGE_SIZE - 1)
     setLedger((data ?? []) as LedgerRow[])
     setLoading(false)
   }, [])
@@ -1257,6 +1385,8 @@ function WalletTab({ canCredit, say }: { canCredit: boolean; say: (m: string) =>
 
 function CouponsTab({ canEdit, say }: { canEdit: boolean; say: (m: string) => void }) {
   const [rows, setRows] = useState<CouponRow[]>([])
+  const [total, setTotal] = useState<number | null>(null)
+  const [page, setPage] = useState(0)
   const [loading, setLoading] = useState(true)
   const [code, setCode] = useState('')
   const [kind, setKind] = useState('percent')
@@ -1268,17 +1398,21 @@ function CouponsTab({ canEdit, say }: { canEdit: boolean; say: (m: string) => vo
 
   const reload = useCallback(async () => {
     setLoading(true)
-    const { data, error } = await supabase()
+    const { data, count, error } = await supabase()
       .from('coupons')
-      .select('id,code,kind,value,max_uses,used_count,expires_at,first_booking_only,created_at')
+      .select('id,code,kind,value,max_uses,used_count,expires_at,first_booking_only,created_at', {
+        count: 'exact',
+      })
       .order('created_at', { ascending: false })
+      .range(page * ADMIN_PAGE_SIZE, page * ADMIN_PAGE_SIZE + ADMIN_PAGE_SIZE - 1)
     setLoading(false)
     if (error) {
       say(`مقدرناش نجيب الكوبونات: ${error.message}`)
       return
     }
     setRows((data ?? []) as CouponRow[])
-  }, [say])
+    setTotal(count ?? null)
+  }, [say, page])
 
   useEffect(() => {
     reload()
@@ -1544,6 +1678,8 @@ function CouponsTab({ canEdit, say }: { canEdit: boolean; say: (m: string) => vo
           )
         })
       )}
+
+      <Pager page={page} shown={rows.length} total={total} onPage={setPage} busy={loading} />
 
       <Note>
         مفيش عمود is_active في جدول coupons، فـ«شغّال / واقف» محسوبة من تاريخ الانتهاء وعدد

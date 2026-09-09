@@ -1,19 +1,24 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { AdminShell } from '@/components/AdminShell'
 import { supabase } from '@/lib/supabase'
 import { loadBannedWords, bannedIn } from '@/lib/admin'
 import {
+  ADMIN_PAGE_SIZE,
+  ADMIN_SCAN_MAX,
   Card,
   Tabs,
   Btn,
+  Pager,
   SelectField,
   Table,
   Empty,
   Loading,
   Tag,
   Stat,
+  cairoDayStart,
+  todayCairo,
   useFlash,
   when,
 } from '@/components/admin-ui'
@@ -29,6 +34,10 @@ import type { AdminMe } from '@/lib/admin'
  * الإرسال الجماعي: مفيش لحد دلوقتي أي دالة في القاعدة بتبعت فعلًا،
  * فإحنا بنسجّل الحملة في broadcasts بحالة draft وبنقول للي بيبعت
  * إنها مسجّلة ولسه ما اتبعتتش — أحسن ما نكدب عليه.
+ *
+ * الترقيم من القاعدة: الطابور بيتفلتر بالحالة على الخادم وبيتجاب صفحة صفحة،
+ * وعدد الشريحة في الإرسال الجماعي بقى **عدّ** من القاعدة مش تحميل ٥٠٠٠ ملف
+ * و٢٠ ألف حجز وعدّهم في المتصفح.
  */
 
 interface TemplateRow {
@@ -120,9 +129,17 @@ function varsIn(body: string): string[] {
   return out
 }
 
-/** تاريخ القاهرة على شكل 2026-09-08 — علشان نعدّ حملات اليوم */
-const cairoDay = (iso: string) =>
-  new Date(iso).toLocaleDateString('en-CA', { timeZone: 'Africa/Cairo' })
+/** أقصى عدد أسامي بنعرضها كعيّنة من الشريحة قبل الإرسال */
+const PREVIEW_MAX = 20
+
+const QUEUE_COLS =
+  'id, profile_id, phone, channel, template_key, status, error, attempts, scheduled_for, sent_at, created_at'
+
+function chunk<T>(list: T[], size: number): T[][] {
+  const out: T[][] = []
+  for (let i = 0; i < list.length; i += size) out.push(list.slice(i, i + size))
+  return out
+}
 
 export default function AdminNotificationsPage() {
   return (
@@ -138,10 +155,12 @@ function Messages({ me }: { me: AdminMe }) {
   const { flash, node: flashNode } = useFlash()
 
   const reloadTemplates = useCallback(async () => {
+    // جدول تعريفي صغير (مفتاح لكل نوع رسالة) — السقف حزام أمان بس
     const { data } = await supabase()
       .from('notification_templates')
       .select('key, channel, body_ar, provider_template_id, is_active')
       .order('key')
+      .range(0, ADMIN_SCAN_MAX - 1)
     setTemplates((data ?? []) as TemplateRow[])
   }, [])
 
@@ -392,42 +411,73 @@ function Templates({
 
 function Queue({ flash }: { flash: (m: string) => void }) {
   const [rows, setRows] = useState<QueueRow[] | null>(null)
+  const [total, setTotal] = useState<number | null>(null)
+  const [page, setPage] = useState(0)
+  const [counts, setCounts] = useState<Record<string, number>>({})
   const [people, setPeople] = useState<Record<string, PersonRow>>({})
   const [status, setStatus] = useState('all')
   const [openErr, setOpenErr] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
 
+  /** صفحة الطابور — فلتر الحالة بيروح للقاعدة */
   const reload = useCallback(async () => {
+    setBusy(true)
     const db = supabase()
-    const [n, p] = await Promise.all([
-      db
-        .from('notifications')
-        .select(
-          'id, profile_id, phone, channel, template_key, status, error, attempts, scheduled_for, sent_at, created_at'
-        )
-        .order('created_at', { ascending: false })
-        .limit(500),
-      db.from('profiles').select('id, first_name, phone, area, banned_at, deleted_at').limit(2000),
-    ])
-    setRows((n.data ?? []) as QueueRow[])
+    let q = db.from('notifications').select(QUEUE_COLS, { count: 'exact' })
+    if (status !== 'all') q = q.eq('status', status)
+    const { data, count, error } = await q
+      .order('created_at', { ascending: false })
+      .range(page * ADMIN_PAGE_SIZE, page * ADMIN_PAGE_SIZE + ADMIN_PAGE_SIZE - 1)
+    setBusy(false)
+    if (error) {
+      flash(`مقدرناش نجيب الطابور: ${error.message}`)
+      setRows([])
+      setTotal(0)
+      return
+    }
+    const list = (data ?? []) as QueueRow[]
+    setRows(list)
+    setTotal(count ?? null)
+
+    // أسامي المستقبلين — اللي في الصفحة دي بس، مش جدول الناس كله
+    const ids = Array.from(
+      new Set(list.map((r) => r.profile_id).filter((x): x is string => Boolean(x)))
+    )
     const map: Record<string, PersonRow> = {}
-    for (const person of (p.data ?? []) as PersonRow[]) map[person.id] = person
-    setPeople(map)
+    for (const part of chunk(ids, 100)) {
+      const { data: ps } = await db
+        .from('profiles')
+        .select('id, first_name, phone, area, banned_at, deleted_at')
+        .in('id', part)
+      for (const person of (ps ?? []) as PersonRow[]) map[person.id] = person
+    }
+    setPeople((old) => ({ ...old, ...map }))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status, page])
+
+  /** الأرقام اللي فوق — عدّ من القاعدة لكل حالة */
+  const loadCounts = useCallback(async () => {
+    const db = supabase()
+    const kinds = ['queued', 'sent', 'failed', 'read']
+    const res = await Promise.all(
+      kinds.map((k) =>
+        db.from('notifications').select('id', { count: 'exact', head: true }).eq('status', k)
+      )
+    )
+    const out: Record<string, number> = {}
+    kinds.forEach((k, i) => {
+      out[k] = res[i].count ?? 0
+    })
+    setCounts(out)
   }, [])
 
   useEffect(() => {
     reload()
   }, [reload])
 
-  const counts = useMemo(() => {
-    const c: Record<string, number> = { queued: 0, sent: 0, failed: 0, read: 0 }
-    for (const r of rows ?? []) c[r.status] = (c[r.status] ?? 0) + 1
-    return c
-  }, [rows])
-
-  const shown = useMemo(
-    () => (rows ?? []).filter((r) => status === 'all' || r.status === status),
-    [rows, status]
-  )
+  useEffect(() => {
+    loadCounts()
+  }, [loadCounts])
 
   async function retry(r: QueueRow) {
     if (!confirm('هنرجّع الرسالة دي للطابور علشان تتبعت تاني. تمام؟')) return
@@ -441,7 +491,7 @@ function Queue({ flash }: { flash: (m: string) => void }) {
       return flash(
         'القاعدة ما قبلتش التعديل — محتاج صلاحية notifications.edit.'
       )
-    await reload()
+    await Promise.all([reload(), loadCounts()])
     flash('رجعت للطابور ✓')
   }
 
@@ -467,22 +517,22 @@ function Queue({ flash }: { flash: (m: string) => void }) {
             { value: 'sent', label: 'اتبعتت' },
             { value: 'read', label: 'اتقرت' },
           ]}
-          onChange={setStatus}
+          onChange={(v) => {
+            setPage(0)
+            setStatus(v)
+          }}
         />
-        <div className="font-body text-14" style={{ color: 'var(--muted)' }}>
-          {shown.length} من {rows.length}
-        </div>
         <div className="ms-auto">
           <Btn onClick={() => reload()}>حدّث</Btn>
         </div>
       </div>
 
       <div className="mt-4">
-        {shown.length === 0 ? (
+        {rows.length === 0 ? (
           <Empty>مفيش رسايل بالفلتر ده.</Empty>
         ) : (
           <Table head={['الحالة', 'لمين', 'القالب', 'القناة', 'محاولات', 'موعدها', 'الغلطة', '']}>
-            {shown.map((r) => {
+            {rows.map((r) => {
               const st = QSTATUS[r.status] ?? { label: r.status }
               const p = r.profile_id ? people[r.profile_id] : null
               return (
@@ -521,6 +571,8 @@ function Queue({ flash }: { flash: (m: string) => void }) {
             })}
           </Table>
         )}
+
+        <Pager page={page} shown={rows.length} total={total} onPage={setPage} busy={busy} />
       </div>
     </div>
   )
@@ -537,10 +589,14 @@ function Broadcast({
   canSend: boolean
   flash: (m: string) => void
 }) {
-  const [people, setPeople] = useState<PersonRow[] | null>(null)
-  const [bookedIds, setBookedIds] = useState<Set<string>>(new Set())
+  const [allPeople, setAllPeople] = useState<number | null>(null)
+  const [recipients, setRecipients] = useState<number | null>(null)
+  const [preview, setPreview] = useState<PersonRow[]>([])
   const [bookingsErr, setBookingsErr] = useState<string | null>(null)
   const [past, setPast] = useState<BroadcastRow[]>([])
+  const [pastTotal, setPastTotal] = useState<number | null>(null)
+  const [page, setPage] = useState(0)
+  const [sentToday, setSentToday] = useState(0)
   const [limit, setLimit] = useState(1)
   const [meId, setMeId] = useState<string | null>(null)
 
@@ -549,63 +605,98 @@ function Broadcast({
   const [templateKey, setTemplateKey] = useState('')
   const [busy, setBusy] = useState(false)
 
-  const reload = useCallback(async () => {
+  /** الحملات اللي فاتت — صفحة صفحة */
+  const loadPast = useCallback(async () => {
+    const { data, count } = await supabase()
+      .from('broadcasts')
+      .select(
+        'id, segment, template_key, recipients_count, sent_count, status, created_by, created_at',
+        { count: 'exact' }
+      )
+      .order('created_at', { ascending: false })
+      .range(page * ADMIN_PAGE_SIZE, page * ADMIN_PAGE_SIZE + ADMIN_PAGE_SIZE - 1)
+    setPast((data ?? []) as BroadcastRow[])
+    setPastTotal(count ?? null)
+  }, [page])
+
+  /** الحدود والأرقام الثابتة — مرة واحدة */
+  const loadMeta = useCallback(async () => {
     const db = supabase()
-    const [p, b, br, s, u] = await Promise.all([
-      db.from('profiles').select('id, first_name, phone, area, banned_at, deleted_at').limit(5000),
-      db.from('bookings').select('profile_id, status').limit(20000),
-      db
-        .from('broadcasts')
-        .select('id, segment, template_key, recipients_count, sent_count, status, created_by, created_at')
-        .order('created_at', { ascending: false })
-        .limit(50),
+    const [all, s, u, mine, probe] = await Promise.all([
+      db.from('profiles').select('id', { count: 'exact', head: true }),
       db.from('settings').select('daily_broadcast_limit').limit(1),
       db.auth.getUser(),
+      // حملات النهاردة — عدّ بحدود يوم القاهرة، مش فلترة لآخر ٥٠ حملة
+      db
+        .from('broadcasts')
+        .select('id', { count: 'exact', head: true })
+        .gte('created_at', cairoDayStart(todayCairo())),
+      // بنتأكد إن عندنا قراية على الحجوزات قبل ما نعتمد على فلتر «حجز قبل كده»
+      db.from('bookings').select('id', { count: 'exact', head: true }),
     ])
-
-    setPeople((p.data ?? []) as PersonRow[])
-    if (b.error) {
-      setBookingsErr(b.error.message)
-      setBookedIds(new Set())
-    } else {
-      setBookingsErr(null)
-      const ids = new Set<string>()
-      for (const row of (b.data ?? []) as { profile_id: string; status: string }[]) {
-        if (row.status === 'paid' || row.status === 'attended') ids.add(row.profile_id)
-      }
-      setBookedIds(ids)
-    }
-    setPast((br.data ?? []) as BroadcastRow[])
+    setAllPeople(all.count ?? null)
     const lim = (s.data ?? []) as { daily_broadcast_limit: number }[]
     if (lim[0]) setLimit(lim[0].daily_broadcast_limit)
     setMeId(u.data.user?.id ?? null)
+    setSentToday(mine.count ?? 0)
+    setBookingsErr(probe.error ? probe.error.message : null)
   }, [])
 
+  /**
+   * الشريحة: عدّها من القاعدة، وهات ٢٠ اسم عيّنة بس.
+   * فلتر «حجز قبل كده» بيتعمل على العلاقة نفسها — `bookings.status=in.(…)`
+   * مع `bookings=not.is.null` (حجز) أو `bookings=is.null` (ما حجزش).
+   */
+  const loadSegment = useCallback(async () => {
+    const withBookings = booked !== 'any'
+    const cols = withBookings
+      ? 'id, first_name, phone, area, banned_at, deleted_at, bookings(id)'
+      : 'id, first_name, phone, area, banned_at, deleted_at'
+
+    const build = (select: string, opts: { count?: 'exact'; head?: boolean }) => {
+      let q = supabase().from('profiles').select(select, opts)
+      q = q.is('deleted_at', null).is('banned_at', null).not('phone', 'is', null)
+      if (area === 'none') q = q.is('area', null)
+      else if (area !== 'all') q = q.eq('area', area)
+      if (withBookings) {
+        q = q.in('bookings.status', ['paid', 'attended'])
+        q = booked === 'yes' ? q.not('bookings', 'is', null) : q.is('bookings', null)
+      }
+      return q
+    }
+
+    const [count, sample] = await Promise.all([
+      build(withBookings ? 'id, bookings(id)' : 'id', { count: 'exact', head: true }),
+      build(cols, {}).order('created_at', { ascending: false }).range(0, PREVIEW_MAX - 1),
+    ])
+    setRecipients(count.count ?? 0)
+    setPreview((sample.data ?? []) as unknown as PersonRow[])
+  }, [area, booked])
+
   useEffect(() => {
-    reload()
-  }, [reload])
+    loadMeta()
+  }, [loadMeta])
 
-  const recipients = useMemo(() => {
-    if (!people) return []
-    return people.filter((p) => {
-      if (p.deleted_at || p.banned_at) return false
-      if (!p.phone) return false
-      if (area === 'none' ? p.area !== null : area !== 'all' && p.area !== area) return false
-      if (booked === 'yes' && !bookedIds.has(p.id)) return false
-      if (booked === 'no' && bookedIds.has(p.id)) return false
-      return true
-    })
-  }, [people, area, booked, bookedIds])
+  useEffect(() => {
+    loadPast()
+  }, [loadPast])
 
-  const today = cairoDay(new Date().toISOString())
-  const sentToday = past.filter((b) => cairoDay(b.created_at) === today).length
+  useEffect(() => {
+    loadSegment()
+  }, [loadSegment])
+
+  const reload = useCallback(async () => {
+    await Promise.all([loadMeta(), loadPast(), loadSegment()])
+  }, [loadMeta, loadPast, loadSegment])
+
   const overLimit = sentToday >= limit
   const template = templates.find((t) => t.key === templateKey) ?? null
 
   async function send() {
     if (!canSend) return
     if (!template) return flash('اختار قالب الأول.')
-    if (recipients.length === 0) return flash('مفيش حد في الشريحة دي.')
+    const n = recipients ?? 0
+    if (n === 0) return flash('مفيش حد في الشريحة دي.')
     if (overLimit)
       return flash(
         `خلصت حد النهاردة (${sentToday} من ${limit}). الحد بيتغيّر من الإعدادات — daily_broadcast_limit.`
@@ -614,7 +705,7 @@ function Broadcast({
     const areaLabel = AREAS.find((a) => a.value === area)?.label ?? area
     const bookedLabel = BOOKED.find((b) => b.value === booked)?.label ?? booked
     const ok = confirm(
-      `هتتسجّل حملة لـ ${recipients.length} عضو بالظبط.\n\n` +
+      `هتتسجّل حملة لـ ${n} عضو بالظبط.\n\n` +
         `الشريحة: ${areaLabel} · ${bookedLabel}\n` +
         `القالب: ${template.key}\n\n` +
         `النص: ${template.body_ar}\n\n` +
@@ -628,7 +719,7 @@ function Broadcast({
       .insert({
         segment: { area, booked, exclude_banned: true },
         template_key: template.key,
-        recipients_count: recipients.length,
+        recipients_count: n,
         sent_count: 0,
         status: 'draft',
         created_by: meId,
@@ -639,11 +730,11 @@ function Broadcast({
     if (error) return flash(`مقدرناش نسجّل الحملة: ${error.message}`)
     await reload()
     flash(
-      `الحملة اتسجّلت لـ ${recipients.length} عضو بحالة «مسودة» — لسه ما اتبعتتش لحد. لازم اللي بيبعت يشغّلها.`
+      `الحملة اتسجّلت لـ ${n} عضو بحالة «مسودة» — لسه ما اتبعتتش لحد. لازم اللي بيبعت يشغّلها.`
     )
   }
 
-  if (people === null) return <Loading />
+  if (recipients === null) return <Loading />
 
   return (
     <div className="mt-5 flex flex-col gap-4">
@@ -668,11 +759,11 @@ function Broadcast({
 
       <div className="flex flex-wrap gap-3">
         <Stat label="حملات النهاردة" value={`${sentToday} من ${limit}`} hint="الحد من الإعدادات" />
-        <Stat label="هيوصلوا" value={String(recipients.length)} hint="بعد ما شيلنا المحظورين" />
-        <Stat label="كل الأعضاء" value={String(people.length)} />
+        <Stat label="هيوصلوا" value={String(recipients)} hint="بعد ما شيلنا المحظورين" />
+        <Stat label="كل الأعضاء" value={allPeople === null ? '…' : String(allPeople)} />
       </div>
 
-      <Card title="اختار مين" hint="العد بيتحدّث لوحده مع كل تغيير.">
+      <Card title="اختار مين" hint="العد بيتحسب في القاعدة ومع كل تغيير.">
         <div className="mt-3 flex flex-wrap items-end gap-3">
           <SelectField label="المنطقة" value={area} options={AREAS} onChange={setArea} />
           <SelectField label="حجز قبل كده؟" value={booked} options={BOOKED} onChange={setBooked} />
@@ -706,10 +797,10 @@ function Broadcast({
         <div className="mt-4 flex flex-wrap items-center gap-3">
           <Btn
             kind="primary"
-            disabled={!canSend || busy || !template || recipients.length === 0 || overLimit}
+            disabled={!canSend || busy || !template || recipients === 0 || overLimit}
             onClick={send}
           >
-            {busy ? 'ثانية واحدة…' : `سجّل الحملة لـ ${recipients.length} عضو`}
+            {busy ? 'ثانية واحدة…' : `سجّل الحملة لـ ${recipients} عضو`}
           </Btn>
           {overLimit && (
             <span className="font-body text-13" style={{ color: 'var(--err-text)' }}>
@@ -718,16 +809,16 @@ function Broadcast({
           )}
         </div>
 
-        {recipients.length > 0 && (
+        {preview.length > 0 && (
           <details className="mt-3">
             <summary className="cursor-pointer font-body text-14" style={{ color: 'var(--accent-text)' }}>
-              شوف أول 20 واحد في الشريحة
+              شوف أول {PREVIEW_MAX} واحد في الشريحة
             </summary>
             <div className="mt-2 flex flex-wrap gap-2">
-              {recipients.slice(0, 20).map((p) => (
+              {preview.map((p) => (
                 <Tag key={p.id}>{p.first_name?.trim() || p.phone}</Tag>
               ))}
-              {recipients.length > 20 && <Tag>+{recipients.length - 20} كمان</Tag>}
+              {recipients > preview.length && <Tag>+{recipients - preview.length} كمان</Tag>}
             </div>
           </details>
         )}
@@ -763,6 +854,8 @@ function Broadcast({
               })}
             </Table>
           )}
+
+          <Pager page={page} shown={past.length} total={pastTotal} onPage={setPage} />
         </div>
       </Card>
     </div>

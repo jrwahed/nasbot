@@ -4,14 +4,20 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { AdminShell } from '@/components/AdminShell'
 import { supabase } from '@/lib/supabase'
 import {
+  ADMIN_PAGE_SIZE,
+  ADMIN_SCAN_MAX,
   Card,
   Btn,
+  Pager,
   SelectField,
   Table,
   Empty,
   Loading,
   Tag,
   Stat,
+  cairoDayStart,
+  dayAdd,
+  todayCairo,
   useFlash,
   when,
 } from '@/components/admin-ui'
@@ -22,7 +28,15 @@ import {
  * الصفحة دي بتقرا بس — مفيش أي تعديل هنا، ولا المفروض يكون.
  * الجدول نفسه مقفول على القراءة للإدارة في RLS، ومفيش سياسة كتابة من المتصفح.
  *
- * التنزيل CSV بينبني في المتصفح من الصفوف المفلترة اللي قدامك بالظبط —
+ * الترقيم من القاعدة: كل فلتر (مين · العملية · الجدول · من يوم · لحد يوم)
+ * بيتحوّل لشرط على الخادم، والصفوف بتتجاب صفحة صفحة بـ range —
+ * السجل بيكبر كل يوم ومكانش ينفع نجيبه كله للمتصفح.
+ *
+ * قوايم الفلاتر (مين/العملية/الجدول) مبنية من مسح لآخر ADMIN_SCAN_MAX سطر،
+ * لأن postgrest مفيهوش distinct. فلو عملية قديمة جدًا مش في القايمة، دي السبب.
+ *
+ * التنزيل CSV بينزّل كل الصفوف اللي بالفلتر ده (مش الصفحة اللي قدامك بس)
+ * لحد سقف ADMIN_SCAN_MAX — وبيقولك لو الفلتر أكبر من السقف.
  * وده سجل تصرفات الفريق، مش بيانات أعضاء.
  */
 
@@ -44,9 +58,7 @@ interface PersonRow {
   phone: string
 }
 
-/** تاريخ القاهرة 2026-09-08 — علشان الفلترة تبقى بيوم القاهرة مش يوم المتصفح */
-const cairoDay = (iso: string) =>
-  new Date(iso).toLocaleDateString('en-CA', { timeZone: 'Africa/Cairo' })
+const LOG_COLS = 'id, actor_id, action, entity, entity_id, before, after, ip, at'
 
 const pretty = (v: unknown) => {
   if (v === null || v === undefined) return '—'
@@ -69,6 +81,15 @@ const flat = (v: unknown) => {
 /** خانة CSV آمنة */
 const cell = (s: string) => `"${String(s).split('"').join('""')}"`
 
+/** شرط فلتر واحد: العملية · العمود · القيمة */
+type Cond = ['eq' | 'gte' | 'lt', string, string] | ['is', string, null]
+
+function chunk<T>(list: T[], size: number): T[][] {
+  const out: T[][] = []
+  for (let i = 0; i < list.length; i += size) out.push(list.slice(i, i + size))
+  return out
+}
+
 export default function AdminAuditPage() {
   return (
     <AdminShell title="السجل" needs="audit.view">
@@ -79,34 +100,113 @@ export default function AdminAuditPage() {
 
 function AuditLog() {
   const [rows, setRows] = useState<LogRow[] | null>(null)
+  const [total, setTotal] = useState<number | null>(null)
+  const [all, setAll] = useState<number | null>(null)
+  const [latest, setLatest] = useState<LogRow | null>(null)
   const [people, setPeople] = useState<Record<string, PersonRow>>({})
+  const [options, setOptions] = useState<{ actors: string[]; actions: string[]; entities: string[] }>(
+    { actors: [], actions: [], entities: [] }
+  )
+  const [capped, setCapped] = useState(false)
+
   const [actor, setActor] = useState('all')
   const [action, setAction] = useState('all')
   const [entity, setEntity] = useState('all')
   const [from, setFrom] = useState('')
   const [to, setTo] = useState('')
+  const [page, setPage] = useState(0)
+
   const [open, setOpen] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
   const { flash, node: flashNode } = useFlash()
 
-  const reload = useCallback(async () => {
+  /**
+   * الفلاتر كبيانات — مصدر واحد بيتحط بنفسه على استعلام العرض واستعلام التنزيل،
+   * علشان اللي بتشوفه واللي بينزل يفضلوا نفس الحاجة بالظبط.
+   */
+  const conds = useMemo<Cond[]>(() => {
+    const out: Cond[] = []
+    if (actor === 'system') out.push(['is', 'actor_id', null])
+    else if (actor !== 'all') out.push(['eq', 'actor_id', actor])
+    if (action !== 'all') out.push(['eq', 'action', action])
+    if (entity !== 'all') out.push(['eq', 'entity', entity])
+    if (from) out.push(['gte', 'at', cairoDayStart(from)])
+    if (to) out.push(['lt', 'at', cairoDayStart(dayAdd(to, 1))])
+    return out
+  }, [actor, action, entity, from, to])
+
+  /** أسامي أصحاب الأفعال — بنجيب اللي ظهروا بس، مش جدول الناس كله */
+  const loadPeople = useCallback(async (ids: string[]) => {
+    const want = Array.from(new Set(ids)).filter(Boolean)
+    if (want.length === 0) return
     const db = supabase()
-    const [a, p] = await Promise.all([
+    const map: Record<string, PersonRow> = {}
+    for (const part of chunk(want, 100)) {
+      const { data } = await db.from('profiles').select('id, first_name, phone').in('id', part)
+      for (const p of (data ?? []) as PersonRow[]) map[p.id] = p
+    }
+    setPeople((old) => ({ ...old, ...map }))
+  }, [])
+
+  /** الصفحة اللي قدامك + عدد اللي بالفلتر ده */
+  const reload = useCallback(async () => {
+    setBusy(true)
+    let q = supabase().from('audit_log').select(LOG_COLS, { count: 'exact' })
+    for (const [op, col, val] of conds) {
+      if (op === 'is') q = q.is(col, val)
+      else if (op === 'eq') q = q.eq(col, val)
+      else if (op === 'gte') q = q.gte(col, val)
+      else q = q.lt(col, val)
+    }
+    const { data, count, error } = await q
+      .order('at', { ascending: false })
+      .range(page * ADMIN_PAGE_SIZE, page * ADMIN_PAGE_SIZE + ADMIN_PAGE_SIZE - 1)
+    setBusy(false)
+    if (error) {
+      flash(`مقدرناش نجيب السجل: ${error.message}`)
+      setRows([])
+      setTotal(0)
+      return
+    }
+    const list = (data ?? []) as unknown as LogRow[]
+    setRows(list)
+    setTotal(count ?? null)
+    loadPeople(list.map((r) => r.actor_id).filter((x): x is string => Boolean(x)))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [conds, page, loadPeople])
+
+  /** الأرقام اللي فوق + قوايم الفلاتر — مسح واحد محدود بدل ما نجيب الجدول كله */
+  const loadMeta = useCallback(async () => {
+    const db = supabase()
+    const [head, last, scan] = await Promise.all([
+      db.from('audit_log').select('id', { count: 'exact', head: true }),
+      db.from('audit_log').select(LOG_COLS).order('at', { ascending: false }).limit(1),
       db
         .from('audit_log')
-        .select('id, actor_id, action, entity, entity_id, before, after, ip, at')
+        .select('actor_id, action, entity')
         .order('at', { ascending: false })
-        .limit(2000),
-      db.from('profiles').select('id, first_name, phone').limit(2000),
+        .range(0, ADMIN_SCAN_MAX - 1),
     ])
-    setRows((a.data ?? []) as LogRow[])
-    const map: Record<string, PersonRow> = {}
-    for (const person of (p.data ?? []) as PersonRow[]) map[person.id] = person
-    setPeople(map)
-  }, [])
+    setAll(head.count ?? null)
+    setLatest((((last.data ?? []) as unknown as LogRow[])[0] ?? null) as LogRow | null)
+
+    const seen = (scan.data ?? []) as { actor_id: string | null; action: string; entity: string }[]
+    setCapped(seen.length >= ADMIN_SCAN_MAX)
+    setOptions({
+      actors: Array.from(new Set(seen.map((r) => r.actor_id ?? 'system'))),
+      actions: Array.from(new Set(seen.map((r) => r.action))).sort(),
+      entities: Array.from(new Set(seen.map((r) => r.entity))).sort(),
+    })
+    loadPeople(seen.map((r) => r.actor_id).filter((x): x is string => Boolean(x)))
+  }, [loadPeople])
 
   useEffect(() => {
     reload()
   }, [reload])
+
+  useEffect(() => {
+    loadMeta()
+  }, [loadMeta])
 
   const nameOf = useCallback(
     (id: string | null) => {
@@ -118,50 +218,41 @@ function AuditLog() {
     [people]
   )
 
-  const actors = useMemo(() => {
-    const ids = Array.from(new Set((rows ?? []).map((r) => r.actor_id ?? 'system')))
-    return [
+  const actors = useMemo(
+    () => [
       { value: 'all', label: 'أي حد' },
-      ...ids.map((id) => ({
+      ...options.actors.map((id) => ({
         value: id,
         label: id === 'system' ? 'النظام' : nameOf(id),
       })),
-    ]
-  }, [rows, nameOf])
+    ],
+    [options.actors, nameOf]
+  )
 
   const actions = useMemo(
     () => [
       { value: 'all', label: 'أي حاجة' },
-      ...Array.from(new Set((rows ?? []).map((r) => r.action)))
-        .sort()
-        .map((a) => ({ value: a, label: a })),
+      ...options.actions.map((a) => ({ value: a, label: a })),
     ],
-    [rows]
+    [options.actions]
   )
 
   const entities = useMemo(
     () => [
       { value: 'all', label: 'أي جدول' },
-      ...Array.from(new Set((rows ?? []).map((r) => r.entity)))
-        .sort()
-        .map((e) => ({ value: e, label: e })),
+      ...options.entities.map((e) => ({ value: e, label: e })),
     ],
-    [rows]
+    [options.entities]
   )
 
-  const shown = useMemo(() => {
-    return (rows ?? []).filter((r) => {
-      if (actor !== 'all' && (r.actor_id ?? 'system') !== actor) return false
-      if (action !== 'all' && r.action !== action) return false
-      if (entity !== 'all' && r.entity !== entity) return false
-      const d = cairoDay(r.at)
-      if (from && d < from) return false
-      if (to && d > to) return false
-      return true
-    })
-  }, [rows, actor, action, entity, from, to])
+  /** أي تغيير في الفلتر بيرجّعنا لأول صفحة — غير كده تلاقي نفسك في صفحة فاضية */
+  const setFilter = (set: (v: string) => void) => (v: string) => {
+    setPage(0)
+    set(v)
+  }
 
   function reset() {
+    setPage(0)
     setActor('all')
     setAction('all')
     setEntity('all')
@@ -169,15 +260,35 @@ function AuditLog() {
     setTo('')
   }
 
-  /** بينزّل اللي قدامك بالظبط — لا أكتر ولا أقل */
-  function exportCsv() {
-    if (shown.length === 0) {
+  /** بينزّل كل اللي بالفلتر ده — مش الصفحة اللي قدامك بس */
+  async function exportCsv() {
+    if ((total ?? 0) === 0) {
       flash('مفيش صفوف تتنزّل بالفلتر ده.')
       return
     }
+    setBusy(true)
+    let q = supabase().from('audit_log').select(LOG_COLS)
+    for (const [op, col, val] of conds) {
+      if (op === 'is') q = q.is(col, val)
+      else if (op === 'eq') q = q.eq(col, val)
+      else if (op === 'gte') q = q.gte(col, val)
+      else q = q.lt(col, val)
+    }
+    const { data, error } = await q.order('at', { ascending: false }).range(0, ADMIN_SCAN_MAX - 1)
+    setBusy(false)
+    if (error) {
+      flash(`مقدرناش نجهّز الملف: ${error.message}`)
+      return
+    }
+    const list = (data ?? []) as unknown as LogRow[]
+    if (list.length === 0) {
+      flash('مفيش صفوف تتنزّل بالفلتر ده.')
+      return
+    }
+
     const head = ['الوقت', 'مين', 'رقم الحساب', 'العملية', 'الجدول', 'رقم الصف', 'IP', 'قبل', 'بعد']
     const lines = [head.map(cell).join(',')]
-    for (const r of shown) {
+    for (const r of list) {
       lines.push(
         [
           when(r.at),
@@ -198,10 +309,14 @@ function AuditLog() {
     const blob = new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' })
     const a = document.createElement('a')
     a.href = URL.createObjectURL(blob)
-    a.download = `nasbot-audit-${cairoDay(new Date().toISOString())}.csv`
+    a.download = `nasbot-audit-${todayCairo()}.csv`
     a.click()
     URL.revokeObjectURL(a.href)
-    flash(`نزّلنا ${shown.length} سطر ✓`)
+    flash(
+      (total ?? 0) > list.length
+        ? `نزّلنا ${list.length} سطر — الفلتر فيه ${total} سطر، ضيّقه بالتواريخ علشان تاخدهم كلهم.`
+        : `نزّلنا ${list.length} سطر ✓`
+    )
   }
 
   if (rows === null) return <Loading />
@@ -209,20 +324,30 @@ function AuditLog() {
   return (
     <div className="mt-6 flex flex-col gap-5">
       <div className="flex flex-wrap gap-3">
-        <Stat label="كل اللي مسجّل" value={String(rows.length)} hint="آخر 2000 سطر" />
-        <Stat label="اللي قدامك" value={String(shown.length)} />
+        <Stat label="كل اللي مسجّل" value={all === null ? '…' : String(all)} hint="السجل كله" />
+        <Stat label="اللي بالفلتر ده" value={total === null ? '…' : String(total)} />
         <Stat
           label="آخر حاجة اتعملت"
-          value={rows[0] ? when(rows[0].at) : '—'}
-          hint={rows[0] ? `${nameOf(rows[0].actor_id)} · ${rows[0].action}` : undefined}
+          value={latest ? when(latest.at) : '—'}
+          hint={latest ? `${nameOf(latest.actor_id)} · ${latest.action}` : undefined}
         />
       </div>
 
-      <Card title="فلتر" hint="التنزيل بيطلّع اللي قدامك بالظبط بعد الفلتر.">
+      <Card title="فلتر" hint="الفلتر بيتنفّذ في القاعدة، والتنزيل بيطلّع كل اللي بالفلتر ده.">
         <div className="mt-3 flex flex-wrap items-end gap-3">
-          <SelectField label="مين" value={actor} options={actors} onChange={setActor} />
-          <SelectField label="العملية" value={action} options={actions} onChange={setAction} />
-          <SelectField label="الجدول" value={entity} options={entities} onChange={setEntity} />
+          <SelectField label="مين" value={actor} options={actors} onChange={setFilter(setActor)} />
+          <SelectField
+            label="العملية"
+            value={action}
+            options={actions}
+            onChange={setFilter(setAction)}
+          />
+          <SelectField
+            label="الجدول"
+            value={entity}
+            options={entities}
+            onChange={setFilter(setEntity)}
+          />
 
           <label className="flex flex-col gap-1">
             <span className="font-body text-13" style={{ color: 'var(--muted)' }}>
@@ -231,7 +356,10 @@ function AuditLog() {
             <input
               type="date"
               value={from}
-              onChange={(e) => setFrom(e.target.value)}
+              onChange={(e) => {
+                setPage(0)
+                setFrom(e.target.value)
+              }}
               className="rounded-14 px-3 py-2 font-body text-15"
               style={{ background: 'var(--bg)', color: 'var(--fg)', border: '2px solid var(--line)' }}
             />
@@ -244,7 +372,10 @@ function AuditLog() {
             <input
               type="date"
               value={to}
-              onChange={(e) => setTo(e.target.value)}
+              onChange={(e) => {
+                setPage(0)
+                setTo(e.target.value)
+              }}
               className="rounded-14 px-3 py-2 font-body text-15"
               style={{ background: 'var(--bg)', color: 'var(--fg)', border: '2px solid var(--line)' }}
             />
@@ -253,8 +384,8 @@ function AuditLog() {
           <Btn onClick={reset}>شيل الفلتر</Btn>
           <Btn onClick={() => reload()}>حدّث</Btn>
           <div className="ms-auto">
-            <Btn kind="primary" onClick={exportCsv}>
-              نزّل CSV ({shown.length})
+            <Btn kind="primary" onClick={exportCsv} disabled={busy}>
+              نزّل CSV ({total ?? 0})
             </Btn>
           </div>
         </div>
@@ -262,6 +393,8 @@ function AuditLog() {
         <div className="mt-2 font-body text-12" style={{ color: 'var(--muted)' }}>
           الملف ده سجل تصرفات الفريق على اللوحة — مش بيانات أعضاء. برضه ما تسيبهوش على أي جهاز مش
           بتاعك.
+          {capped &&
+            ' — قوايم «مين/العملية/الجدول» مبنية من آخر الصفوف بس، فلو حاجة قديمة مش في القايمة استعمل التواريخ.'}
         </div>
       </Card>
 
@@ -269,15 +402,15 @@ function AuditLog() {
 
       <Card title="اللي اتعمل">
         <div className="mt-3">
-          {shown.length === 0 ? (
+          {rows.length === 0 ? (
             <Empty>
-              {rows.length === 0
+              {all === 0
                 ? 'السجل لسه فاضي. أول ما حد من الفريق يعدّل حاجة هتلاقيها هنا.'
                 : 'مفيش سطر بالفلتر ده.'}
             </Empty>
           ) : (
             <Table head={['امتى', 'مين', 'العملية', 'الجدول', 'الصف', 'IP', 'قبل وبعد']}>
-              {shown.map((r) => (
+              {rows.map((r) => (
                 <tr key={r.id} style={{ borderTop: '1px solid var(--line)' }}>
                   <td className="p-2 whitespace-nowrap">{when(r.at)}</td>
                   <td className="p-2">{nameOf(r.actor_id)}</td>
@@ -334,6 +467,8 @@ function AuditLog() {
             </Table>
           )}
         </div>
+
+        <Pager page={page} shown={rows.length} total={total} onPage={setPage} busy={busy} />
       </Card>
     </div>
   )
