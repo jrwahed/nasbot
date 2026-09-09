@@ -31,6 +31,7 @@ const SECTIONS: { href: string; label: string; perm: string | null }[] = [
   { href: '/admin/notifications', label: 'الرسائل', perm: 'notifications.view' },
   { href: '/admin/map', label: 'الخريطة', perm: 'map.edit' },
   { href: '/admin/settings', label: 'الإعدادات', perm: 'settings.view' },
+  { href: '/admin/pricing', label: 'التسعير', perm: 'settings.view' },
   { href: '/admin/shoghl', label: 'الشغل', perm: 'sbotat.view' },
   { href: '/admin/team', label: 'الفريق', perm: 'admins.manage' },
   { href: '/admin/audit', label: 'السجل', perm: 'audit.view' },
