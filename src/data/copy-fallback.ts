@@ -704,4 +704,8 @@ export const copyFallback: Record<string, string> = {
   "host.me.body": "مش لازم تستنى نسبوط يظبّط. افتح خروجة انت، والناس تيجي.",
   "host.me.new": "افتح خروجة",
   "host.me.mine": "خروجاتي",
+  "game.nav": "اللعبة",
+  "game.strip.title": "مين جاي معاك؟",
+  "game.strip.sub": "جاوب كام سؤال، ونقولك أنهي خروجة تناسبك.",
+  "game.strip.cta": "العب",
 }

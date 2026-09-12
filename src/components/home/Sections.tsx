@@ -10,7 +10,9 @@ import { homeRuleStickers, lastFriday, quote } from '@/data/lists'
 import { subscribeSchedule } from '@/lib/api'
 import { useTheme } from '@/lib/use-theme'
 import { LaptopSmallIcon } from '@/components/work/WorkIcons'
+import { GroupIcon } from '@/components/Icons'
 import { useT } from '@/components/CopyProvider'
+import { useFlag } from '@/components/FlagsProvider'
 
 /**
  * شريط «الشغل» في الرئيسية — نهاري بس. سطر واحد وزر «خد يومك» → /shoghl.
@@ -44,6 +46,53 @@ export function WorkStrip({ className = '' }: { className?: string }) {
         style={{ background: '#F4632A', color: '#14161A' }}
       >
         {t('shoghl.strip.cta')}
+      </Link>
+    </section>
+  )
+}
+
+/**
+ * شريط «لعبة مين جاي؟» في الرئيسية.
+ *
+ * ⚠ اللعبة كانت **يتيمة**: `/game` مبنية وشغّالة ونصوصها في القاعدة وليها
+ * مفتاح ميزة — ومفيش ولا لينك واحد ليها في الموقع كله. الطريق الوحيد إنك
+ * تكتب الـURL بإيدك. الشريط ده والرابط في الهيدر هما مدخلها.
+ *
+ * ورا مفتاح `game` زي أي مدخل تاني — لو المالك قفل اللعبة، الشريط يختفي
+ * بدل ما يودّي الناس على شاشة «مقفول».
+ */
+export function GameStrip({ className = '' }: { className?: string }) {
+  const t = useT()
+  const game = useFlag('game')
+  if (!game.on) return null
+  return (
+    <section
+      className={`flex items-center justify-between gap-3 rounded-16 p-4 ${className}`}
+      style={{ background: '#EFE3CF', color: '#14161A' }}
+      aria-label={t('game.nav')}
+    >
+      <div className="flex min-w-0 items-center gap-3">
+        <span
+          className="grid shrink-0 place-items-center rounded-12"
+          style={{ width: 40, height: 40, background: '#2B4CFF' }}
+        >
+          <GroupIcon size={22} stroke="#FBF7EF" />
+        </span>
+        <div className="min-w-0">
+          <div className="font-display text-18 font-black leading-[1.15]">
+            {t('game.strip.title')}
+          </div>
+          <div className="font-body text-14" style={{ color: '#55575C' }}>
+            {t('game.strip.sub')}
+          </div>
+        </div>
+      </div>
+      <Link
+        href="/game"
+        className="grid min-h-[48px] shrink-0 place-items-center rounded-14 px-5 font-display text-18 font-black leading-none"
+        style={{ background: '#2B4CFF', color: '#FBF7EF' }}
+      >
+        {t('game.strip.cta')}
       </Link>
     </section>
   )

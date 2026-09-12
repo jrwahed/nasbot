@@ -11,6 +11,7 @@ import { CairoMap } from '@/components/CairoMap'
 import { OneButton } from '@/components/home/OneButton'
 import {
   Captains,
+  GameStrip,
   LastFriday,
   RulesStrip,
   ScheduleBox,
@@ -110,6 +111,7 @@ export default function Home() {
 
       {/* الأقسام دي بتتوسّط على الكمبيوتر بدل ما تتمدد على 1440 كلها */}
       <div className="mx-auto w-full lg:max-w-[1100px]">
+        <GameStrip className="mx-5 mt-9 lg:mx-0" />
         <LastFriday />
         <Captains />
         <RulesStrip />

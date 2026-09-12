@@ -3940,5 +3940,29 @@
     "value_ar": "خروجاتي",
     "screen": "خروجات الأعضاء",
     "context_ar": "زرار تاني"
+  },
+  {
+    "key": "game.nav",
+    "value_ar": "اللعبة",
+    "screen": "اللعبة",
+    "context_ar": "رابط اللعبة في الهيدر — Header.tsx"
+  },
+  {
+    "key": "game.strip.title",
+    "value_ar": "مين جاي معاك؟",
+    "screen": "اللعبة",
+    "context_ar": "عنوان شريط اللعبة في الرئيسية"
+  },
+  {
+    "key": "game.strip.sub",
+    "value_ar": "جاوب كام سؤال، ونقولك أنهي خروجة تناسبك.",
+    "screen": "اللعبة",
+    "context_ar": "سطر تحت العنوان"
+  },
+  {
+    "key": "game.strip.cta",
+    "value_ar": "العب",
+    "screen": "اللعبة",
+    "context_ar": "زرار الشريط"
   }
 ]
