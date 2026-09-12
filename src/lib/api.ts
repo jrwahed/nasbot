@@ -1323,27 +1323,55 @@ export async function getCompletedCount(): Promise<number> {
   return (data as { sbota_count: number } | null)?.sbota_count ?? 0
 }
 
-/* ============================================================ لوحة الكابتن */
+/* ====================================== لوحة صاحب الخروجة (والكابتن)
+
+   الصفحة دي كانت «لوحة الكابتن». بعد ما المنتج بطّل يبقى قايم على
+   الكابتن، بقت لوحة **اللي ماسك المجموعة** — عضو فتح الخروجة، أو كابتن
+   نسبوط في السبوطات اللي لسه ليها كابتن.
+
+   ⚠ الحد الأمني الحقيقي هو RLS مش الكود ده: سياسة `bookings_own_read`
+   بتمر على `fn_is_my_sbota_revealed`، واللي 0078 وسّعتها لصاحب الخروجة
+   **بعد الكشف بس**. فاللي ما لهوش حق بيشوف قايمة فاضية مش بيشوف الناس.
+*/
 
 export interface CaptainBoard {
   sbota: Sbota
-  captain: Captain
+  /** كابتن نسبوط — null في خروجة العضو */
+  captain: Captain | null
   roster: Person[]
+}
+
+/** السبوطة بالمعرّف. `getSbota` بتاخد **slug** مش id — الفرق ده كان باج. */
+async function getSbotaById(id: string): Promise<Sbota | null> {
+  const { data, error } = await supabase()
+    .from('sbotat_public')
+    .select(SBOTA_COLS)
+    .eq('id', id)
+    .maybeSingle()
+  if (error || !data) return null
+  const who = (await whoBookedMap([id])).get(id)
+  return sbotaFromDb(data, who)
 }
 
 export async function getCaptainBoard(sbotaId: string): Promise<CaptainBoard | null> {
   if (!DB) return mock.getCaptainBoard(sbotaId) as unknown as Promise<CaptainBoard | null>
 
-  const sbota = await getSbota(sbotaId)
+  // ⚠ كان بينادي `getSbota(sbotaId)` وهي بتدوّر بالـslug — يعني بترجّع null
+  //   دايمًا واللوحة كانت فاضية على طول. باج قديم، بان دلوقتي وإحنا بنحوّلها.
+  const sbota = await getSbotaById(sbotaId)
   if (!sbota) return null
-  const captain = await getCaptain(sbota.captainId)
+  // خروجة العضو مالهاش كابتن — و`getCaptain('')` بترجّع كابتن وهمي.
+  const captain = sbota.captainId ? await getCaptain(sbota.captainId) : null
 
-  // هنا بس الصور بتظهر — الكابتن محتاج يعرف الناس عند البوابة
+  // هنا بس الصور بتظهر — اللي ماسك المجموعة محتاج يعرف الناس عند البوابة
+  // ⚠ `.eq('sbota_id')` كان ناقص: من غيره الاستعلام بيرجّع **كل** الحجوزات
+  //   اللي RLS تسمح بيها، يعني كشوف سبوطات تانية بتتخلط في اللوحة دي.
   const { data } = await supabase()
     .from('bookings')
     .select(
       'id, checked_in_at, profiles!bookings_profile_id_fkey(id, first_name, type, avatar_path, sbota_count)'
     )
+    .eq('sbota_id', sbotaId)
     .in('status', ['paid', 'attended'])
 
   type DbRoster = {

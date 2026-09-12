@@ -100,6 +100,8 @@ interface Group {
     col: string
     label: string
     hint: string
+    /** العمود منطقي في القاعدة — بنعرضه اختيارين وبنحفظه boolean مش نص */
+    bool?: boolean
     options: { value: string; label: string }[]
   }[]
 }
@@ -137,6 +139,66 @@ const GROUPS: Group[] = [
         hint: 'لو إحنا لغينا السبوطة، بنرجّع الفلوس كلها وزيادة النسبة دي اعتذار.',
         min: 0,
         max: 100,
+      },
+    ],
+  },
+  {
+    title: 'خروجات الأعضاء',
+    nums: [
+      {
+        col: 'site_fee',
+        money: true,
+        label: 'رسوم الموقع',
+        suffix: 'جنيه',
+        hint: 'نصيبنا جوه سعر الخروجة، مش زيادة عليه. ده ورث مكان «رسوم التنظيم والكابتن» القديمة — رسوم الكابتن مبقاش ليها وجود.',
+        min: 0,
+      },
+      {
+        col: 'member_sbota_min_capacity',
+        label: 'أقل عدد في خروجة العضو',
+        suffix: 'شخص',
+        hint: 'أقل من كده مش خروجة مع ناس جدد. القاعدة بترفض أي رقم تحته.',
+        min: 2,
+      },
+      {
+        col: 'member_sbota_max_capacity',
+        label: 'أكبر عدد في خروجة العضو',
+        suffix: 'شخص',
+        hint: 'أكبر مجموعة يقدر عضو يفتحها. القاعدة بترفض أي رقم فوقه.',
+        min: 2,
+      },
+      {
+        col: 'member_sbota_max_open',
+        label: 'كام خروجة مفتوحة للعضو',
+        suffix: 'خروجة',
+        hint: 'في نفس الوقت. بيمنع إن عضو واحد يغرق القايمة بخروجات مش هتحصل.',
+        min: 1,
+      },
+      {
+        col: 'member_sbota_min_lead_hours',
+        label: 'أقل مهلة قبل الميعاد',
+        suffix: 'ساعة',
+        hint: 'أقل وقت بين لحظة الفتح وميعاد الخروجة — علشان الناس تلحق تحجز.',
+        min: 1,
+      },
+      {
+        col: 'member_sbota_max_days_ahead',
+        label: 'أبعد ميعاد لقدّام',
+        suffix: 'يوم',
+        hint: 'أبعد تاريخ يقدر عضو يفتح فيه خروجة.',
+        min: 1,
+      },
+    ],
+    picks: [
+      {
+        col: 'member_sbota_auto_open',
+        bool: true,
+        label: 'خروجة العضو تظهر',
+        hint: '«على طول» = تروح القايمة العامة فورًا. «بموافقة» = تفضل مسوّدة لحد ما تعتمدها من قسم السبوطات — أأمن في البداية، بس بيبطّي.',
+        options: [
+          { value: 'true', label: 'على طول' },
+          { value: 'false', label: 'بعد موافقتك' },
+        ],
       },
     ],
   },
@@ -808,9 +870,9 @@ function NumbersTab({
                   <div key={p.col} className="flex flex-col gap-1">
                     <SelectField
                       label={p.label}
-                      value={txt(settings, p.col)}
+                      value={p.bool ? String(settings[p.col] === true) : txt(settings, p.col)}
                       options={p.options}
-                      onChange={(v) => onSave(p.col, v, p.label)}
+                      onChange={(v) => onSave(p.col, p.bool ? v === 'true' : v, p.label)}
                     />
                     <span className="font-body text-12" style={{ color: 'var(--muted)' }}>
                       {p.hint}
@@ -820,10 +882,10 @@ function NumbersTab({
                   <ReadOnly
                     key={p.col}
                     label={p.label}
-                    value={
-                      p.options.find((o) => o.value === txt(settings, p.col))?.label ??
-                      txt(settings, p.col)
-                    }
+                    value={(() => {
+                      const cur = p.bool ? String(settings[p.col] === true) : txt(settings, p.col)
+                      return p.options.find((o) => o.value === cur)?.label ?? cur
+                    })()}
                     hint={p.hint}
                   />
                 )

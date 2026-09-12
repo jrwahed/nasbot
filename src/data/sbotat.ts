@@ -43,7 +43,7 @@ export const sbotat: Sbota[] = [
     venueName: 'ملاعب النادي — التجمع الخامس',
     includes: ['ملعبين ساعتين', 'كرات', 'مياه وعصير', 'الكابتن'],
     excludes: ['المضرب (في إيجار بـ 50)'],
-    priceBreakdown: 'شامل 40 جنيه رسوم تنظيم المجموعة والكابتن.',
+    priceBreakdown: 'شامل 40 جنيه رسوم الموقع.',
     whoBooked: {
       booked: 5,
       total: 8,
@@ -88,7 +88,7 @@ export const sbotat: Sbota[] = [
     venueName: 'نادي المعادي البحري',
     includes: ['كاياك ساعتين', 'سترة نجاة', 'فطار كامل', 'الكابتن'],
     excludes: ['المواصلات'],
-    priceBreakdown: 'شامل 40 جنيه رسوم تنظيم المجموعة والكابتن.',
+    priceBreakdown: 'شامل 40 جنيه رسوم الموقع.',
     whoBooked: {
       booked: 3,
       total: 8,
@@ -133,7 +133,7 @@ export const sbotat: Sbota[] = [
     venueName: 'محمية وادي دجلة',
     includes: ['دخول المحمية', 'كشافات', 'شوي وعشا', 'الكابتن'],
     excludes: ['المواصلات', 'الجاكيت'],
-    priceBreakdown: 'شامل 60 جنيه رسوم تنظيم المجموعة والكابتن.',
+    priceBreakdown: 'شامل 60 جنيه رسوم الموقع.',
     whoBooked: {
       booked: 8,
       total: 8,
@@ -176,9 +176,9 @@ export const sbotat: Sbota[] = [
     addressHint: '(العنوان بعد الحجز)',
     address: 'الحي الأول، شارع 90 الجنوبي، فوق الكافيه',
     venueName: 'كافيه الحي الأول',
-    includes: ['الترابيزة', 'الكابتن', 'رسوم التنظيم'],
+    includes: ['الترابيزة', 'رسوم الموقع'],
     excludes: ['الأكل (بتحسبوه بينكم في الآخر)'],
-    priceBreakdown: 'شامل 40 جنيه رسوم تنظيم المجموعة والكابتن.',
+    priceBreakdown: 'شامل 40 جنيه رسوم الموقع.',
     whoBooked: {
       booked: 4,
       total: 6,
@@ -223,7 +223,7 @@ export const sbotat: Sbota[] = [
     venueName: 'ملاعب النادي — التجمع الخامس',
     includes: ['ملعبين ساعتين', 'كرات', 'مياه وعصير', 'الكابتن'],
     excludes: ['المضرب (في إيجار بـ 50)'],
-    priceBreakdown: 'شامل 40 جنيه رسوم تنظيم المجموعة والكابتن.',
+    priceBreakdown: 'شامل 40 جنيه رسوم الموقع.',
     whoBooked: {
       booked: 4,
       total: 8,
@@ -270,7 +270,7 @@ export const sbotat: Sbota[] = [
     venueName: 'استوديو الحي الأول',
     includes: ['ترابيزة وكرسي', 'قهوة ومية', 'واي فاي', 'الكابتن'],
     excludes: ['الأكل'],
-    priceBreakdown: 'شامل 20 جنيه رسوم تنظيم المجموعة والكابتن.',
+    priceBreakdown: 'شامل 20 جنيه رسوم الموقع.',
     firstTimeOffer: { label: 'أول مرة بـ 60', price: 60 },
     whoBooked: {
       booked: 4,
@@ -316,7 +316,7 @@ export const sbotat: Sbota[] = [
     venueName: 'محمية وادي دجلة',
     includes: ['دخول المحمية', 'كشافات', 'فطار خفيف', 'الكابتن'],
     excludes: ['المواصلات'],
-    priceBreakdown: 'شامل 40 جنيه رسوم تنظيم المجموعة والكابتن.',
+    priceBreakdown: 'شامل 40 جنيه رسوم الموقع.',
     whoBooked: {
       booked: 4,
       total: 10,
@@ -358,7 +358,7 @@ export const sbotat: Sbota[] = [
     address: 'هيوصلك على الواتساب قبلها بساعتين.',
     includes: ['كل حاجة', 'الكابتن'],
     excludes: ['المواصلات'],
-    priceBreakdown: 'شامل 60 جنيه رسوم تنظيم المجموعة والكابتن.',
+    priceBreakdown: 'شامل 60 جنيه رسوم الموقع.',
     whoBooked: {
       booked: 0,
       total: 8,

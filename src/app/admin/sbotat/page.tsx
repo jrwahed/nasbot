@@ -60,6 +60,10 @@ interface Sbota {
   template_id: string
   venue_id: string | null
   captain_id: string | null
+  origin: string | null
+  host_id: string | null
+  host_name_ar: string | null
+  host_note_ar: string | null
   starts_at: string
   ends_at: string
   price: number
@@ -255,6 +259,7 @@ function SbotatEditor({ canEdit, canCancel }: { canEdit: boolean; canCancel: boo
 
   const [tab, setTab] = useState<TabId>('table')
   const [fStatus, setFStatus] = useState('الكل')
+  const [fOrigin, setFOrigin] = useState('الكل')
   const [fArea, setFArea] = useState('الكل')
   const [fWeek, setFWeek] = useState('next')
   const [page, setPage] = useState(0)
@@ -298,6 +303,7 @@ function SbotatEditor({ canEdit, canCancel }: { canEdit: boolean; canCancel: boo
 
     let q = supabase().from('sbotat').select('*', { count: 'exact' })
     if (fStatus !== 'الكل') q = q.eq('status', fStatus)
+    if (fOrigin !== 'الكل') q = q.eq('origin', fOrigin)
     if (fArea !== 'الكل') q = q.eq('area', fArea)
     if (fWeek === 'this') {
       q = q.gte('starts_at', cairoDayStart(ws)).lt('starts_at', cairoDayStart(dayAdd(ws, 7)))
@@ -330,7 +336,7 @@ function SbotatEditor({ canEdit, canCancel }: { canEdit: boolean; canCancel: boo
     const map = await countBooked(list.map((r) => r.id))
     setBooked((old) => ({ ...old, ...map }))
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fStatus, fArea, fWeek, page])
+  }, [fStatus, fOrigin, fArea, fWeek, page])
 
   /** أسبوع التقويم بس — مش الجدول كله */
   const calStart = dayAdd(weekStart(todayCairo()), weekOff * 7)
@@ -561,6 +567,16 @@ function SbotatEditor({ canEdit, canCancel }: { canEdit: boolean; canCancel: boo
               options={[{ value: 'الكل', label: 'كل الحالات' }, ...STATUSES]}
             />
             <SelectField
+              label="مين فاتحها"
+              value={fOrigin}
+              onChange={setFilter(setFOrigin)}
+              options={[
+                { value: 'الكل', label: 'الكل' },
+                { value: 'nasbot', label: 'نسبوط' },
+                { value: 'member', label: 'أعضاء' },
+              ]}
+            />
+            <SelectField
               label="المنطقة"
               value={fArea}
               onChange={setFilter(setFArea)}
@@ -608,7 +624,11 @@ function SbotatEditor({ canEdit, canCancel }: { canEdit: boolean; canCancel: boo
                         name={tplName(r.template_id)}
                         venueName={venueOf(r.venue_id)?.name ?? '—'}
                         areaText={r.area_label_ar ?? areaLabel(r.area)}
-                        captain={captainName(r.captain_id)}
+                        captain={
+                          r.origin === 'member'
+                            ? r.host_name_ar || '—'
+                            : captainName(r.captain_id)
+                        }
                         booked={n}
                         low={under(r) && r.status !== 'cancelled' && r.status !== 'done'}
                         canEdit={canEdit}
@@ -617,6 +637,7 @@ function SbotatEditor({ canEdit, canCancel }: { canEdit: boolean; canCancel: boo
                         onDuplicate={() => duplicate(r)}
                         onRepeat={() => toggle(r.id, 'repeat')}
                         onCancel={() => toggle(r.id, 'cancel')}
+                        onApprove={() => patch(r.id, { status: 'open' }, 'الخروجة اتعتمدت ✓')}
                       />
 
                       {panel?.id === r.id && (
@@ -761,6 +782,7 @@ function SbotaRow({
   onDuplicate,
   onRepeat,
   onCancel,
+  onApprove,
 }: {
   row: Sbota
   name: string
@@ -775,12 +797,17 @@ function SbotaRow({
   onDuplicate: () => void
   onRepeat: () => void
   onCancel: () => void
+  onApprove: () => void
 }) {
+  // خروجة عضو لسه مسوّدة = مستنية موافقتك (لما «تظهر بعد موافقتك» شغّالة
+  // في الإعدادات). زرار واحد بيحوّلها لـ open وبس.
+  const needsApproval = row.origin === 'member' && row.status === 'draft'
   return (
     <tr style={{ opacity: row.status === 'cancelled' ? 0.55 : 1 }}>
       <td className="p-2">
         <div className="font-display text-15 font-black">{name}</div>
         <div className="flex flex-wrap gap-1 pt-1">
+          {row.origin === 'member' && <Tag color="#EFE3CF">من عضو</Tag>}
           {row.girls_only && <Tag color="#F4B4C8">بنات بس</Tag>}
           {row.is_mystery && <Tag color="#C9B6F2">غامضة</Tag>}
           {row.is_day && <Tag>نهاري</Tag>}
@@ -793,7 +820,14 @@ function SbotaRow({
           {areaText}
         </div>
       </td>
-      <td className="p-2">{captain}</td>
+      <td className="p-2">
+        <div>{captain}</div>
+        {row.origin === 'member' && row.host_note_ar && (
+          <div className="text-12" style={{ color: 'var(--muted)' }}>
+            {row.host_note_ar}
+          </div>
+        )}
+      </td>
       <td className="whitespace-nowrap p-2">{money(row.price)}</td>
       <td className="whitespace-nowrap p-2">
         <span className="font-display text-16 font-black">
@@ -815,6 +849,7 @@ function SbotaRow({
       </td>
       <td className="p-2">
         <div className="flex flex-wrap justify-end gap-1">
+          {canEdit && needsApproval && <Btn onClick={onApprove}>اعتمد</Btn>}
           {canEdit && <Btn onClick={onEdit}>عدّل</Btn>}
           {canEdit && <Btn onClick={onDuplicate}>نسخ</Btn>}
           {canEdit && <Btn onClick={onRepeat}>متكرر</Btn>}
