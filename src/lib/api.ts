@@ -120,11 +120,53 @@ export const REFERRAL_DISCOUNT = 0.15
 
 /* ============================================================ السبوطات */
 
-const SBOTA_COLS =
+/**
+ * أعمدة السبوطة قبل هجرة 0078 — الأساس اللي أكيد موجود.
+ */
+const SBOTA_COLS_BASE =
   'id, slug, name_ar, story_ar, kind, mood_ar, meta_prefix_ar, level_ar, price, org_fee, ' +
   'capacity, status, girls_only, is_day, is_mystery, starts_at, duration_min, area, area_label_ar, ' +
-  'includes_ar, excludes_ar, hero_photos, captain_id, overnight, reveal_at, ' +
-  'origin, host_id, host_name_ar, host_note_ar'
+  'includes_ar, excludes_ar, hero_photos, captain_id, overnight, reveal_at'
+
+/** أعمدة صاحب الخروجة — بتتضاف مع 0078 */
+const SBOTA_COLS_HOST = 'origin, host_id, host_name_ar, host_note_ar'
+
+const SBOTA_COLS = `${SBOTA_COLS_BASE}, ${SBOTA_COLS_HOST}`
+
+/**
+ * ⚠ الكود بينزل على Vercel قبل ما الهجرة تتلزق على القاعدة — ده الترتيب
+ * الطبيعي في المشروع ده (الإيجنت مالوش وصول للقاعدة، المالك بيلزق بإيده).
+ * وفي الفترة دي أعمدة `origin`/`host_id` **مش موجودة**، وPostgREST بيرفض
+ * الاستعلام كله بـ400. من غير الحارس ده، **قايمة السبوطات في الصفحة
+ * الرئيسية كانت هتطلع فاضية** لحد ما المالك يلزق — أوحش من إن الوسم
+ * الجديد ما يبانش.
+ *
+ * فبنجرّب بالأعمدة الجديدة، ولو القاعدة ما عرفتهاش بنعيد بالأساس بس.
+ * بعد اللزق المسار الأول بينجح على طول والتاني عمره ما بيتنفّذ.
+ */
+/**
+ * آخر مرة القاعدة قالت فيها إن الأعمدة مش موجودة. بنجرّب تاني بعد دقيقة،
+ * علشان أول ما المالك يلزق الهجرة الوسم يبان من غير ما نستنى إعادة نشر.
+ */
+let hostColsMissingAt = 0
+const HOST_COLS_RETRY_MS = 60_000
+
+async function selectSbotat<T>(
+  run: (cols: string) => PromiseLike<{ data: T; error: { message: string } | null }>
+): Promise<{ data: T; error: { message: string } | null }> {
+  const skip = hostColsMissingAt > 0 && Date.now() - hostColsMissingAt < HOST_COLS_RETRY_MS
+  if (!skip) {
+    const first = await run(SBOTA_COLS)
+    if (!first.error) {
+      hostColsMissingAt = 0
+      return first
+    }
+    // مش أي غلطة — الغلطة بتاعة عمود مش موجود بس
+    if (!/origin|host_id|host_name_ar|host_note_ar/.test(first.error.message)) return first
+    hostColsMissingAt = Date.now()
+  }
+  return run(SBOTA_COLS_BASE)
+}
 
 /** بيجيب أرقام «مين حاجز» لمجموعة سبوطات مرة واحدة */
 async function whoBookedMap(ids: string[]) {
@@ -143,15 +185,15 @@ export async function getSbotat(opts?: {
 }): Promise<Sbota[]> {
   if (!DB) return mock.getSbotat(opts)
 
-  let q = supabase()
-    .from('sbotat_public')
-    .select(SBOTA_COLS)
-    .eq('is_mystery', false)
-    .order('starts_at', { ascending: true })
-
-  if (opts?.timeOfDay) q = q.eq('is_day', opts.timeOfDay === 'day')
-
-  const { data, error } = await q
+  const { data, error } = await selectSbotat((cols) => {
+    let q = supabase()
+      .from('sbotat_public')
+      .select(cols)
+      .eq('is_mystery', false)
+      .order('starts_at', { ascending: true })
+    if (opts?.timeOfDay) q = q.eq('is_day', opts.timeOfDay === 'day')
+    return q
+  })
   if (error || !data) return []
 
   const rows = data as Record<string, unknown>[]
@@ -170,13 +212,15 @@ export async function getSbotat(opts?: {
 export async function getSbota(slug: string): Promise<Sbota | null> {
   if (!DB) return mock.getSbota(slug)
 
-  const { data, error } = await supabase()
-    .from('sbotat_public')
-    .select(SBOTA_COLS)
-    .eq('slug', slug)
-    .order('starts_at', { ascending: true })
-    .limit(1)
-    .maybeSingle()
+  const { data, error } = await selectSbotat<Record<string, unknown> | null>((cols) =>
+    supabase()
+      .from('sbotat_public')
+      .select(cols)
+      .eq('slug', slug)
+      .order('starts_at', { ascending: true })
+      .limit(1)
+      .maybeSingle()
+  )
 
   if (error || !data) return null
   const id = (data as { id: string }).id
@@ -209,13 +253,15 @@ export async function getRandomSbota(
 
 export async function getMystery(): Promise<Sbota | null> {
   if (!DB) return mock.getSbota('mystery')
-  const { data } = await supabase()
-    .from('sbotat_public')
-    .select(SBOTA_COLS)
-    .eq('is_mystery', true)
-    .order('starts_at', { ascending: true })
-    .limit(1)
-    .maybeSingle()
+  const { data } = await selectSbotat<Record<string, unknown> | null>((cols) =>
+    supabase()
+      .from('sbotat_public')
+      .select(cols)
+      .eq('is_mystery', true)
+      .order('starts_at', { ascending: true })
+      .limit(1)
+      .maybeSingle()
+  )
   return data ? sbotaFromDb(data) : null
 }
 
@@ -1343,11 +1389,9 @@ export interface CaptainBoard {
 
 /** السبوطة بالمعرّف. `getSbota` بتاخد **slug** مش id — الفرق ده كان باج. */
 async function getSbotaById(id: string): Promise<Sbota | null> {
-  const { data, error } = await supabase()
-    .from('sbotat_public')
-    .select(SBOTA_COLS)
-    .eq('id', id)
-    .maybeSingle()
+  const { data, error } = await selectSbotat<Record<string, unknown> | null>((cols) =>
+    supabase().from('sbotat_public').select(cols).eq('id', id).maybeSingle()
+  )
   if (error || !data) return null
   const who = (await whoBookedMap([id])).get(id)
   return sbotaFromDb(data, who)
