@@ -15,7 +15,8 @@
     "ref-shots": "tsx scripts/ref-shots.ts",
     "check:copy": "node scripts/check-copy.mjs",
     "check:notify": "node scripts/check-notify-vars.mjs",
-    "verify": "npm run check:copy && npm run check:notify && tsc --noEmit && next build"
+    "check:content": "node scripts/check-content-fallback.mjs",
+    "verify": "npm run check:copy && npm run check:notify && npm run check:content && tsc --noEmit && next build"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",
