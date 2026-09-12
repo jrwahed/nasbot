@@ -2,7 +2,7 @@ import 'server-only'
 import { unstable_cache, revalidateTag } from 'next/cache'
 import { createClient } from '@supabase/supabase-js'
 import { COPY_TAG } from '@/lib/copy'
-import { contentFallback } from '@/data/content-fallback'
+import { contentFallback, stagedPages } from '@/data/content-fallback'
 import type { ContentPage } from '@/types'
 
 /**
@@ -94,9 +94,32 @@ async function fetchContent(): Promise<Record<string, ContentPage>> {
       })
     }
 
-    // صفحة مش موجودة في القاعدة بتاخد نسختها الاحتياطية بدل ما تختفي
-    for (const [slug, page] of Object.entries(contentFallback)) {
-      if (!out[slug]) out[slug] = page
+    // ⚠ الاحتياطي بيملا **الفقرات الناقصة**، مش الصفحة الناقصة بس.
+    //
+    //   الغلطة اللي وقعت: الشرط كان `if (!out[slug])` بس. وهجرة صفحات
+    //   المحتوى بتعمل الصفحات الأربعة **من غير فقرات**، فالصفحة بتبقى
+    //   موجودة وفاضية — والاحتياطي عمره ما بيشتغل. النتيجة إن /about
+    //   و/faq كانوا بيقولوا «بنكتب الصفحة دي دلوقتي» والمحتوى موجود في
+    //   الكود قدامنا.
+    //
+    //   صفحة من غير ولا فقرة **مش قرار** — القرار إن المالك يقفلها من
+    //   اللوحة (`is_active`). فصفر فقرات = لسه ما اتلزقتش، والاحتياطي
+    //   هو اللي بيسدّ الفرق. نفس دور `copy-fallback` بالظبط: بيملا
+    //   المفاتيح الناقصة، مش الجدول الناقص بس.
+    for (const [slug, fb] of Object.entries(contentFallback)) {
+      if (stagedPages.has(slug)) continue
+      const page = out[slug]
+      if (!page) {
+        out[slug] = fb
+      } else if (page.blocks.length === 0 && fb.blocks.length > 0) {
+        page.blocks = fb.blocks
+        if (!page.intro) page.intro = fb.intro
+      }
+    }
+
+    // الصفحة المسوّدة ما بيبانش ليها رابط في الذيل حتى لو القاعدة فاتحاها
+    for (const slug of stagedPages) {
+      if (out[slug]) out[slug].footerLabel = ''
     }
     return out
   } catch {
