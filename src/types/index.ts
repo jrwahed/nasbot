@@ -34,6 +34,8 @@ export type SbotaOrigin = 'nasbot' | 'member'
 export type TimeOfDay = 'day' | 'night'
 
 export interface Sbota {
+  /** معرّف السبوطة — محتاجينه لحجز خروجة العضو (`fn_book_free`) */
+  id: string
   slug: string
   name: string
   /** سطر الميتا الكامل زي ما هو في الملف: «بادل مبتدئين · الخميس 8 بالليل · التجمع» */
@@ -70,6 +72,8 @@ export interface Sbota {
   hostName: string
   /** سطره للناس: «هنتقابل عند البوابة» */
   hostNote: string
+  /** «حوالي 150 في المكان» — معلومة مش سعر. خروجة العضو الحجز فيها ببلاش. */
+  costNote: string
   /** سطر الحكاية تحت الاسم */
   story: string
   when: string
@@ -378,6 +382,20 @@ export interface TemplateOption {
   durationMin: number
   minGroup: number
   maxGroup: number
+}
+
+/** مدخلات فتح الخروجة — العضو بيكتبها كلها */
+export interface NewSbotaInput {
+  title: string
+  details: string
+  venueName: string
+  address: string
+  area: string
+  startsAt: string
+  durationMin: number
+  capacity: number
+  girlsOnly?: boolean
+  costNote?: string
 }
 
 /** حدود فتح الخروجة — كلها من `settings`، مفيش رقم في الكود */

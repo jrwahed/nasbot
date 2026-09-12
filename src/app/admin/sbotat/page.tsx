@@ -64,6 +64,11 @@ interface Sbota {
   host_id: string | null
   host_name_ar: string | null
   host_note_ar: string | null
+  title_ar: string | null
+  details_ar: string | null
+  venue_name_ar: string | null
+  address_ar: string | null
+  cost_note_ar: string | null
   starts_at: string
   ends_at: string
   price: number
@@ -621,8 +626,12 @@ function SbotatEditor({ canEdit, canCancel }: { canEdit: boolean; canCancel: boo
                     <Fragment key={r.id}>
                       <SbotaRow
                         row={r}
-                        name={tplName(r.template_id)}
-                        venueName={venueOf(r.venue_id)?.name ?? '—'}
+                        name={r.title_ar || tplName(r.template_id)}
+                        venueName={
+                          r.origin === 'member'
+                            ? r.venue_name_ar || '—'
+                            : (venueOf(r.venue_id)?.name ?? '—')
+                        }
                         areaText={r.area_label_ar ?? areaLabel(r.area)}
                         captain={
                           r.origin === 'member'
@@ -639,6 +648,30 @@ function SbotatEditor({ canEdit, canCancel }: { canEdit: boolean; canCancel: boo
                         onCancel={() => toggle(r.id, 'cancel')}
                         onApprove={() => patch(r.id, { status: 'open' }, 'الخروجة اتعتمدت ✓')}
                       />
+
+                      {/* ⚠ كلام العضو كامل — المالك لازم يقراه قبل «اعتمد».
+                          العنوان بيتعرض هنا للإدارة بس؛ العضو العادي
+                          ما بيشوفهوش غير بعد الحجز والكشف. */}
+                      {r.origin === 'member' && (
+                        <tr>
+                          <td colSpan={8} className="p-2">
+                            <div
+                              className="rounded-16 p-3 text-13"
+                              style={{ background: 'var(--bg)', border: '2px solid var(--line)' }}
+                            >
+                              <div className="font-display text-15 font-black">
+                                {r.title_ar || '—'}
+                              </div>
+                              <div className="mt-1 whitespace-pre-line">{r.details_ar}</div>
+                              <div className="mt-2" style={{ color: 'var(--muted)' }}>
+                                المكان: {r.venue_name_ar || '—'}
+                                {' · '}العنوان: {r.address_ar || '—'}
+                                {r.cost_note_ar ? ` · التكلفة: ${r.cost_note_ar}` : ''}
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
 
                       {panel?.id === r.id && (
                         <tr>

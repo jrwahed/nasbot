@@ -7,6 +7,7 @@ import type { Sbota } from '@/types'
  */
 export const sbotat: Sbota[] = [
   {
+    id: 'demo-1',
     slug: 'ehna-el-rabe3',
     name: 'إحنا الرابع',
     meta: 'بادل مبتدئين · الخميس 8 بالليل · التجمع',
@@ -34,6 +35,7 @@ export const sbotat: Sbota[] = [
     hostId: '',
     hostName: '',
     hostNote: '',
+    costNote: '',
     story: 'كل لاعب بادل في القاهرة قال مرة "محتاج رابع". إحنا الرابع.',
     when: 'الخميس 8 بالليل',
     duration: 'ساعتين',
@@ -52,6 +54,7 @@ export const sbotat: Sbota[] = [
     },
   },
   {
+    id: 'demo-2',
     slug: 'fetar-3al-nil',
     name: 'فطار على النيل',
     meta: 'كاياك + فطار · الجمعة 7 الصبح · المعادي',
@@ -79,6 +82,7 @@ export const sbotat: Sbota[] = [
     hostId: '',
     hostName: '',
     hostNote: '',
+    costNote: '',
     story: 'تطلع الشمس وأنت في النص. وبعدها فطار على المية.',
     when: 'الجمعة 7 الصبح',
     duration: 'تلات ساعات',
@@ -97,6 +101,7 @@ export const sbotat: Sbota[] = [
     },
   },
   {
+    id: 'demo-3',
     slug: 'ba3d-ma-el-shams-teghib',
     name: 'بعد ما الشمس تغيب',
     meta: 'هايك ليلي + شوي · الجمعة 6 المغرب · وادي دجلة',
@@ -124,6 +129,7 @@ export const sbotat: Sbota[] = [
     hostId: 'demo-2',
     hostName: 'ندى',
     hostNote: 'هنتقابل عند البوابة الساعة 7:45.',
+    costNote: 'حوالي 120 جنيه في المكان',
     story: 'تمشي ساعة في الضلمة، وتقعد على نار جنب الوادي.',
     when: 'الجمعة 6 المغرب',
     duration: 'أربع ساعات',
@@ -142,6 +148,7 @@ export const sbotat: Sbota[] = [
     },
   },
   {
+    id: 'demo-4',
     slug: 'tarabeza-setta',
     name: 'ترابيزة ستة',
     meta: 'عشا مع 5 غرباء · الاتنين 8 بالليل · التجمع',
@@ -169,6 +176,7 @@ export const sbotat: Sbota[] = [
     hostId: '',
     hostName: '',
     hostNote: '',
+    costNote: '',
     story: 'ستة على ترابيزة واحدة، ومحدش فيهم يعرف التاني. لحد ما الأكل ييجي.',
     when: 'الاتنين 8 بالليل',
     duration: 'ساعتين ونص',
@@ -187,6 +195,7 @@ export const sbotat: Sbota[] = [
     },
   },
   {
+    id: 'demo-5',
     slug: 'el-mal3ab-lina',
     name: 'الملعب لينا',
     meta: 'بادل بنات بس · التلات 7 بالليل · التجمع',
@@ -214,6 +223,7 @@ export const sbotat: Sbota[] = [
     hostId: 'demo-4',
     hostName: 'كريم',
     hostNote: 'أنا هجيب الكورة، انتوا تعالوا بس.',
+    costNote: 'حوالي 120 جنيه في المكان',
     story: 'ملعب كامل، بنات بس، ومحدش هيقولك «شديها أكتر».',
     when: 'التلات 7 بالليل',
     duration: 'ساعتين',
@@ -234,6 +244,7 @@ export const sbotat: Sbota[] = [
 
   /* ===== بطاقات الوضع النهاري — من البرومبت §4.2 ===== */
   {
+    id: 'demo-6',
     slug: 'work-cafe-tagamo3',
     name: 'سبوطة شغل — كافيه في التجمع',
     meta: 'التلات 10 الصبح لـ 3 · التجمع',
@@ -261,6 +272,7 @@ export const sbotat: Sbota[] = [
     hostId: '',
     hostName: '',
     hostNote: '',
+    costNote: '',
     story: 'ستة بيشتغلوا جنب بعض من غير ما يتكلموا. لحد الساعة 1.',
     when: 'التلات 10 الصبح لـ 3',
     duration: 'خمس ساعات',
@@ -280,6 +292,7 @@ export const sbotat: Sbota[] = [
     },
   },
   {
+    id: 'demo-7',
     slug: 'shoro2-men-el-gabal',
     name: 'شروق من الجبل',
     meta: 'هايك صباحي · الجمعة 5 الصبح · وادي دجلة',
@@ -307,6 +320,7 @@ export const sbotat: Sbota[] = [
     hostId: '',
     hostName: '',
     hostNote: '',
+    costNote: '',
     story: 'تطلع في الضلمة وتوصل فوق قبل الشمس بربع ساعة بالظبط.',
     when: 'الجمعة 5 الصبح',
     duration: 'تلات ساعات',
@@ -327,6 +341,7 @@ export const sbotat: Sbota[] = [
 
   /* ===== السبوطة الغامضة — من البرومبت §4.16 ===== */
   {
+    id: 'demo-8',
     slug: 'mystery',
     name: 'مش هنقولك.',
     meta: 'آخر جمعة في الشهر · 500 جنيه · 8 أماكن',
@@ -350,6 +365,7 @@ export const sbotat: Sbota[] = [
     hostId: '',
     hostName: '',
     hostNote: '',
+    costNote: '',
     story: 'هتعرف المكان قبلها بساعتين. الشرط الوحيد: تكون جيت معانا قبل كده.',
     when: 'آخر جمعة في الشهر',
     duration: 'مش هنقولك',
