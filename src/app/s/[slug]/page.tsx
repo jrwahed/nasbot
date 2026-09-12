@@ -14,7 +14,7 @@ import { BottomSheet } from '@/components/BottomSheet'
 import { PrimaryButton, SecondaryButton } from '@/components/Buttons'
 import { ClockIcon, ArrowIcon, PinIcon, LevelIcon } from '@/components/Icons'
 import { getSbota, getCaptain } from '@/lib/api'
-import { fiveRules, guaranteeText } from '@/data/lists'
+import { useContentRef, useNumberedRules } from '@/components/FooterLinksProvider'
 import { track } from '@/lib/track'
 import { isLoggedIn } from '@/lib/session'
 import { useTheme } from '@/lib/use-theme'
@@ -29,6 +29,10 @@ import { useFlag } from '@/components/FlagsProvider'
  */
 export default function SbotaPage() {
   const t = useT()
+  // القواعد والضمان من `content_blocks` — نفس اللي في /rules بالظبط،
+  // علشان تعديل المالك من اللوحة يبان في كل مكان مش في صفحة واحدة
+  const guarantee = useContentRef('guarantee')
+  const rules = useNumberedRules()
   // مفتاح «booking» من /admin/settings — قفل الحجز بيشيل الزرار هنا
   // وبيقفل /s/[slug]/pay نفسها كمان (مراجعة A2)
   const booking = useFlag('booking')
@@ -224,7 +228,7 @@ export default function SbotaPage() {
 
       {/* ===== الضمان ===== */}
       <div className="px-5 pt-4">
-        <GuaranteeBox text={guaranteeText} />
+        <GuaranteeBox text={guarantee} />
       </div>
 
       <div className="px-5 pt-[14px]">
@@ -265,7 +269,7 @@ export default function SbotaPage() {
 
       <BottomSheet open={rulesOpen} onClose={() => setRulesOpen(false)} title={t('sbota.label.1')}>
         <ol className="m-0 flex list-none flex-col gap-4 p-0">
-          {fiveRules.map((r) => (
+          {rules.map((r) => (
             <li key={r.n} className="flex gap-3">
               <span
                 className="font-display text-26 font-black leading-none"

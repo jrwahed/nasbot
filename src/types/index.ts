@@ -388,3 +388,29 @@ export interface HostLimits {
   minLeadHours: number
   maxDaysAhead: number
 }
+
+/* ============================================ صفحات المحتوى */
+
+/** نوع الفقرة — `content_block_t` في القاعدة */
+export type ContentBlockKind = 'section' | 'qa' | 'numbered' | 'callout'
+
+export interface ContentBlock {
+  kind: ContentBlockKind
+  /** العنوان — السؤال في الـqa، وعنوان الكرت في الـnumbered */
+  heading: string
+  body: string
+  /** لون صندوق الـcallout */
+  tone: 'sand' | 'cobalt'
+  /** مرجع ثابت للفقرات اللي الكود بيسأل عنها بالاسم — زي `guarantee` */
+  ref: string
+}
+
+/** صفحة محتوى كاملة — القواعد · الأسئلة · مين إحنا · الشروط */
+export interface ContentPage {
+  slug: string
+  title: string
+  intro: string
+  /** اسم الرابط في الذيل — فاضي يعني الرابط ما بيظهرش */
+  footerLabel: string
+  blocks: ContentBlock[]
+}

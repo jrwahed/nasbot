@@ -55,7 +55,13 @@ declare
   uid     uuid;
   cols    text;
 begin
-  select p.id into uid from profiles p where p.banned_at is null limit 1;
+  -- ⚠ لازم عضو **مش** إدارة: `venues_read` بتسمح للإدارة عن قصد، فلو وقع
+  --   الاختيار على صف في admin_users الاختبار بيقول «فشل» غلط.
+  select p.id into uid
+    from profiles p
+   where p.banned_at is null
+     and not exists (select 1 from admin_users a where a.profile_id = p.id and a.is_active)
+   limit 1;
 
   test := '0080 · fn_venue_options بترجّع ٤ أعمدة بس';
   select string_agg(a.attname, ',' order by a.attnum) into cols
@@ -143,6 +149,7 @@ begin
       return next;
 
       test := 'سلوكي · العضو لسه **مش** بيقرا جدول venues نفسه';
+      -- (اللي فوق ضمن إن uid مش إدارة، فالقراية هنا لازم تبقى صفر)
       n := -1;
       begin
         select count(*) into n from venues;

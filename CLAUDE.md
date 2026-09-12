@@ -57,7 +57,8 @@ node scripts/check-copy.mjs   # حارس النصوص العربية
 ```
 src/
   app/
-    (عام)        /  /one  /map  /rules  /captains  /join  /login  /me  /game …
+    (عام)        /  /one  /map  /captains  /join  /login  /me  /game …
+    rules faq about terms   صفحات المحتوى — محتواها كله من `content_blocks`
     new          «افتح خروجة» — العضو بيظبّط خروجته (ورا مفتاح member_sbota)
     me/sbotati   «خروجاتي» — اللي أنا فاتحها: الأعداد · السطر · الإلغاء
     captain/[id] لوحة اللي ماسك المجموعة — صاحب الخروجة أو كابتن نسبوط
@@ -88,6 +89,8 @@ scripts/         check-copy · فاحصات · بذور النصوص
 | `src/middleware.ts` | حارس `/admin/*` على الحافة (طبقة أولى مش الحد الأمني) |
 | `src/lib/server/pay-guard.ts` | بيمسك رقم فودافون كاش/إنستاباي الوهمي ويوقف الدفع قبل ما يتعمل حجز |
 | `src/components/HostCard.tsx` | بطاقة صاحب الخروجة — **من غير صورة** عن قصد (الهوية §٣.٧) |
+| `src/lib/content.ts` | صفحات المحتوى بكاش موسوم — نفس نمط `copy.ts` بالحرف |
+| `src/components/FooterLinksProvider.tsx` | بيمرّر المحتوى للعميل: روابط الذيل · `useContentRef('guarantee')` · `useNumberedRules()` |
 
 ---
 
@@ -96,6 +99,8 @@ scripts/         check-copy · فاحصات · بذور النصوص
 **الجداول:** `profiles` · `sbotat`(+`sbotat_public`) · `sbota_templates` · `venues` · `bookings` · `payments` · `wallet_ledger` · `coupons` · `pair_affinity` · `matching_runs` · `chat_rooms`/`chat_members` · `notifications`/`notification_templates` · `admin_users`/`admin_roles`/`role_permissions` · `settings`(صف واحد) · `copy_strings` · `audit_log`. **طبقة الشغل:** `professions` · `work_venues` · `work_passes` · `pass_redemptions` · `recurring_bookings` · `work_affinity` · `venue_reports` · `leads` · `work_metrics`.
 
 **دوال مهمة:** `fn_can_book` · `fn_capacity_guard` (قفل السعة) · `fn_booking_paid` · `fn_cancel_booking` · `fn_approve_transfer` · `fn_redeem_pass`/`fn_revert_pass`/`fn_activate_pass` · `fn_build_matching`/`fn_build_work_matching` · `fn_reveal` · `fn_pair_want`/`fn_work_want` (الطريق الصح لكتابة التبادل) · `fn_is_admin`/`fn_has_permission`.
+
+**صفحات المحتوى (0082):** `content_pages` · `content_blocks`. القواعد والأسئلة ومين إحنا والشروط — الفقرات بتتضاف وتتمسح وتترتّب من `/admin/content` ← «صفحات الموقع». الكتابة بـ`content.edit`. والفقرة اللي الكود بيسأل عنها بالاسم ليها `ref` ثابت (`guarantee`).
 
 **خروجات الأعضاء (0078–0081):** `sbotat.origin`/`host_id`/`host_name_ar`/`host_note_ar` · `fn_create_sbota` (الطريق الوحيد) · `fn_update_own_sbota` · `fn_cancel_own_sbota` · `fn_my_hosted_sbotat` · `fn_venue_options` · `fn_is_my_sbota_host`. الحدود السبعة في `settings` (`site_fee` · `member_sbota_*`) ومفتاح الميزة `member_sbota`.
 
@@ -180,11 +185,13 @@ psql -h 127.0.0.1 -p 5433 -U postgres -d nasbot --single-transaction -f WORK_MIG
 
 - ✅ منشور وشغّال · دخول إيميل+باسورد · لوحة كاملة · طبقة الشغل (المراحل ١-٦) · إيميل بجدولة.
 - 🆕 **نقلة المنتج: العضو بيفتح خروجته بنفسه.** الكود كله واقع، والقاعدة مستنية اللزق في `WORK_MIGRATION_8.sql` (`0078` الأعمدة والدوال والحدود · `0079` اختبارها · `0080` أماكن الفورم · `0081` ٥٢ نص). **الترتيب: ٥ ← ٦ ← ٧ ← ٨.** لحد ما تتلزق، `/new` و`/me/sbotati` هيفشلوا على الإنتاج (الدوال مش موجودة) — الصفحات نفسها موجودة وورا مفتاح `member_sbota`.
+- 🆕 **صفحات الذيل بقت شغّالة.** كانت ٥ روابط و**أربعة منهم بيروحوا `/rules`** — «الأسئلة» و«مين إحنا» و«الشروط» مكانش ليهم صفحات أصلًا. دلوقتي كل واحدة لها مسار ومحتواها في `content_blocks`. القاعدة في `WORK_MIGRATION_9.sql` (`0082`) — **الترتيب: ٥ ← ٦ ← ٧ ← ٨ ← ٩**. و«بقى كابتن» بقى «افتح خروجة» → `/new`.
 - 🔴 **مراجعة شاملة عاملة `REVIEW.md`** (+ 4 ملفات تفصيلية) لقت 150 نتيجة، 34 حمرا. اقرأها قبل ما تكمّل أي حاجة.
 - 🟢 **الدفعة الأولى اتلزقت على القاعدة** (`WORK_MIGRATION_5.sql`) — أحمر الأمان والفلوس والقاعدة كله واقع.
 - 🟡 **الدفعة التانية في الكود ومستنية اللزق**: `WORK_MIGRATION_6.sql` (`0065` قوايم التسجيل · `0066` كتل الخريطة · `0067` اختبارها · `0070` تخمين رمز الدخول S7 · `0071` حجم الصفحة ومجاميع الفلوس · `0072` الصيانة بتوقف الحجز · `0073` صلاحيات رفع الصور · `0074` افتراضات التسعير). لحد ما تتلزق، **تخمين الرمز بالتوازي لسه ممكن على الإنتاج** (المسار بيرجع للطريق القديم لوحده — أضعف بس مش مقفول).
 - 🟡 **الدفعة التالتة في الكود ومستنية اللزق**: `WORK_MIGRATION_7.sql` (`0075` بحث نشاطات المهارة + رجوع «عجل» + حارس الـenum · `0076` `test_last_review_items()` · `0077` نصوص شاشة «مقفول»). **الترتيب: ٥ ← ٦ ← ٧** لأن `0075` بيعمل `create or replace` لـ`test_public_lists()` بتاعة `0067`.
-- ⚠ **قبل توزيع اللينك:** (١) الزق الدفعات بالترتيب **٥ ← ٦ ← ٧ ← ٨** وشغّل `test_review_fixes()` · `test_caller_guards()` · `test_public_lists()` · `test_last_review_items()` · `test_member_sbotat()` · `test_venue_options()` · `test_host_copy()` — كلهم لازم «نجح». (٢) **رقم فودافون كاش/إنستاباي في `settings` لسه وهمي، والدفع متوقف عن قصد لحد ما تحطه.** `src/lib/server/pay-guard.ts` بيمسك القيم الافتراضية والفاضي وأي رقم كله أصفار، ومسارات `/api/pay/create` و`/api/pay/pass` بترفض بـ503 **قبل** ما يتعمل حجز، و`/admin/settings` بيعرض تحذير أحمر على الخانة. يعني مفيش عضو هيبعت فلوسه لحد تاني — بس مفيش دفع خالص كمان. (٣) `CRON_SECRET` اتعرض في محادثة — يتغيّر (وهو كمان الـpepper الاحتياطي لهاشات OTP والأدمن).
+- ⚠ **قبل توزيع اللينك:** (١) الزق الدفعات بالترتيب **٥ ← ٦ ← ٧ ← ٨** وشغّل `test_review_fixes()` · `test_caller_guards()` · `test_public_lists()` · `test_last_review_items()` · `test_member_sbotat()` · `test_venue_options()` · `test_host_copy()` · `test_content_pages()` — كلهم لازم «نجح». (٢) **رقم فودافون كاش/إنستاباي في `settings` لسه وهمي، والدفع متوقف عن قصد لحد ما تحطه.** `src/lib/server/pay-guard.ts` بيمسك القيم الافتراضية والفاضي وأي رقم كله أصفار، ومسارات `/api/pay/create` و`/api/pay/pass` بترفض بـ503 **قبل** ما يتعمل حجز، و`/admin/settings` بيعرض تحذير أحمر على الخانة. يعني مفيش عضو هيبعت فلوسه لحد تاني — بس مفيش دفع خالص كمان. (٣) `CRON_SECRET` اتعرض في محادثة — يتغيّر (وهو كمان الـpepper الاحتياطي لهاشات OTP والأدمن).
+- ✅ **نصوص القواعد والضمان اتنقلت للقاعدة** — كانت في `src/data/lists.ts` (نتيجة U+A مفتوحة). وبما إن نفس النص بيظهر في صفحة الحجز والدفع وسبوطة الشغل والغامضة كمان، الستة كلهم بقوا يقروا من نفس المصدر عبر `useContentRef`/`useNumberedRules` — علشان تعديل من اللوحة ما يسيبش نص قديم واقف في نص الموقع.
 - ✅ **باقي المراجعة اتقفل (كله في الكود، شغّال من غير لزق):**
   - `A2` مفاتيح المزايا بقت بتتقرا فعلًا: `src/lib/flags.ts` (نفس نمط `copy.ts`، وسم `flags` **و** `copy` علشان `revalidateSite()` تبطّلها كمان) → `FlagsProvider` في `layout.tsx` → `<FeatureGate flag="…">` على `/game` · `/game/result` · `/map` · `/s/mystery` · `/shoghl/*` (من الـlayout) · الشاتين · `/s/[slug]/pay`، و`useFlag()` لكرت الإحالة في `/me` وزرار الحجز في `/s/[slug]`. الاحتياطي في `src/data/flags-fallback.ts` **مفتوح دايمًا**.
   - `maintenance.allow_roles` بقى ليها معنى: `src/middleware.ts` بيتأكد من جلسة سوبابيس + صف `admin_users` نشط + الدور جوه `allow_roles` (والقراية بتوكن العضو، يعني RLS هي اللي بتقرر). قبل كده أي حد يكتب كوكي `nb_admin` كان بيعدّي. `/admin/*` سايبينه مفتوح وقت الصيانة عن قصد — محمي أصلًا بـTOTP و`requirePermission`، وقفله كان هيخلق خطر قفل على المالك.
@@ -193,7 +200,7 @@ psql -h 127.0.0.1 -p 5433 -U postgres -d nasbot --single-transaction -f WORK_MIG
   - ترقيم من القاعدة (`.range()` + `{ count: 'exact' }`) في `/admin/matching` · `captains` · `templates` · `shoghl`، والعدّادات فوق الجداول بقت `head: true` counts.
 
 ### ملفات التوثيق
-`README.md` · `DB_PLAN.md` · `ADMIN_PLAN.md` · `WORK_PLAN.md` · `DESIGN_TOKENS.md` · `COPY.md` · `ADMIN_GUIDE.md` · `RUNBOOK.md` · `DEPLOY_CHECKLIST.md` · **`REVIEW*.md`** (المراجعة) · ملفات `WORK_MIGRATION_*.sql` (لحد `_8`) و`WORK_CRON.sql` (تتلزق في SQL Editor).
+`README.md` · `DB_PLAN.md` · `ADMIN_PLAN.md` · `WORK_PLAN.md` · `DESIGN_TOKENS.md` · `COPY.md` · `ADMIN_GUIDE.md` · `RUNBOOK.md` · `DEPLOY_CHECKLIST.md` · **`REVIEW*.md`** (المراجعة) · ملفات `WORK_MIGRATION_*.sql` (لحد `_9`) و`WORK_CRON.sql` (تتلزق في SQL Editor).
 
 ---
 

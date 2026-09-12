@@ -7,6 +7,8 @@ import { CopyProvider } from '@/components/CopyProvider'
 import { FlagsProvider } from '@/components/FlagsProvider'
 import { getCopy } from '@/lib/copy'
 import { getFlags } from '@/lib/flags'
+import { getContent } from '@/lib/content'
+import { FooterLinksProvider } from '@/components/FooterLinksProvider'
 
 const rubik = Rubik({
   subsets: ['arabic', 'latin'],
@@ -41,7 +43,7 @@ export const viewport: Viewport = {
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   // النصوص ومفاتيح المزايا بيتحمّلوا مرة واحدة على الخادم بكاش موسوم،
   // وبيتمرروا للعميل — نفس النمط للاتنين (مراجعة A2)
-  const [copy, flags] = await Promise.all([getCopy(), getFlags()])
+  const [copy, flags, content] = await Promise.all([getCopy(), getFlags(), getContent()])
 
   return (
     // data-theme بيتحط بسكريبت قبل الترطيب — الفرق ده مقصود
@@ -58,8 +60,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       <body>
         <CopyProvider value={copy}>
           <FlagsProvider value={flags}>
-            {children}
-            <LiveQ />
+            <FooterLinksProvider value={content}>
+              {children}
+              <LiveQ />
+            </FooterLinksProvider>
           </FlagsProvider>
         </CopyProvider>
       </body>
