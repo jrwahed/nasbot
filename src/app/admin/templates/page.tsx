@@ -314,10 +314,17 @@ function TemplatesEditor() {
           <NewTemplate
             banned={banned}
             flash={flash}
-            onDone={async () => {
+            onDone={async (newId) => {
               setAdding(false)
               await Promise.all([reload(), loadAll()])
               await revalidateSite()
+              // بنفتح القالب الجديد على طول — الصور مالهاش مكان ترتفع فيه
+              // قبل ما الصف يتعمل، فلو ما فتحناهوش المالك هيدوّر عليه بإيده
+              if (newId) {
+                setOpenId(newId)
+                setQ('')
+                setKind('الكل')
+              }
             }}
           />
         </div>
@@ -532,11 +539,21 @@ function NewTemplate({
 }: {
   banned: string[]
   flash: (m: string) => void
-  onDone: () => Promise<void>
+  onDone: (newId?: string) => Promise<void>
 }) {
   const [name, setName] = useState('')
+  const [metaPrefix, setMetaPrefix] = useState('')
   const [slug, setSlug] = useState('')
   const [story, setStory] = useState('')
+  const [photoAlt, setPhotoAlt] = useState('')
+  const [keywords, setKeywords] = useState('')
+  const [level, setLevel] = useState('')
+  const [mood, setMood] = useState('')
+  const [includes, setIncludes] = useState('')
+  const [excludes, setExcludes] = useState('')
+  const [girlsOnly, setGirlsOnly] = useState(false)
+  const [isDay, setIsDay] = useState(false)
+  const [overnight, setOvernight] = useState(false)
   const [kind, setKind] = useState('adventure')
   const [price, setPrice] = useState('300')
   const [orgFee, setOrgFee] = useState('40')
@@ -553,7 +570,7 @@ function NewTemplate({
     if (!s) return flash('محتاجين اسم في اللينك (slug)')
     if (!st) return flash('اكتب الحدوتة — دي اللي الناس بتقراها')
 
-    const bad = bannedIn(`${n} ${st}`, banned)
+    const bad = bannedIn(`${n} ${st} ${metaPrefix} ${photoAlt} ${keywords}`, banned)
     if (bad.length) return flash(`فيه كلمة ممنوعة: ${bad.join('، ')}`)
 
     const min = Number(minGroup)
@@ -564,12 +581,24 @@ function NewTemplate({
     if (!(dur > 0)) return flash('المدة لازم تكون أكتر من صفر')
 
     setBusy(true)
-    const { error } = await supabase()
+    // بنطلب الـid راجع علشان نفتح القالب على طول — الصور مالهاش مكان
+    // ترتفع فيه قبل ما الصف يتعمل (مجلد الرفع اسمه `templates/<id>`).
+    const { data, error } = await supabase()
       .from('sbota_templates')
       .insert({
         slug: s,
         name_ar: n,
+        meta_prefix_ar: metaPrefix.trim() || null,
         story_ar: st,
+        photo_alt_ar: photoAlt.trim() || null,
+        keywords_ar: toKeywords(keywords),
+        level_ar: level.trim() || null,
+        mood_ar: mood.trim() || null,
+        includes_ar: toList(includes),
+        excludes_ar: toList(excludes),
+        girls_only: girlsOnly,
+        is_day: isDay,
+        overnight,
         kind,
         default_price: Math.round(Number(price) || 0) * 100,
         org_fee: Math.round(Number(orgFee) || 0) * 100,
@@ -577,27 +606,92 @@ function NewTemplate({
         min_group: Math.round(min),
         max_group: Math.round(max),
       })
+      .select('id')
     setBusy(false)
 
     if (error) return flash(`مقدرناش نعمل القالب: ${error.message}`)
-    flash('القالب اتعمل ✓ — افتحه وكمّل باقي التفاصيل')
-    await onDone()
+    // المصفوفة الفاضية = القاعدة رفضت (نفس حارس `patch` فوق)
+    if (!data || (data as unknown[]).length === 0)
+      return flash('مااتعملش — القاعدة رفضت الكتابة، محتاج صلاحية sbotat.edit')
+    flash('القالب اتعمل ✓ — دي خانة الصور، ارفعها دلوقتي')
+    await onDone((data as { id: string }[])[0]?.id)
   }
 
   return (
-    <Card title="قالب جديد" hint="املا الأساسي دلوقتي، والباقي تكمّله من القالب نفسه بعد ما يتعمل.">
+    <Card
+      title="قالب جديد"
+      hint="املاه كله من هنا. الصور بس هي اللي بتترفع بعد ما القالب يتعمل — وهنفتحهولك على طول."
+    >
       <div className="mt-3 grid gap-3 md:grid-cols-2">
-        <TextField label="الاسم" value={name} onSave={setName} />
+        <TextField
+          label="الاسم"
+          value={name}
+          hint="النشاط نفسه — «كارتنج مغطى» · «بادل مبتدئين»."
+          onSave={setName}
+        />
+        <TextField
+          label="السطر اللي تحت الاسم"
+          value={metaPrefix}
+          hint="الجملة الحلوة — «خدها لفة» · «إحنا الرابع»."
+          onSave={setMetaPrefix}
+        />
+      </div>
+
+      <div className="mt-3">
+        <TextField label="الحدوتة" value={story} multiline onSave={setStory} />
+      </div>
+
+      <div className="mt-3">
+        <TextField
+          label="نص الصورة (alt)"
+          value={photoAlt}
+          multiline
+          hint="وصف بصري للي في الصورة، جملة واحدة. ده اللي بيقراه قارئ الشاشة وجوجل."
+          onSave={setPhotoAlt}
+        />
+      </div>
+
+      <div className="mt-3">
+        <TextField
+          label="كلمات مفتاحية"
+          value={keywords}
+          multiline
+          hint="اللي الناس بتدوّر بيه على جوجل. من ٥ لـ٧ كلمات، بينهم فاصلة."
+          onSave={setKeywords}
+        />
+      </div>
+
+      <div className="mt-3 grid gap-3 md:grid-cols-2">
+        <TextField
+          label="اللي داخل"
+          value={includes}
+          multiline
+          hint="حاجة في كل سطر."
+          onSave={setIncludes}
+        />
+        <TextField
+          label="اللي مش داخل"
+          value={excludes}
+          multiline
+          hint="حاجة في كل سطر."
+          onSave={setExcludes}
+        />
+      </div>
+
+      <div className="mt-3 grid gap-3 md:grid-cols-3">
+        <TextField
+          label="المستوى"
+          value={level}
+          hint="مثلًا: مبتدئين ومتوسطين"
+          onSave={setLevel}
+        />
+        <TextField label="الجو (سطر قصير)" value={mood} hint="مثلًا: نشيط ومزحم" onSave={setMood} />
         <TextField
           label="الاسم في اللينك (slug)"
           value={slug}
           hint="سيبه فاضي وهنعمله من الاسم."
           onSave={setSlug}
         />
-      </div>
-
-      <div className="mt-3">
-        <TextField label="الحدوتة" value={story} multiline onSave={setStory} />
       </div>
 
       <div className="mt-3 flex flex-wrap items-end gap-3">
@@ -635,6 +729,12 @@ function NewTemplate({
           min={1}
           onSave={(v) => setMaxGroup(String(v))}
         />
+      </div>
+
+      <div className="mt-3 flex flex-wrap gap-6">
+        <Toggle label="بنات بس" value={girlsOnly} onChange={setGirlsOnly} />
+        <Toggle label="نهاري" value={isDay} onChange={setIsDay} />
+        <Toggle label="فيها مبيت" value={overnight} onChange={setOvernight} />
       </div>
 
       <div className="mt-4">
