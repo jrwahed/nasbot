@@ -16,11 +16,30 @@
 -- SQL (دور postgres) بس.
 -- ============================================================================
 
+-- ⚠ **الحارس ده اتضاف بعد ما المشكلة وقعت على الإنتاج.**
+--    `0075` بتعمل `create or replace` للدالة دي بنسخة أصح (بتقارن نشاطات
+--    المهارة بـ`activity_t` بدل قايمة مكتوبة بالإيد). ولو الدفعة ٦ اتلزقت
+--    **بعد** الدفعة ٧ — أو اتكررت بعدها — الملف ده بيرجّع النسخة القديمة
+--    **بالصمت**، والفاحص يقول «فشل — نشاط هيتحفظ سباحة بالغلط» وهو سليم.
+--
+--    ده حصل فعلًا. فبقينا ما نكتبش فوق نسخة 0075 لو هي موجودة: وجود
+--    `fn_skill_activity_guard` معناه إن 0075 اتلزقت خلاص.
+--
+--    القاعدة (CLAUDE.md §٨): لو هجرة جديدة بتلغي أثر هجرة قديمة، ارجع
+--    للقديمة وخلّيها **مشروطة**. ساعتها بس «آمن يتكرر» يبقى صح فعلًا.
+do $guard$
+begin
+  if to_regproc('fn_skill_activity_guard') is not null then
+    raise notice '0067: سايبين test_public_lists زي ما هي — 0075 اتلزقت خلاص';
+    return;
+  end if;
+
+  execute $fn$
 create or replace function test_public_lists()
 returns table (test text, result text)
 language plpgsql
 set search_path = public
-as $$
+as $body$
 declare
   n  int;
   me text := current_user;
@@ -146,9 +165,12 @@ begin
     return next;
   end;
 end;
-$$;
+$body$;
 
 comment on function test_public_lists() is
   'بتتأكد إن قوايم التسجيل والخريطة اتظبطت (0065·0066) وإن الزائر بيقراها فعلًا. select * from test_public_lists();';
+
+$fn$;
+end $guard$;
 
 revoke execute on function test_public_lists() from public, anon, authenticated;

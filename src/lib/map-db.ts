@@ -216,7 +216,7 @@ export function sbotaFromDb(
     price: number; capacity: number; status: string
     girls_only: boolean; is_day: boolean; is_mystery: boolean
     starts_at: string; duration_min: number; area: string | null; area_label_ar: string | null
-    includes_ar: string[]; excludes_ar: string[]; hero_photos: string[]
+    includes_ar: string[]; excludes_ar: string[]; hero_photos: string[]; photo_alt_ar?: string | null
     org_fee: number; captain_id: string | null
     origin: string | null; host_id: string | null
     host_name_ar: string | null; host_note_ar: string | null
@@ -251,6 +251,7 @@ export function sbotaFromDb(
     img: r.hero_photos?.[0] ?? '[صورة]',
     // الصورة الحقيقية لو اترفعت — null يعني القيمة لسه وصف بين قوسين مربعين
     imgSrc: publicMediaUrl(r.hero_photos?.[0]),
+    photoAlt: r.photo_alt_ar ?? '',
     gallery: r.hero_photos ?? [],
     gallerySrc: (r.hero_photos ?? []).map(publicMediaUrl).filter((u): u is string => !!u),
     captainId: r.captain_id ?? '',

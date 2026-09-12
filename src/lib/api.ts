@@ -129,7 +129,7 @@ const SBOTA_COLS_BASE =
 
 /** أعمدة صاحب الخروجة — بتتضاف مع 0078 */
 const SBOTA_COLS_HOST =
-  'origin, host_id, host_name_ar, host_note_ar, venue_name_ar, cost_note_ar'
+  'origin, host_id, host_name_ar, host_note_ar, venue_name_ar, cost_note_ar, photo_alt_ar'
 
 const SBOTA_COLS = `${SBOTA_COLS_BASE}, ${SBOTA_COLS_HOST}`
 
@@ -162,7 +162,7 @@ async function selectSbotat<T>(
       return first
     }
     // مش أي غلطة — الغلطة بتاعة عمود مش موجود بس
-    if (!/origin|host_id|host_name_ar|host_note_ar|venue_name_ar|cost_note_ar/.test(first.error.message))
+    if (!/origin|host_id|host_name_ar|host_note_ar|venue_name_ar|cost_note_ar|photo_alt_ar/.test(first.error.message))
       return first
     hostColsMissingAt = Date.now()
   }
@@ -1010,6 +1010,8 @@ export async function createSbota(input: NewSbotaInput) {
     //   عايزة قيمة `area_t` («tagamoa»). التحويل مكانه هنا في طبقة
     //   البيانات مش في الفورم — ده شغل `map-db` بالظبط.
     p_area: areaToDb(input.area),
+    // «غير كده» لوحدها معلومة ضايعة — الاسم المكتوب بيروح `area_label_ar`
+    p_area_other: input.areaOther?.trim() || null,
     p_starts_at: input.startsAt,
     p_duration_min: input.durationMin,
     p_capacity: input.capacity,

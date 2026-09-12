@@ -56,6 +56,10 @@ interface Row {
   level_ar: string | null
   includes_ar: string[]
   excludes_ar: string[]
+  /** كلمات البحث من «دليل السبوطات» — مش بتتعرض للناس */
+  keywords_ar: string[]
+  /** نص الصورة (alt) — وصف بصري للي مش شايف الصورة وللي بيفهرسها */
+  photo_alt_ar: string | null
   is_day: boolean
   girls_only: boolean
   overnight: boolean
@@ -64,16 +68,27 @@ interface Row {
   updated_at: string
 }
 
+/**
+ * التصنيفات الـ٨ بتاعة «دليل السبوطات» — دي اللي القوالب الـ٨٥ متقسّمة عليها.
+ * وتحتها التصنيفات القديمة من البذرة الأولى: سايبينها علشان أي قالب قديم
+ * لسه عليها يفضل يعرض اسمه صح بدل ما يبان بالمفتاح الخام.
+ */
 const KINDS = [
-  { value: 'sport', label: 'رياضة' },
-  { value: 'nile', label: 'النيل' },
-  { value: 'nature', label: 'طبيعة' },
-  { value: 'food', label: 'أكل' },
-  { value: 'games', label: 'ألعاب' },
+  { value: 'adventure', label: 'مغامرة وحركة' },
+  { value: 'nile', label: 'مية ونيل' },
+  { value: 'water_sun', label: 'مية وشمس' },
+  { value: 'nature', label: 'طبيعة وهدوء' },
+  { value: 'music', label: 'حفلات ومساحات فنية' },
+  { value: 'curious', label: 'إيه ده؟' },
+  { value: 'handmade', label: 'اعمل حاجة بإيدك' },
+  { value: 'culture', label: 'ثقافي وهادي' },
   { value: 'work', label: 'شغل' },
-  { value: 'workshop', label: 'ورشة' },
   { value: 'mystery', label: 'غامضة' },
-  { value: 'trip', label: 'رحلة' },
+  { value: 'sport', label: 'رياضة (قديم)' },
+  { value: 'food', label: 'أكل (قديم)' },
+  { value: 'games', label: 'ألعاب (قديم)' },
+  { value: 'workshop', label: 'ورشة (قديم)' },
+  { value: 'trip', label: 'رحلة (قديم)' },
 ]
 
 const kindLabel = (k: string) => KINDS.find((x) => x.value === k)?.label ?? k
@@ -82,6 +97,17 @@ const kindLabel = (k: string) => KINDS.find((x) => x.value === k)?.label ?? k
 const toList = (text: string) =>
   text
     .split('\n')
+    .map((s) => s.trim())
+    .filter(Boolean)
+
+/**
+ * الكلمات المفتاحية بتتكتب في الدليل بفاصلة («كارتنج القاهرة, جو كارت»)،
+ * وفي اللوحة ساعات بسطر لكل واحدة. بنقبل التلاتة (فاصلة لاتيني أو عربي أو سطر)
+ * علشان اللزق من الدليل يشتغل من غير ما حد يعيد تنسيقه بإيده.
+ */
+const toKeywords = (text: string) =>
+  text
+    .split(/[\n,،]/)
     .map((s) => s.trim())
     .filter(Boolean)
 
@@ -433,6 +459,24 @@ function TemplatesEditor() {
                     />
                   </div>
 
+                  {/* الحقلين دول من «دليل السبوطات» — الاتنين **للبحث**
+                      مش للعرض: الناس مش بتشوفهم على الموقع. */}
+                  <TextField
+                    label="نص الصورة (alt)"
+                    value={r.photo_alt_ar ?? ''}
+                    multiline
+                    hint="وصف بصري للي في الصورة، جملة واحدة. ده اللي بيقراه قارئ الشاشة وجوجل — مش شعار ولا كلام تسويقي."
+                    onSave={(v) => patch(r.id, { photo_alt_ar: v.trim() || null })}
+                  />
+
+                  <TextField
+                    label="كلمات مفتاحية"
+                    value={(r.keywords_ar ?? []).join('، ')}
+                    multiline
+                    hint="اللي الناس بتدوّر بيه على جوجل. من ٥ لـ٧ كلمات، بينهم فاصلة أو كل واحدة في سطر."
+                    onSave={(v) => patch(r.id, { keywords_ar: toKeywords(v) })}
+                  />
+
                   <PhotosField
                     label="صور السبوطة"
                     hint="أول صورة هي اللي بتظهر على الكارت في الرئيسية، والباقي في معرض صفحة السبوطة. JPG أو PNG أو WEBP، لحد 10 ميجا."
@@ -493,7 +537,7 @@ function NewTemplate({
   const [name, setName] = useState('')
   const [slug, setSlug] = useState('')
   const [story, setStory] = useState('')
-  const [kind, setKind] = useState('sport')
+  const [kind, setKind] = useState('adventure')
   const [price, setPrice] = useState('300')
   const [orgFee, setOrgFee] = useState('40')
   const [duration, setDuration] = useState('120')

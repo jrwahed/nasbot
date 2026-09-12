@@ -115,9 +115,24 @@ select 'skill_level', v, v, o from (values
 on conflict (field_key, value) do nothing;
 
 -- ===== ٥ · نشاطات المهارة — بادل/جري/سباحة بس =====
--- activityToDb في map-db.ts بيرجّع 'swimming' لأي حاجة غير بادل وجري،
--- فـ«عجل» كانت هتتحفظ سباحة. نقفلها لحد ما map-db يعرفها.
-update skill_activities set is_active = false where key = 'cycling';
+-- activityToDb في map-db.ts كان بيرجّع 'swimming' لأي حاجة غير بادل وجري،
+-- فـ«عجل» كانت هتتحفظ سباحة. قفلناها لحد ما map-db يعرفها.
+--
+-- ⚠ **الحل المؤقت ده بطل مع 0075** — `activityToDb` بقى بحث حقيقي، و0075
+--    بترجّع «عجل» نشطة. والسطر ده كان بيحصل بينه وبين 0075 صراع: لو حد
+--    لزق الدفعة ٦ **بعد** الدفعة ٧ (أو كرّرها بعدها)، القفل ده بيكسب
+--    والفتح بيضيع بالصمت. وده حصل فعلًا على قاعدة الإنتاج.
+--
+--    دلوقتي بنتأكد الأول: لو حارس 0075 موجود يبقى 0075 اتلزقت خلاص —
+--    فما نرجعش نقفلها. يعني الترتيب بقى مش مهم.
+do $$
+begin
+  if to_regproc('fn_skill_activity_guard') is null then
+    update skill_activities set is_active = false where key = 'cycling';
+  else
+    raise notice '0065: «عجل» سايبينها نشطة — 0075 اتلزقت خلاص';
+  end if;
+end $$;
 
 -- ===== ٦ · حد الاهتمامات — الرقم من اللوحة مش من الكود =====
 update profile_fields
@@ -256,11 +271,30 @@ on conflict (key) do nothing;
 -- SQL (دور postgres) بس.
 -- ============================================================================
 
+-- ⚠ **الحارس ده اتضاف بعد ما المشكلة وقعت على الإنتاج.**
+--    `0075` بتعمل `create or replace` للدالة دي بنسخة أصح (بتقارن نشاطات
+--    المهارة بـ`activity_t` بدل قايمة مكتوبة بالإيد). ولو الدفعة ٦ اتلزقت
+--    **بعد** الدفعة ٧ — أو اتكررت بعدها — الملف ده بيرجّع النسخة القديمة
+--    **بالصمت**، والفاحص يقول «فشل — نشاط هيتحفظ سباحة بالغلط» وهو سليم.
+--
+--    ده حصل فعلًا. فبقينا ما نكتبش فوق نسخة 0075 لو هي موجودة: وجود
+--    `fn_skill_activity_guard` معناه إن 0075 اتلزقت خلاص.
+--
+--    القاعدة (CLAUDE.md §٨): لو هجرة جديدة بتلغي أثر هجرة قديمة، ارجع
+--    للقديمة وخلّيها **مشروطة**. ساعتها بس «آمن يتكرر» يبقى صح فعلًا.
+do $guard$
+begin
+  if to_regproc('fn_skill_activity_guard') is not null then
+    raise notice '0067: سايبين test_public_lists زي ما هي — 0075 اتلزقت خلاص';
+    return;
+  end if;
+
+  execute $fn$
 create or replace function test_public_lists()
 returns table (test text, result text)
 language plpgsql
 set search_path = public
-as $$
+as $body$
 declare
   n  int;
   me text := current_user;
@@ -386,10 +420,13 @@ begin
     return next;
   end;
 end;
-$$;
+$body$;
 
 comment on function test_public_lists() is
   'بتتأكد إن قوايم التسجيل والخريطة اتظبطت (0065·0066) وإن الزائر بيقراها فعلًا. select * from test_public_lists();';
+
+$fn$;
+end $guard$;
 
 revoke execute on function test_public_lists() from public, anon, authenticated;
 

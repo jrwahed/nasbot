@@ -197,6 +197,8 @@ export const WORK_STYLE_CODES: readonly WorkStyleCode[] = ['silent', 'chatty', '
 /** الأعمدة اللي بتتعدّل من «مجالي وأسلوبي» في /me/shoghl */
 export interface MyWorkProfile {
   workStatus: WorkStatusCode | null
+  /** اللي كتبه لما اختار «حاجة تانية» — فاضي في أي حالة تانية */
+  workStatusOther: string | null
   professionId: string | null
   workStyle: WorkStyleCode | null
 }
@@ -698,6 +700,7 @@ export async function getProfessions(): Promise<ProfessionOption[]> {
 
 export const EMPTY_WORK_PROFILE: MyWorkProfile = {
   workStatus: null,
+  workStatusOther: null,
   professionId: null,
   workStyle: null,
 }
@@ -711,13 +714,19 @@ export async function getMyWorkProfile(): Promise<MyWorkProfile> {
       if (!uid) return { ...EMPTY_WORK_PROFILE }
       const { data, error } = await supabase()
         .from('profiles')
-        .select('work_status, profession_id, work_style')
+        .select('work_status, work_status_other, profession_id, work_style')
         .eq('id', uid)
         .maybeSingle()
       if (error || !data) return { ...EMPTY_WORK_PROFILE }
-      const r = data as { work_status: string | null; profession_id: string | null; work_style: string | null }
+      const r = data as {
+        work_status: string | null
+        work_status_other: string | null
+        profession_id: string | null
+        work_style: string | null
+      }
       return {
         workStatus: WORK_STATUS_CODES.find((s) => s === r.work_status) ?? null,
+        workStatusOther: r.work_status_other ?? null,
         professionId: r.profession_id ?? null,
         workStyle: WORK_STYLE_CODES.find((s) => s === r.work_style) ?? null,
       }
@@ -734,6 +743,9 @@ export async function saveMyWorkProfile(p: MyWorkProfile): Promise<WriteResult> 
     .from('profiles')
     .update({
       work_status: p.workStatus,
+      // بيتمسح لوحده لو غيّر اختياره — من غير كده بيفضل كلام قديم على
+      // حالة مالهاش علاقة بيه
+      work_status_other: p.workStatus === 'other' ? (p.workStatusOther?.trim() || null) : null,
       profession_id: p.professionId,
       work_style: p.workStyle,
     })

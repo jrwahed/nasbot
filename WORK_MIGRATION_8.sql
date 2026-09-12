@@ -902,6 +902,21 @@ grant  execute on function fn_venue_options() to authenticated;
 
 
 -- ===== اختبار =====
+-- ⚠ **الحارس ده اتضاف بعد ما `0086` و`0089` غيّروا الأرض من تحت الدالة دي.**
+--    `0091` بتعيد تعريفها من غير بند «العضو بيشوف الأماكن» — البند بقى بيختبر
+--    فورم مش موجود (العضو بقى بيكتب مكانه)، وبيقول «فشل» على قاعدة سليمة.
+--    فلو الدفعة ٨ اتلزقت **بعد** دفعة ٩١ — أو اتكررت بعدها — الملف ده كان
+--    هيرجّع النسخة القديمة **بالصمت**.
+--
+--    القاعدة (CLAUDE.md §٨ · الدرس التالت والسادس): لو هجرة جديدة بتلغي أثر
+--    هجرة قديمة، ارجع للقديمة وخلّيها **مشروطة** — ووصّل التحصين للحزمة كمان.
+do $guard0080$
+begin
+  if to_regprocedure('fn_test_seed_up()') is not null then
+    raise notice '0080: سايبين test_venue_options زي ما هي — 0091 اتلزقت خلاص';
+    return;
+  end if;
+  execute $fn0080$
 create or replace function test_venue_options()
 returns table (test text, result text)
 language plpgsql
@@ -1034,7 +1049,11 @@ $$;
 comment on function test_venue_options() is
   'بتتأكد إن العضو بيشوف أماكن الخروجة من غير ما جدول venues يتفتح. select * from test_venue_options();';
 
+$fn0080$;
+end $guard0080$;
+
 revoke execute on function test_venue_options() from public, anon, authenticated;
+
 
 -- ############################################################################
 -- # 20260912100300_0081_host_copy_keys.sql

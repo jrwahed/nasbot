@@ -61,6 +61,8 @@ export interface Sbota {
   img: string
   /** رابط الصورة الحقيقية لو اترفعت — null يعني `img` وصف نصي بس */
   imgSrc?: string | null
+  /** نص الصورة (alt) من «دليل السبوطات» — وصف بصري للي مش شايف الصورة */
+  photoAlt?: string
   gallerySrc?: string[]
   /** صور المعرض في صفحة السبوطة */
   gallery: string[]
@@ -391,6 +393,8 @@ export interface NewSbotaInput {
   venueName: string
   address: string
   area: string
+  /** اسم المنطقة بالنص لما area = «غير كده» — القاعدة بترفض من غيره */
+  areaOther?: string
   startsAt: string
   durationMin: number
   capacity: number

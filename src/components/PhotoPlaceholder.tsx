@@ -22,6 +22,7 @@ export function PhotoPlaceholder({
   children,
   fontSize,
   src,
+  alt,
 }: {
   /** وصف الصورة الحقيقية المطلوبة، بين قوسين مربعين */
   label: string
@@ -35,6 +36,15 @@ export function PhotoPlaceholder({
   fontSize?: number
   /** صورة حقيقية (رابط موقّع) — لو موجودة بتحل مكان النص */
   src?: string | null
+  /**
+   * نص الصورة (alt) من «دليل السبوطات» — وصف بصري للي فيها.
+   *
+   * ⚠ بيتستعمل **لما تبقى فيه صورة حقيقية بس**. من غيره الصورة بتطلع
+   * بـ`alt` فاضي، يعني اللي على قارئ شاشة مش شايف حاجة خالص، وجوجل
+   * مش فاهم الصورة. و`label` مينفعش يقوم مقامه: ده وصف المكان الفاضي
+   * («[صورة]») مش وصف الصورة.
+   */
+  alt?: string
 }) {
   const bg = variant === 'sandDeep' ? '#E2D2B4' : '#EFE3CF'
   const fs = fontSize ?? (circle ? 11 : 13)
@@ -43,8 +53,11 @@ export function PhotoPlaceholder({
 
   return (
     <div
-      role="img"
-      aria-label={label}
+      // ⚠ لما تبقى فيه صورة حقيقية، `<img>` جوه هي الصورة — فبنشيل
+      //    `role="img"` من البرّه. لو سبناه، قارئ الشاشة بيقول الوصف
+      //    **مرتين**، وجوجل بياخد `aria-label` بدل `alt`.
+      role={src ? undefined : 'img'}
+      aria-label={src ? undefined : label}
       className={`grid place-items-center text-center ${className}`}
       style={{
         background: bg,
@@ -63,7 +76,7 @@ export function PhotoPlaceholder({
     >
       {src ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={src} alt="" className="h-full w-full object-cover" />
+        <img src={src} alt={alt ?? ''} className="h-full w-full object-cover" />
       ) : (
         <span aria-hidden="true">{label}</span>
       )}
