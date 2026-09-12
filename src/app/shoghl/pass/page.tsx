@@ -9,7 +9,7 @@ import { Sticker } from '@/components/Sticker'
 import { PrimaryButton } from '@/components/Buttons'
 import { PassCard } from '@/components/work/PassCard'
 import { GuaranteeBox } from '@/components/WhoBooked'
-import { guaranteeText } from '@/data/lists'
+import { useContentRef } from '@/components/FooterLinksProvider'
 import { getWorkSettings } from '@/lib/api'
 import {
   EMPTY_PASS_STATE,
@@ -43,6 +43,8 @@ const METHOD_IDS: PayMethod[] = ['vodafone_cash', 'instapay']
 
 export default function PassPage() {
   const t = useT()
+  // نص الضمان من `content_blocks` — نفس الصندوق اللي في /rules بالظبط
+  const guarantee = useContentRef('guarantee')
   const router = useRouter()
   const fileRef = useRef<HTMLInputElement>(null)
 
@@ -387,7 +389,7 @@ export default function PassPage() {
                 الضمان — الباقي (سبوطة عامة · سبوطة شغل · مسار دفع الشغل)
                 كلهم بيعرضوه قبل الزرار. */}
             <div className="mt-4">
-              <GuaranteeBox text={guaranteeText} />
+              <GuaranteeBox text={guarantee} />
             </div>
 
             <div className="mt-4">

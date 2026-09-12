@@ -21,6 +21,15 @@ export type Area =
 /** نوع السبوطة — بيحدد التخطيط والوضع */
 export type SbotaKind = 'normal' | 'work' | 'mystery'
 
+/**
+ * مين فتح الخروجة.
+ *
+ * `nasbot` = اتنشرت من اللوحة · `member` = عضو عادي فتحها بنفسه.
+ * الاتنين بيقعدوا في **نفس القايمة** — الوسم بس هو اللي بيفرّق، علشان
+ * المنتج ما بقاش قايم على التنظيم.
+ */
+export type SbotaOrigin = 'nasbot' | 'member'
+
 /** وقت السبوطة — بيحدد إمتى تظهر في «نديها واحدة؟» وفي الوضع النهاري */
 export type TimeOfDay = 'day' | 'night'
 
@@ -54,6 +63,13 @@ export interface Sbota {
   /** صور المعرض في صفحة السبوطة */
   gallery: string[]
   captainId: string
+  origin: SbotaOrigin
+  /** معرّف صاحب الخروجة — فاضي لو من نسبوط */
+  hostId: string
+  /** اسمه الأول بس. مفيش صورة ولا تليفون قبل الكشف. */
+  hostName: string
+  /** سطره للناس: «هنتقابل عند البوابة» */
+  hostNote: string
   /** سطر الحكاية تحت الاسم */
   story: string
   when: string
@@ -228,6 +244,7 @@ export type TrackEvent =
   | 'paid'
   | 'share_type_card'
   | 'use_referral'
+  | 'create_sbota'
 
 /* ============================================================ الشغل */
 
@@ -327,4 +344,73 @@ export interface LeadInput {
   peopleCount: number
   timesPerMonth: number
   note?: string
+}
+
+/** صف في «خروجاتي» — اللي أنا فاتحها */
+export interface HostedSbota {
+  id: string
+  slug: string
+  name: string
+  when: string
+  startsAt: string
+  capacity: number
+  booked: number
+  /** حالة السبوطة زي ما هي في القاعدة */
+  status: string
+  note: string
+}
+
+/** مكان في فورم فتح الخروجة — الاسم والمنطقة بس، مفيش عنوان */
+export interface VenueOption {
+  id: string
+  name: string
+  kind: string
+  area: string
+}
+
+/** نوع خروجة في الفورم — من `sbota_templates` */
+export interface TemplateOption {
+  id: string
+  slug: string
+  name: string
+  /** «300 جنيه» — محسوب من القالب، العضو ما بيغيّرهوش */
+  price: string
+  durationMin: number
+  minGroup: number
+  maxGroup: number
+}
+
+/** حدود فتح الخروجة — كلها من `settings`، مفيش رقم في الكود */
+export interface HostLimits {
+  minCapacity: number
+  maxCapacity: number
+  maxOpen: number
+  minLeadHours: number
+  maxDaysAhead: number
+}
+
+/* ============================================ صفحات المحتوى */
+
+/** نوع الفقرة — `content_block_t` في القاعدة */
+export type ContentBlockKind = 'section' | 'qa' | 'numbered' | 'callout'
+
+export interface ContentBlock {
+  kind: ContentBlockKind
+  /** العنوان — السؤال في الـqa، وعنوان الكرت في الـnumbered */
+  heading: string
+  body: string
+  /** لون صندوق الـcallout */
+  tone: 'sand' | 'cobalt'
+  /** مرجع ثابت للفقرات اللي الكود بيسأل عنها بالاسم — زي `guarantee` */
+  ref: string
+}
+
+/** صفحة محتوى كاملة — القواعد · الأسئلة · مين إحنا · الشروط */
+export interface ContentPage {
+  slug: string
+  title: string
+  intro: string
+  /** اسم الرابط في الذيل — فاضي يعني الرابط ما بيظهرش */
+  footerLabel: string
+  blocks: ContentBlock[]
 }

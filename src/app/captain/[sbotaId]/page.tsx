@@ -17,12 +17,17 @@ import {
 } from '@/lib/api'
 import { emergencyPhone } from '@/data/lists'
 import { captainReportFields } from '@/data/bookings'
-import { getSession } from '@/lib/session'
+import { isLoggedIn } from '@/lib/session'
 import { useT } from '@/components/CopyProvider'
 
 /**
- * لوحة الكابتن — محمية بدور captain.
- * هنا الصور الشخصية بتظهر (الكابتن بيعرف الناس عند البوابة).
+ * لوحة اللي ماسك المجموعة — صاحب الخروجة (عضو فتحها) أو كابتن نسبوط.
+ * هنا الصور الشخصية بتظهر، لأنه محتاج يعرف الناس عند البوابة.
+ *
+ * ⚠ الحماية الحقيقية في RLS مش هنا: سياسة `bookings_own_read` بتمر على
+ * `fn_is_my_sbota_revealed`، وهي بتدّي الحق للكابتن **ولصاحب الخروجة**
+ * بعد `reveal_at` بس (0078). فالفحص اللي تحت راحة للعين مش حد أمني —
+ * أي حد تاني بيوصل هنا بيلاقي قايمة فاضية، مش بيانات ناس.
  */
 export default function CaptainBoardPage() {
   const t = useT()
@@ -37,9 +42,10 @@ export default function CaptainBoardPage() {
   const [allowed, setAllowed] = useState<boolean | null>(null)
 
   useEffect(() => {
-    // في المرحلة دي: الدور من الجلسة، وبنسمح لو مفيش جلسة علشان التجربة
-    const s = getSession()
-    setAllowed(s === null || s.role === 'captain' ? true : false)
+    // أي عضو داخل بيعدّي: صاحب الخروجة عضو عادي ومفيش دور بيميّزه في
+    // الجلسة. الزائر بس هو اللي بنوقفه هنا — وده علشان يشوف رسالة مفهومة
+    // بدل لوحة فاضية. مين بيشوف الأسماء فعلًا قرار RLS مش قرار الملف ده.
+    setAllowed(isLoggedIn())
     getCaptainBoard(params.sbotaId).then(setBoard)
   }, [params.sbotaId])
 

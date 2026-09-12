@@ -75,6 +75,18 @@ export function SbotaCard({
               <Sticker color="cobalt" rotate={4} fontSize={15} padding="5px 14px">{t('shared.text.29')}</Sticker>
             </span>
           )}
+          {/* وسم صاحب الخروجة — ده اللي بيفرّق بين خروجة نسبوط وخروجة عضو
+              في نفس القايمة. تحت شارة «بنات بس» علشان ما يتغطّاش. */}
+          {sbota.origin === 'member' && sbota.hostName && (
+            <span
+              className="absolute start-[14px]"
+              style={{ top: sbota.girls ? 56 : 14 }}
+            >
+              <Sticker color="cream" rotate={-3} fontSize={14} padding="4px 12px">
+                {t('host.badge.member', { name: sbota.hostName })}
+              </Sticker>
+            </span>
+          )}
         </div>
       </Link>
 

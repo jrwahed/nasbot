@@ -8,7 +8,7 @@
  * ⚠ القاعدة: الاحتياطي **مفتوح** دايمًا. مفتاح مقفول قرار صريح من اللوحة،
  * ومش صح إن غلطة شبكة تقفل قسم على الناس.
  *
- * المفاتيح السبعة دي هي اللي في بذرة الهجرة 0036، وكل واحد فيهم بيقفل مسار
+ * المفاتيح دي هي اللي في بذرة الهجرة 0036، وكل واحد فيهم بيقفل مسار
  * موجود فعلًا على الموقع:
  *   booking     → /s/[slug]/pay  ← زرار الحجز في صفحة السبوطة
  *   game        → /game و /game/result
@@ -17,6 +17,7 @@
  *   chat        → /my/[bookingId]/chat و /me/chat/[name]
  *   referral    → كرت كود الدعوة في /me
  *   work_sbota  → /shoghl/* كله
+ *   member_sbota → /new (العضو بيفتح خروجته) و/me/sbotati
  */
 
 export interface FeatureFlag {
@@ -34,6 +35,7 @@ export type FlagKey =
   | 'chat'
   | 'referral'
   | 'work_sbota'
+  | 'member_sbota'
 
 export type FlagMap = Record<string, FeatureFlag>
 
@@ -45,4 +47,5 @@ export const flagsFallback: FlagMap = {
   chat: { on: true, off: 'الشات مقفول دلوقتي.' },
   referral: { on: true, off: 'الإحالة موقوفة مؤقتًا.' },
   work_sbota: { on: true, off: 'سبوطات الشغل راجعة قريب.' },
+  member_sbota: { on: true, off: 'فتح الخروجات مقفول دلوقتي. جرب تاني بعدين.' },
 }

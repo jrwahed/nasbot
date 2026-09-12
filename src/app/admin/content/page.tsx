@@ -4,6 +4,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { AdminShell } from '@/components/AdminShell'
 import { supabase } from '@/lib/supabase'
 import { revalidateSite, loadBannedWords, bannedIn, rejected } from '@/lib/admin'
+import { Tabs } from '@/components/admin-ui'
+import { PagesEditor } from '@/app/admin/content/pages-editor'
 
 /**
  * محرّر نصوص الموقع.
@@ -34,11 +36,33 @@ const fmt = (iso: string) =>
     timeStyle: 'short',
   })
 
+/**
+ * تبويبين: «النصوص» (مفاتيح `copy_strings`) و«صفحات الموقع»
+ * (`content_pages` + `content_blocks` — القواعد والأسئلة ومين إحنا والشروط).
+ *
+ * الفرق: النصوص مفاتيح ثابتة العدد، والصفحات قوايم متغيّرة الطول —
+ * المالك بيضيف سؤال جديد من غير ما يحتاج هجرة.
+ */
+const CONTENT_TABS = [
+  { id: 'strings' as const, label: 'النصوص' },
+  { id: 'pages' as const, label: 'صفحات الموقع' },
+]
+
 export default function AdminContentPage() {
   return (
     <AdminShell title="نصوص الموقع" needs="content.edit">
-      {() => <Editor />}
+      {() => <ContentTabs />}
     </AdminShell>
+  )
+}
+
+function ContentTabs() {
+  const [tab, setTab] = useState<'strings' | 'pages'>('strings')
+  return (
+    <>
+      <Tabs tabs={CONTENT_TABS} value={tab} onChange={setTab} />
+      {tab === 'strings' ? <Editor /> : <PagesEditor />}
+    </>
   )
 }
 

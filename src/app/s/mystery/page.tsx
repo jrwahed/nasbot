@@ -6,7 +6,7 @@ import { Logo } from '@/components/Logo'
 import { ClueGrid } from '@/components/ClueGrid'
 import { GuaranteeBox } from '@/components/WhoBooked'
 import { getClues, getCompletedCount } from '@/lib/api'
-import { guaranteeText } from '@/data/lists'
+import { useContentRef } from '@/components/FooterLinksProvider'
 import { track } from '@/lib/track'
 import { isLoggedIn } from '@/lib/session'
 import type { Clue } from '@/types'
@@ -19,6 +19,8 @@ import { FeatureGate } from '@/components/FlagsProvider'
  */
 function MysteryPage() {
   const t = useT()
+  // نص الضمان من `content_blocks` — نفس الصندوق اللي في /rules بالظبط
+  const guarantee = useContentRef('guarantee')
   const router = useRouter()
   const [clues, setClues] = useState<Clue[]>([])
   const [count, setCount] = useState<number | null>(null)
@@ -69,7 +71,7 @@ function MysteryPage() {
         </div>
 
         <div className="mt-8">
-          <GuaranteeBox text={guaranteeText} />
+          <GuaranteeBox text={guarantee} />
         </div>
 
         <div className="mt-6">

@@ -9,7 +9,7 @@ import { GuaranteeBox } from '@/components/WhoBooked'
 import { PhotoPlaceholder } from '@/components/PhotoPlaceholder'
 import { Sticker } from '@/components/Sticker'
 import { getWorkSbota, getWorkSettings, startBooking, submitTransfer, hasPriorWorkBooking } from '@/lib/api'
-import { guaranteeText } from '@/data/lists'
+import { useContentRef } from '@/components/FooterLinksProvider'
 import { track } from '@/lib/track'
 import { qJump } from '@/lib/liveq'
 import type { WorkPayWith, WorkSbota, WorkSettings } from '@/types'
@@ -26,6 +26,8 @@ type Method = 'vodafone_cash' | 'instapay'
 
 export function WorkPayFlow({ slug, payWith }: { slug: string; payWith: WorkPayWith }) {
   const t = useT()
+  // نص الضمان من `content_blocks` — نفس الصندوق اللي في /rules بالظبط
+  const guarantee = useContentRef('guarantee')
   const router = useRouter()
   const fileRef = useRef<HTMLInputElement>(null)
 
@@ -262,7 +264,7 @@ export function WorkPayFlow({ slug, payWith }: { slug: string; payWith: WorkPayW
       </div>
 
       <div className="mt-4">
-        <GuaranteeBox text={guaranteeText} />
+        <GuaranteeBox text={guarantee} />
       </div>
 
       {error && (

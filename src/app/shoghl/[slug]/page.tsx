@@ -26,7 +26,7 @@ import {
   getWorkSettings,
   hasPriorWorkBooking,
 } from '@/lib/api'
-import { fiveRules, guaranteeText } from '@/data/lists'
+import { useContentRef, useNumberedRules } from '@/components/FooterLinksProvider'
 import { track } from '@/lib/track'
 import { isLoggedIn } from '@/lib/session'
 import type { Captain, GroupProfession, WorkPass, WorkPayWith, WorkSbota, WorkSettings } from '@/types'
@@ -40,6 +40,10 @@ import { useT } from '@/components/CopyProvider'
  */
 export default function WorkSbotaPage() {
   const t = useT()
+  // القواعد والضمان من `content_blocks` — نفس اللي في /rules بالظبط،
+  // علشان تعديل المالك من اللوحة يبان في كل مكان مش في صفحة واحدة
+  const guarantee = useContentRef('guarantee')
+  const rules = useNumberedRules()
   const params = useParams<{ slug: string }>()
   const router = useRouter()
 
@@ -257,7 +261,7 @@ export default function WorkSbotaPage() {
 
       {/* ===== الضمان ===== */}
       <div className="px-5 pt-4">
-        <GuaranteeBox text={guaranteeText} />
+        <GuaranteeBox text={guarantee} />
       </div>
 
       <div className="px-5 pt-[14px]">
@@ -300,7 +304,7 @@ export default function WorkSbotaPage() {
 
       <BottomSheet open={rulesOpen} onClose={() => setRulesOpen(false)} title={t('sbota.label.1')}>
         <ol className="m-0 flex list-none flex-col gap-4 p-0">
-          {fiveRules.map((r) => (
+          {rules.map((r) => (
             <li key={r.n} className="flex gap-3">
               <span className="font-display text-26 font-black leading-none" style={{ color: 'var(--accent-text)' }}>
                 {r.n}

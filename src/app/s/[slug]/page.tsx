@@ -7,13 +7,14 @@ import { PhotoPlaceholder } from '@/components/PhotoPlaceholder'
 import { publicMediaUrl } from '@/lib/supabase'
 import { Sticker } from '@/components/Sticker'
 import { CaptainCard } from '@/components/CaptainCard'
+import { HostCard } from '@/components/HostCard'
 import { WhoBooked, GuaranteeBox } from '@/components/WhoBooked'
 import { StickyCTA } from '@/components/StickyCTA'
 import { BottomSheet } from '@/components/BottomSheet'
 import { PrimaryButton, SecondaryButton } from '@/components/Buttons'
 import { ClockIcon, ArrowIcon, PinIcon, LevelIcon } from '@/components/Icons'
 import { getSbota, getCaptain } from '@/lib/api'
-import { fiveRules, guaranteeText } from '@/data/lists'
+import { useContentRef, useNumberedRules } from '@/components/FooterLinksProvider'
 import { track } from '@/lib/track'
 import { isLoggedIn } from '@/lib/session'
 import { useTheme } from '@/lib/use-theme'
@@ -28,6 +29,10 @@ import { useFlag } from '@/components/FlagsProvider'
  */
 export default function SbotaPage() {
   const t = useT()
+  // القواعد والضمان من `content_blocks` — نفس اللي في /rules بالظبط،
+  // علشان تعديل المالك من اللوحة يبان في كل مكان مش في صفحة واحدة
+  const guarantee = useContentRef('guarantee')
+  const rules = useNumberedRules()
   // مفتاح «booking» من /admin/settings — قفل الحجز بيشيل الزرار هنا
   // وبيقفل /s/[slug]/pay نفسها كمان (مراجعة A2)
   const booking = useFlag('booking')
@@ -50,7 +55,9 @@ export default function SbotaPage() {
         return
       }
       setSbota(s)
-      setCaptain(await getCaptain(s.captainId))
+      // ⚠ خروجة العضو مالهاش كابتن. من غير الشرط ده `getCaptain('')` بترجّع
+      //   كابتن **وهمي** من الاحتياطي — يعني الصفحة تعرض حد مالوش وجود.
+      setCaptain(s.captainId ? await getCaptain(s.captainId) : null)
       setLoading(false)
       track('open_card', { slug: s.slug })
       // سبوطة الشغل نهارية إجباريًا
@@ -71,7 +78,7 @@ export default function SbotaPage() {
     )
   }
 
-  if (loading || !sbota || !captain) {
+  if (loading || !sbota) {
     return (
       <main className="mx-auto w-full max-w-page px-5 pb-24">
         <InnerHeader back={t('sbota.label.3')} padded={false} />
@@ -156,10 +163,16 @@ export default function SbotaPage() {
         </div>
       </div>
 
-      {/* ===== الكابتن ===== */}
-      <div className="px-5 pt-6">
-        <CaptainCard captain={captain} />
-      </div>
+      {/* ===== صاحب الخروجة: عضو فتحها، أو كابتن نسبوط ===== */}
+      {sbota.origin === 'member' ? (
+        <div className="px-5 pt-6">
+          <HostCard name={sbota.hostName} note={sbota.hostNote} />
+        </div>
+      ) : captain ? (
+        <div className="px-5 pt-6">
+          <CaptainCard captain={captain} />
+        </div>
+      ) : null}
 
       {/* ===== مين حاجز ===== */}
       <div className="px-5 pt-4">
@@ -215,7 +228,7 @@ export default function SbotaPage() {
 
       {/* ===== الضمان ===== */}
       <div className="px-5 pt-4">
-        <GuaranteeBox text={guaranteeText} />
+        <GuaranteeBox text={guarantee} />
       </div>
 
       <div className="px-5 pt-[14px]">
@@ -256,7 +269,7 @@ export default function SbotaPage() {
 
       <BottomSheet open={rulesOpen} onClose={() => setRulesOpen(false)} title={t('sbota.label.1')}>
         <ol className="m-0 flex list-none flex-col gap-4 p-0">
-          {fiveRules.map((r) => (
+          {rules.map((r) => (
             <li key={r.n} className="flex gap-3">
               <span
                 className="font-display text-26 font-black leading-none"

@@ -10,7 +10,7 @@ import { GuaranteeBox } from '@/components/WhoBooked'
 import { PhotoPlaceholder } from '@/components/PhotoPlaceholder'
 import { Sticker } from '@/components/Sticker'
 import { getSbota, startBooking, submitTransfer, redeemReferral } from '@/lib/api'
-import { guaranteeText } from '@/data/lists'
+import { useContentRef } from '@/components/FooterLinksProvider'
 import { track } from '@/lib/track'
 import { qJump } from '@/lib/liveq'
 import type { Sbota } from '@/types'
@@ -27,6 +27,8 @@ type Method = 'vodafone_cash' | 'instapay'
 
 function PayPage() {
   const t = useT()
+  // نص الضمان من `content_blocks` — نفس الصندوق اللي في /rules بالظبط
+  const guarantee = useContentRef('guarantee')
   // جوه المكوّن علشان النصوص تيجي من قاعدة البيانات
   const METHODS: { id: Method; label: string; note: string }[] = [
     { id: 'vodafone_cash', label: t('pay.method.vodafone'), note: t('pay.method.vodafone_note') },
@@ -309,7 +311,7 @@ function PayPage() {
       </div>
 
       <div className="mt-4">
-        <GuaranteeBox text={guaranteeText} />
+        <GuaranteeBox text={guarantee} />
       </div>
 
       {error && (

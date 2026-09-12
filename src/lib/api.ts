@@ -30,6 +30,10 @@ import type {
   WorkSbota,
   WorkSettings,
   WorkVenue,
+  HostedSbota,
+  VenueOption,
+  TemplateOption,
+  HostLimits,
 } from '@/types'
 import { supabase, hasSupabase } from '@/lib/supabase'
 import * as mock from '@/lib/api-mock'
@@ -58,6 +62,8 @@ import {
   activityFromDb,
   budgetFromDb,
   areaFromDb,
+  priceLabel,
+  whenLabel,
   workSettingsFromDb,
   workVenueFromDb,
   workScheduleFromConfig,
@@ -114,10 +120,53 @@ export const REFERRAL_DISCOUNT = 0.15
 
 /* ============================================================ السبوطات */
 
-const SBOTA_COLS =
+/**
+ * أعمدة السبوطة قبل هجرة 0078 — الأساس اللي أكيد موجود.
+ */
+const SBOTA_COLS_BASE =
   'id, slug, name_ar, story_ar, kind, mood_ar, meta_prefix_ar, level_ar, price, org_fee, ' +
   'capacity, status, girls_only, is_day, is_mystery, starts_at, duration_min, area, area_label_ar, ' +
   'includes_ar, excludes_ar, hero_photos, captain_id, overnight, reveal_at'
+
+/** أعمدة صاحب الخروجة — بتتضاف مع 0078 */
+const SBOTA_COLS_HOST = 'origin, host_id, host_name_ar, host_note_ar'
+
+const SBOTA_COLS = `${SBOTA_COLS_BASE}, ${SBOTA_COLS_HOST}`
+
+/**
+ * ⚠ الكود بينزل على Vercel قبل ما الهجرة تتلزق على القاعدة — ده الترتيب
+ * الطبيعي في المشروع ده (الإيجنت مالوش وصول للقاعدة، المالك بيلزق بإيده).
+ * وفي الفترة دي أعمدة `origin`/`host_id` **مش موجودة**، وPostgREST بيرفض
+ * الاستعلام كله بـ400. من غير الحارس ده، **قايمة السبوطات في الصفحة
+ * الرئيسية كانت هتطلع فاضية** لحد ما المالك يلزق — أوحش من إن الوسم
+ * الجديد ما يبانش.
+ *
+ * فبنجرّب بالأعمدة الجديدة، ولو القاعدة ما عرفتهاش بنعيد بالأساس بس.
+ * بعد اللزق المسار الأول بينجح على طول والتاني عمره ما بيتنفّذ.
+ */
+/**
+ * آخر مرة القاعدة قالت فيها إن الأعمدة مش موجودة. بنجرّب تاني بعد دقيقة،
+ * علشان أول ما المالك يلزق الهجرة الوسم يبان من غير ما نستنى إعادة نشر.
+ */
+let hostColsMissingAt = 0
+const HOST_COLS_RETRY_MS = 60_000
+
+async function selectSbotat<T>(
+  run: (cols: string) => PromiseLike<{ data: T; error: { message: string } | null }>
+): Promise<{ data: T; error: { message: string } | null }> {
+  const skip = hostColsMissingAt > 0 && Date.now() - hostColsMissingAt < HOST_COLS_RETRY_MS
+  if (!skip) {
+    const first = await run(SBOTA_COLS)
+    if (!first.error) {
+      hostColsMissingAt = 0
+      return first
+    }
+    // مش أي غلطة — الغلطة بتاعة عمود مش موجود بس
+    if (!/origin|host_id|host_name_ar|host_note_ar/.test(first.error.message)) return first
+    hostColsMissingAt = Date.now()
+  }
+  return run(SBOTA_COLS_BASE)
+}
 
 /** بيجيب أرقام «مين حاجز» لمجموعة سبوطات مرة واحدة */
 async function whoBookedMap(ids: string[]) {
@@ -136,15 +185,15 @@ export async function getSbotat(opts?: {
 }): Promise<Sbota[]> {
   if (!DB) return mock.getSbotat(opts)
 
-  let q = supabase()
-    .from('sbotat_public')
-    .select(SBOTA_COLS)
-    .eq('is_mystery', false)
-    .order('starts_at', { ascending: true })
-
-  if (opts?.timeOfDay) q = q.eq('is_day', opts.timeOfDay === 'day')
-
-  const { data, error } = await q
+  const { data, error } = await selectSbotat((cols) => {
+    let q = supabase()
+      .from('sbotat_public')
+      .select(cols)
+      .eq('is_mystery', false)
+      .order('starts_at', { ascending: true })
+    if (opts?.timeOfDay) q = q.eq('is_day', opts.timeOfDay === 'day')
+    return q
+  })
   if (error || !data) return []
 
   const rows = data as Record<string, unknown>[]
@@ -163,13 +212,15 @@ export async function getSbotat(opts?: {
 export async function getSbota(slug: string): Promise<Sbota | null> {
   if (!DB) return mock.getSbota(slug)
 
-  const { data, error } = await supabase()
-    .from('sbotat_public')
-    .select(SBOTA_COLS)
-    .eq('slug', slug)
-    .order('starts_at', { ascending: true })
-    .limit(1)
-    .maybeSingle()
+  const { data, error } = await selectSbotat<Record<string, unknown> | null>((cols) =>
+    supabase()
+      .from('sbotat_public')
+      .select(cols)
+      .eq('slug', slug)
+      .order('starts_at', { ascending: true })
+      .limit(1)
+      .maybeSingle()
+  )
 
   if (error || !data) return null
   const id = (data as { id: string }).id
@@ -202,13 +253,15 @@ export async function getRandomSbota(
 
 export async function getMystery(): Promise<Sbota | null> {
   if (!DB) return mock.getSbota('mystery')
-  const { data } = await supabase()
-    .from('sbotat_public')
-    .select(SBOTA_COLS)
-    .eq('is_mystery', true)
-    .order('starts_at', { ascending: true })
-    .limit(1)
-    .maybeSingle()
+  const { data } = await selectSbotat<Record<string, unknown> | null>((cols) =>
+    supabase()
+      .from('sbotat_public')
+      .select(cols)
+      .eq('is_mystery', true)
+      .order('starts_at', { ascending: true })
+      .limit(1)
+      .maybeSingle()
+  )
   return data ? sbotaFromDb(data) : null
 }
 
@@ -906,6 +959,139 @@ export async function requestGirlsOnly(bookingId: string) {
   return error ? { ok: false as const, error: error.message } : { ok: true as const, bookingId }
 }
 
+/* ================================================ فتح خروجة من عضو
+
+   نسبوط ما بقاش قايم على الكابتن والتنظيم: العضو بيفتح خروجته بنفسه.
+
+   ⚠ كل الكتابة هنا بتمر على دوال القاعدة (`fn_create_sbota` وإخواتها)
+   ومفيش ولا كتابة مباشرة على `sbotat` — بالظبط زي `fn_pair_want`.
+   الباب المباشر مقفول في القاعدة أصلًا (0078)، والسعر بيتحسب **جوه**
+   الدالة من القالب و`settings`، فمفيش سعر بيتبعت من المتصفح خالص.
+*/
+
+/** الأماكن اللي العضو يقدر يختار منها — الاسم والمنطقة بس، مفيش عنوان */
+export async function getVenueOptions(): Promise<VenueOption[]> {
+  if (!DB) return mock.getVenueOptions()
+  const { data, error } = await supabase().rpc('fn_venue_options')
+  if (error || !data) return []
+  return (data as { id: string; name: string; kind: string; area: string }[]).map((v) => ({
+    id: v.id,
+    name: v.name,
+    kind: v.kind,
+    area: areaFromDb(v.area),
+  }))
+}
+
+/** أنواع الخروجة — من القوالب. الشغل والغامضة مش متاحين للأعضاء. */
+export async function getTemplateOptions(): Promise<TemplateOption[]> {
+  if (!DB) return mock.getTemplateOptions()
+  const { data, error } = await supabase()
+    .from('sbota_templates')
+    .select('id, slug, name_ar, default_price, duration_min, min_group, max_group, kind')
+    .not('kind', 'in', '("work","mystery")')
+    .order('name_ar')
+  if (error || !data) return []
+  return (data as {
+    id: string; slug: string; name_ar: string; default_price: number
+    duration_min: number; min_group: number; max_group: number
+  }[]).map((t) => ({
+    id: t.id,
+    slug: t.slug,
+    name: t.name_ar,
+    price: priceLabel(t.default_price),
+    durationMin: t.duration_min,
+    minGroup: t.min_group,
+    maxGroup: t.max_group,
+  }))
+}
+
+/** حدود فتح الخروجة — كلها من `settings`، مفيش رقم في الكود */
+export async function getHostLimits(): Promise<HostLimits | null> {
+  if (!DB) return mock.getHostLimits()
+  const { data, error } = await supabase()
+    .from('settings')
+    .select(
+      'member_sbota_min_capacity, member_sbota_max_capacity, member_sbota_max_open, ' +
+        'member_sbota_min_lead_hours, member_sbota_max_days_ahead'
+    )
+    .maybeSingle()
+  if (error || !data) return null
+  const r = data as Record<string, number>
+  return {
+    minCapacity: r.member_sbota_min_capacity,
+    maxCapacity: r.member_sbota_max_capacity,
+    maxOpen: r.member_sbota_max_open,
+    minLeadHours: r.member_sbota_min_lead_hours,
+    maxDaysAhead: r.member_sbota_max_days_ahead,
+  }
+}
+
+/**
+ * بيفتح خروجة جديدة على اسم العضو الداخل.
+ *
+ * ⚠ مفيش سعر في المدخلات عن قصد — القاعدة بتحسبه من القالب. لو ضفت
+ * واحد هنا بعدين، بتكون فتحت باب «حجز ببلاش» من غير ما تاخد بالك.
+ */
+export async function createSbota(input: {
+  templateId: string
+  venueId: string
+  startsAt: string
+  capacity: number
+  girlsOnly?: boolean
+  note?: string
+}) {
+  if (!DB) return mock.createSbota(input)
+  const { data, error } = await supabase().rpc('fn_create_sbota', {
+    p_template_id: input.templateId,
+    p_venue_id: input.venueId,
+    p_starts_at: input.startsAt,
+    p_capacity: input.capacity,
+    p_girls_only: input.girlsOnly ?? false,
+    p_note: input.note ?? null,
+  })
+  // رسالة القاعدة عربية ومكتوبة للعضو — بنعرضها زي ما هي بدل رسالة عامة.
+  if (error) return { ok: false as const, error: error.message }
+  return { ok: true as const, id: data as string }
+}
+
+/** الخروجات اللي أنا فاتحها — الأعداد بس، مفيش أسماء قبل الكشف */
+export async function getMyHostedSbotat(): Promise<HostedSbota[]> {
+  if (!DB) return mock.getMyHostedSbotat()
+  const { data, error } = await supabase().rpc('fn_my_hosted_sbotat')
+  if (error || !data) return []
+  return (data as {
+    id: string; slug: string; name_ar: string; starts_at: string
+    capacity: number; booked: number; status: string; note_ar: string | null
+  }[]).map((r) => ({
+    id: r.id,
+    slug: r.slug,
+    name: r.name_ar,
+    when: whenLabel(r.starts_at),
+    startsAt: r.starts_at,
+    capacity: r.capacity,
+    booked: r.booked,
+    status: r.status,
+    note: r.note_ar ?? '',
+  }))
+}
+
+/** تعديل سطر صاحب الخروجة. الميعاد والسعر والعدد ما بيتعدّلوش — الناس حجزت عليهم. */
+export async function updateMySbotaNote(id: string, note: string) {
+  if (!DB) return mock.updateMySbotaNote(id, note)
+  const { error } = await supabase().rpc('fn_update_own_sbota', { p_id: id, p_note: note })
+  return error ? { ok: false as const, error: error.message } : { ok: true as const }
+}
+
+/** إلغاء خروجتي — بيترفض من القاعدة لو في حد دافع (الاسترداد شغل اللوحة). */
+export async function cancelMySbota(id: string, reason?: string) {
+  if (!DB) return mock.cancelMySbota(id, reason)
+  const { error } = await supabase().rpc('fn_cancel_own_sbota', {
+    p_id: id,
+    p_reason: reason ?? null,
+  })
+  return error ? { ok: false as const, error: error.message } : { ok: true as const }
+}
+
 /* ============================================================ الشات */
 
 export interface ChatRoomState {
@@ -1183,27 +1369,53 @@ export async function getCompletedCount(): Promise<number> {
   return (data as { sbota_count: number } | null)?.sbota_count ?? 0
 }
 
-/* ============================================================ لوحة الكابتن */
+/* ====================================== لوحة صاحب الخروجة (والكابتن)
+
+   الصفحة دي كانت «لوحة الكابتن». بعد ما المنتج بطّل يبقى قايم على
+   الكابتن، بقت لوحة **اللي ماسك المجموعة** — عضو فتح الخروجة، أو كابتن
+   نسبوط في السبوطات اللي لسه ليها كابتن.
+
+   ⚠ الحد الأمني الحقيقي هو RLS مش الكود ده: سياسة `bookings_own_read`
+   بتمر على `fn_is_my_sbota_revealed`، واللي 0078 وسّعتها لصاحب الخروجة
+   **بعد الكشف بس**. فاللي ما لهوش حق بيشوف قايمة فاضية مش بيشوف الناس.
+*/
 
 export interface CaptainBoard {
   sbota: Sbota
-  captain: Captain
+  /** كابتن نسبوط — null في خروجة العضو */
+  captain: Captain | null
   roster: Person[]
+}
+
+/** السبوطة بالمعرّف. `getSbota` بتاخد **slug** مش id — الفرق ده كان باج. */
+async function getSbotaById(id: string): Promise<Sbota | null> {
+  const { data, error } = await selectSbotat<Record<string, unknown> | null>((cols) =>
+    supabase().from('sbotat_public').select(cols).eq('id', id).maybeSingle()
+  )
+  if (error || !data) return null
+  const who = (await whoBookedMap([id])).get(id)
+  return sbotaFromDb(data, who)
 }
 
 export async function getCaptainBoard(sbotaId: string): Promise<CaptainBoard | null> {
   if (!DB) return mock.getCaptainBoard(sbotaId) as unknown as Promise<CaptainBoard | null>
 
-  const sbota = await getSbota(sbotaId)
+  // ⚠ كان بينادي `getSbota(sbotaId)` وهي بتدوّر بالـslug — يعني بترجّع null
+  //   دايمًا واللوحة كانت فاضية على طول. باج قديم، بان دلوقتي وإحنا بنحوّلها.
+  const sbota = await getSbotaById(sbotaId)
   if (!sbota) return null
-  const captain = await getCaptain(sbota.captainId)
+  // خروجة العضو مالهاش كابتن — و`getCaptain('')` بترجّع كابتن وهمي.
+  const captain = sbota.captainId ? await getCaptain(sbota.captainId) : null
 
-  // هنا بس الصور بتظهر — الكابتن محتاج يعرف الناس عند البوابة
+  // هنا بس الصور بتظهر — اللي ماسك المجموعة محتاج يعرف الناس عند البوابة
+  // ⚠ `.eq('sbota_id')` كان ناقص: من غيره الاستعلام بيرجّع **كل** الحجوزات
+  //   اللي RLS تسمح بيها، يعني كشوف سبوطات تانية بتتخلط في اللوحة دي.
   const { data } = await supabase()
     .from('bookings')
     .select(
       'id, checked_in_at, profiles!bookings_profile_id_fkey(id, first_name, type, avatar_path, sbota_count)'
     )
+    .eq('sbota_id', sbotaId)
     .in('status', ['paid', 'attended'])
 
   type DbRoster = {
