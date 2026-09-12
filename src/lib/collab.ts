@@ -98,6 +98,8 @@ export interface BookingCollab {
 
 export interface WorkProfileForm {
   workStatus: WorkStatusKey | null
+  /** اللي كتبه لما اختار «حاجة تانية» — من غيره «other» معلومة ضايعة */
+  workStatusOther: string | null
   professionId: string | null
   workStyle: WorkStyleKey | null
   yearsExperience: ExperienceKey | null
@@ -107,6 +109,7 @@ export interface WorkProfileForm {
 
 export const emptyWorkProfile: WorkProfileForm = {
   workStatus: null,
+  workStatusOther: null,
   professionId: null,
   workStyle: null,
   yearsExperience: null,
@@ -270,13 +273,14 @@ export async function getMyWorkProfile(): Promise<WorkProfileForm | null> {
       if (!uid) return null
       const { data, error } = await supabase()
         .from('profiles')
-        .select('work_status, profession_id, work_style, years_experience, work_days_pref')
+        .select('work_status, work_status_other, profession_id, work_style, years_experience, work_days_pref')
         .eq('id', uid)
         .maybeSingle()
       if (error || !data) return null
       const r = data as Record<string, unknown>
       return {
         workStatus: oneOf(r.work_status, WORK_STATUS_KEYS),
+        workStatusOther: r.work_status_other ? String(r.work_status_other) : null,
         professionId: r.profession_id ? String(r.profession_id) : null,
         workStyle: oneOf(r.work_style, WORK_STYLE_KEYS),
         yearsExperience: oneOf(r.years_experience, EXPERIENCE_KEYS),
@@ -303,7 +307,13 @@ export async function saveWorkProfile(
       if (!uid) return { ok: false, error: 'لازم تسجل دخول' }
 
       const patch: Record<string, unknown> = {}
-      if (form.workStatus) patch.work_status = form.workStatus
+      if (form.workStatus) {
+        patch.work_status = form.workStatus
+        // بيتمسح لوحده لو غيّر اختياره — من غير كده بيفضل كلام قديم واقف
+        // على حالة مالهاش علاقة بيه
+        patch.work_status_other =
+          form.workStatus === 'other' ? (form.workStatusOther?.trim() || null) : null
+      }
       if (form.professionId) patch.profession_id = form.professionId
       if (form.workStyle) patch.work_style = form.workStyle
       if (form.yearsExperience) patch.years_experience = form.yearsExperience

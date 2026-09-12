@@ -393,6 +393,8 @@ export interface NewSbotaInput {
   venueName: string
   address: string
   area: string
+  /** اسم المنطقة بالنص لما area = «غير كده» — القاعدة بترفض من غيره */
+  areaOther?: string
   startsAt: string
   durationMin: number
   capacity: number

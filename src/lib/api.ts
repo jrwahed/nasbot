@@ -1010,6 +1010,8 @@ export async function createSbota(input: NewSbotaInput) {
     //   عايزة قيمة `area_t` («tagamoa»). التحويل مكانه هنا في طبقة
     //   البيانات مش في الفورم — ده شغل `map-db` بالظبط.
     p_area: areaToDb(input.area),
+    // «غير كده» لوحدها معلومة ضايعة — الاسم المكتوب بيروح `area_label_ar`
+    p_area_other: input.areaOther?.trim() || null,
     p_starts_at: input.startsAt,
     p_duration_min: input.durationMin,
     p_capacity: input.capacity,

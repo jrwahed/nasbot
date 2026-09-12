@@ -159,6 +159,8 @@ function JoinForm() {
    */
   const fromShoghl = search.get('from') === 'shoghl'
   const [workStatus, setWorkStatus] = useState<WorkStatusKey | null>(null)
+  /** بيتكتب لما يختار «حاجة تانية» — من غيره «other» معلومة ضايعة */
+  const [workStatusOther, setWorkStatusOther] = useState('')
   const [professionId, setProfessionId] = useState<string | null>(null)
   const [workStyle, setWorkStyle] = useState<WorkStyleKey | null>(null)
   const [yearsExp, setYearsExp] = useState<ExperienceKey | null>(null)
@@ -236,6 +238,7 @@ function JoinForm() {
     getMyWorkProfile().then((w) => {
       if (!alive || !w) return
       if (w.workStatus) setWorkStatus(w.workStatus)
+      if (w.workStatusOther) setWorkStatusOther(w.workStatusOther)
       if (w.professionId) setProfessionId((cur) => cur ?? w.professionId)
       if (w.workStyle) setWorkStyle(w.workStyle)
       if (w.yearsExperience) setYearsExp(w.yearsExperience)
@@ -340,6 +343,7 @@ function JoinForm() {
     if (workStatus || professionId || workStyle || yearsExp || workDays.length) {
       await saveWorkProfile({
         workStatus,
+        workStatusOther: workStatus === 'other' ? workStatusOther.trim() : null,
         professionId,
         workStyle,
         yearsExperience: yearsExp,
@@ -640,6 +644,18 @@ function JoinForm() {
           </ChoicePill>
         ))}
       </div>
+      {workStatus === 'other' && (
+        <div className="mt-[10px]">
+          <Field
+            value={workStatusOther}
+            maxLength={40}
+            onChange={(e) => setWorkStatusOther(e.target.value)}
+            placeholder={t('join.work.statusOther')}
+            aria-label={t('join.work.statusOther')}
+            autoFocus
+          />
+        </div>
+      )}
 
       {/* ===== 4 · شغلك — بتظهر بس للي جاي من /shoghl أو قال فريلانسر ===== */}
       {showWork && (

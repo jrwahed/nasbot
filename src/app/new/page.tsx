@@ -31,6 +31,16 @@ import type { HostLimits } from '@/types'
  * مكتوب في الملف ده.
  */
 
+/**
+ * قيمة «غير كده» في قايمة المناطق. لما تتختار بتظهر خانة نص يكتب فيها
+ * منطقته — من غيرها «غير كده» بتتخزّن لوحدها ومحدش يعرف هي فين.
+ *
+ * ⚠ النص ده مقارنة بقيمة جاية من القاعدة (`field_options`)، مش نص معروض.
+ *   لو اتغيّر هناك لازم يتغيّر هنا — ولو اتخالفوا الخانة مش هتظهر خالص،
+ *   والقاعدة هي اللي هتمسكها ('اكتب اسم المنطقة').
+ */
+const OTHER_AREA = 'غير كده'
+
 /** المدة — اختيار أساسي. الدقايق بتتحول لـ`ends_at` في القاعدة. */
 const DURATIONS = [60, 90, 120, 150, 180, 240, 300, 360]
 
@@ -63,6 +73,8 @@ function NewSbotaForm() {
   const [venueName, setVenueName] = useState('')
   const [address, setAddress] = useState('')
   const [area, setArea] = useState('')
+  /** بيتكتب لما المنطقة = «غير كده». القاعدة بترفض «غير كده» من غيره. */
+  const [areaOther, setAreaOther] = useState('')
   const [when, setWhen] = useState('')
   const [duration, setDuration] = useState('120')
   const [capacity, setCapacity] = useState('')
@@ -100,6 +112,12 @@ function NewSbotaForm() {
       setErr(t('host.new.required'))
       return
     }
+    // «غير كده» من غير اسم = معلومة ضايعة. القاعدة بترفضها كمان — بس
+    // بنمسكها هنا علشان العضو ما يستناش رحلة للخادم عشان خانة فاضية.
+    if (area === OTHER_AREA && !areaOther.trim()) {
+      setErr(t('host.new.errArea'))
+      return
+    }
     setBusy(true)
     track('create_sbota', { area })
     const res = await createSbota({
@@ -108,6 +126,7 @@ function NewSbotaForm() {
       venueName,
       address,
       area,
+      areaOther: area === OTHER_AREA ? areaOther.trim() : undefined,
       startsAt: toIso(when),
       durationMin: Number(duration),
       capacity: Number(capacity),
@@ -188,6 +207,17 @@ function NewSbotaForm() {
               onChange={(e) => setArea(e.target.value)}
               options={lists.areas.map((a) => ({ value: a.value, label: a.label }))}
             />
+
+            {area === OTHER_AREA && (
+              <Field
+                label={t('host.new.areaOther')}
+                value={areaOther}
+                maxLength={40}
+                placeholder={t('host.new.areaOtherPh')}
+                onChange={(e) => setAreaOther(e.target.value)}
+                autoFocus
+              />
+            )}
 
             <Field
               label={t('host.new.when')}
