@@ -61,6 +61,8 @@ export interface Sbota {
   img: string
   /** رابط الصورة الحقيقية لو اترفعت — null يعني `img` وصف نصي بس */
   imgSrc?: string | null
+  /** نص الصورة (alt) من «دليل السبوطات» — وصف بصري للي مش شايف الصورة */
+  photoAlt?: string
   gallerySrc?: string[]
   /** صور المعرض في صفحة السبوطة */
   gallery: string[]

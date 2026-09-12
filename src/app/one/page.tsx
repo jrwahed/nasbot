@@ -85,6 +85,7 @@ export default function OnePage() {
               <PhotoPlaceholder
                 label={sbota.img}
                 src={sbota.imgSrc}
+                alt={sbota.photoAlt}
                 variant="sandDeep"
                 className="h-full w-full"
               />

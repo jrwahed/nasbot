@@ -32,7 +32,7 @@ const MIG = 'supabase/migrations'
 const LEGACY = new Set(['WORK_MIGRATION_1.sql', 'WORK_MIGRATION_4.sql'])
 
 const bundles = readdirSync('.')
-  .filter((f) => /^WORK_MIGRATION_\d+\.sql$/.test(f))
+  .filter((f) => /^WORK_MIGRATION_\d+[A-Z]?\.sql$/.test(f))
   .sort((a, b) => a.length - b.length || a.localeCompare(b))
 
 const errors = []
