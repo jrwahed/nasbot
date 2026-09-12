@@ -30,6 +30,10 @@ import type {
   WorkSbota,
   WorkSettings,
   WorkVenue,
+  HostedSbota,
+  VenueOption,
+  TemplateOption,
+  HostLimits,
 } from '@/types'
 import { supabase, hasSupabase } from '@/lib/supabase'
 import * as mock from '@/lib/api-mock'
@@ -58,6 +62,8 @@ import {
   activityFromDb,
   budgetFromDb,
   areaFromDb,
+  priceLabel,
+  whenLabel,
   workSettingsFromDb,
   workVenueFromDb,
   workScheduleFromConfig,
@@ -117,7 +123,8 @@ export const REFERRAL_DISCOUNT = 0.15
 const SBOTA_COLS =
   'id, slug, name_ar, story_ar, kind, mood_ar, meta_prefix_ar, level_ar, price, org_fee, ' +
   'capacity, status, girls_only, is_day, is_mystery, starts_at, duration_min, area, area_label_ar, ' +
-  'includes_ar, excludes_ar, hero_photos, captain_id, overnight, reveal_at'
+  'includes_ar, excludes_ar, hero_photos, captain_id, overnight, reveal_at, ' +
+  'origin, host_id, host_name_ar, host_note_ar'
 
 /** بيجيب أرقام «مين حاجز» لمجموعة سبوطات مرة واحدة */
 async function whoBookedMap(ids: string[]) {
@@ -904,6 +911,139 @@ export async function requestGirlsOnly(bookingId: string) {
     note: 'طلب نقل لمجموعة بنات بس',
   })
   return error ? { ok: false as const, error: error.message } : { ok: true as const, bookingId }
+}
+
+/* ================================================ فتح خروجة من عضو
+
+   نسبوط ما بقاش قايم على الكابتن والتنظيم: العضو بيفتح خروجته بنفسه.
+
+   ⚠ كل الكتابة هنا بتمر على دوال القاعدة (`fn_create_sbota` وإخواتها)
+   ومفيش ولا كتابة مباشرة على `sbotat` — بالظبط زي `fn_pair_want`.
+   الباب المباشر مقفول في القاعدة أصلًا (0078)، والسعر بيتحسب **جوه**
+   الدالة من القالب و`settings`، فمفيش سعر بيتبعت من المتصفح خالص.
+*/
+
+/** الأماكن اللي العضو يقدر يختار منها — الاسم والمنطقة بس، مفيش عنوان */
+export async function getVenueOptions(): Promise<VenueOption[]> {
+  if (!DB) return mock.getVenueOptions()
+  const { data, error } = await supabase().rpc('fn_venue_options')
+  if (error || !data) return []
+  return (data as { id: string; name: string; kind: string; area: string }[]).map((v) => ({
+    id: v.id,
+    name: v.name,
+    kind: v.kind,
+    area: areaFromDb(v.area),
+  }))
+}
+
+/** أنواع الخروجة — من القوالب. الشغل والغامضة مش متاحين للأعضاء. */
+export async function getTemplateOptions(): Promise<TemplateOption[]> {
+  if (!DB) return mock.getTemplateOptions()
+  const { data, error } = await supabase()
+    .from('sbota_templates')
+    .select('id, slug, name_ar, default_price, duration_min, min_group, max_group, kind')
+    .not('kind', 'in', '("work","mystery")')
+    .order('name_ar')
+  if (error || !data) return []
+  return (data as {
+    id: string; slug: string; name_ar: string; default_price: number
+    duration_min: number; min_group: number; max_group: number
+  }[]).map((t) => ({
+    id: t.id,
+    slug: t.slug,
+    name: t.name_ar,
+    price: priceLabel(t.default_price),
+    durationMin: t.duration_min,
+    minGroup: t.min_group,
+    maxGroup: t.max_group,
+  }))
+}
+
+/** حدود فتح الخروجة — كلها من `settings`، مفيش رقم في الكود */
+export async function getHostLimits(): Promise<HostLimits | null> {
+  if (!DB) return mock.getHostLimits()
+  const { data, error } = await supabase()
+    .from('settings')
+    .select(
+      'member_sbota_min_capacity, member_sbota_max_capacity, member_sbota_max_open, ' +
+        'member_sbota_min_lead_hours, member_sbota_max_days_ahead'
+    )
+    .maybeSingle()
+  if (error || !data) return null
+  const r = data as Record<string, number>
+  return {
+    minCapacity: r.member_sbota_min_capacity,
+    maxCapacity: r.member_sbota_max_capacity,
+    maxOpen: r.member_sbota_max_open,
+    minLeadHours: r.member_sbota_min_lead_hours,
+    maxDaysAhead: r.member_sbota_max_days_ahead,
+  }
+}
+
+/**
+ * بيفتح خروجة جديدة على اسم العضو الداخل.
+ *
+ * ⚠ مفيش سعر في المدخلات عن قصد — القاعدة بتحسبه من القالب. لو ضفت
+ * واحد هنا بعدين، بتكون فتحت باب «حجز ببلاش» من غير ما تاخد بالك.
+ */
+export async function createSbota(input: {
+  templateId: string
+  venueId: string
+  startsAt: string
+  capacity: number
+  girlsOnly?: boolean
+  note?: string
+}) {
+  if (!DB) return mock.createSbota(input)
+  const { data, error } = await supabase().rpc('fn_create_sbota', {
+    p_template_id: input.templateId,
+    p_venue_id: input.venueId,
+    p_starts_at: input.startsAt,
+    p_capacity: input.capacity,
+    p_girls_only: input.girlsOnly ?? false,
+    p_note: input.note ?? null,
+  })
+  // رسالة القاعدة عربية ومكتوبة للعضو — بنعرضها زي ما هي بدل رسالة عامة.
+  if (error) return { ok: false as const, error: error.message }
+  return { ok: true as const, id: data as string }
+}
+
+/** الخروجات اللي أنا فاتحها — الأعداد بس، مفيش أسماء قبل الكشف */
+export async function getMyHostedSbotat(): Promise<HostedSbota[]> {
+  if (!DB) return mock.getMyHostedSbotat()
+  const { data, error } = await supabase().rpc('fn_my_hosted_sbotat')
+  if (error || !data) return []
+  return (data as {
+    id: string; slug: string; name_ar: string; starts_at: string
+    capacity: number; booked: number; status: string; note_ar: string | null
+  }[]).map((r) => ({
+    id: r.id,
+    slug: r.slug,
+    name: r.name_ar,
+    when: whenLabel(r.starts_at),
+    startsAt: r.starts_at,
+    capacity: r.capacity,
+    booked: r.booked,
+    status: r.status,
+    note: r.note_ar ?? '',
+  }))
+}
+
+/** تعديل سطر صاحب الخروجة. الميعاد والسعر والعدد ما بيتعدّلوش — الناس حجزت عليهم. */
+export async function updateMySbotaNote(id: string, note: string) {
+  if (!DB) return mock.updateMySbotaNote(id, note)
+  const { error } = await supabase().rpc('fn_update_own_sbota', { p_id: id, p_note: note })
+  return error ? { ok: false as const, error: error.message } : { ok: true as const }
+}
+
+/** إلغاء خروجتي — بيترفض من القاعدة لو في حد دافع (الاسترداد شغل اللوحة). */
+export async function cancelMySbota(id: string, reason?: string) {
+  if (!DB) return mock.cancelMySbota(id, reason)
+  const { error } = await supabase().rpc('fn_cancel_own_sbota', {
+    p_id: id,
+    p_reason: reason ?? null,
+  })
+  return error ? { ok: false as const, error: error.message } : { ok: true as const }
 }
 
 /* ============================================================ الشات */

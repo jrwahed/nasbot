@@ -218,6 +218,8 @@ export function sbotaFromDb(
     starts_at: string; duration_min: number; area: string | null; area_label_ar: string | null
     includes_ar: string[]; excludes_ar: string[]; hero_photos: string[]
     org_fee: number; captain_id: string | null
+    origin: string | null; host_id: string | null
+    host_name_ar: string | null; host_note_ar: string | null
   }
 
   const booked = who?.booked ?? 0
@@ -250,6 +252,10 @@ export function sbotaFromDb(
     gallery: r.hero_photos ?? [],
     gallerySrc: (r.hero_photos ?? []).map(publicMediaUrl).filter((u): u is string => !!u),
     captainId: r.captain_id ?? '',
+    origin: r.origin === 'member' ? 'member' : 'nasbot',
+    hostId: r.host_id ?? '',
+    hostName: r.host_name_ar ?? '',
+    hostNote: r.host_note_ar ?? '',
     story: r.story_ar,
     when: whenLabel(r.starts_at),
     duration: durationLabel(r.duration_min),
@@ -259,7 +265,8 @@ export function sbotaFromDb(
     venueName: address?.venue_name ?? '',
     includes: r.includes_ar ?? [],
     excludes: r.excludes_ar ?? [],
-    priceBreakdown: `شامل ${toPounds(r.org_fee)} جنيه رسوم تنظيم المجموعة والكابتن.`,
+    // رسوم الكابتن راحت مع 0078 — `org_fee` بقى رسوم الموقع بس.
+    priceBreakdown: `شامل ${toPounds(r.org_fee)} جنيه رسوم الموقع.`,
     whoBooked: {
       booked,
       total: r.capacity,

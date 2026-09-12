@@ -15,6 +15,10 @@ import type {
   Person,
   Profile,
   Sbota,
+  HostedSbota,
+  VenueOption,
+  TemplateOption,
+  HostLimits,
 } from '@/types'
 import { sbotat, sbotaBySlug, nightOrder, dayOrder } from '@/data/sbotat'
 import { captains, captainById } from '@/data/captains'
@@ -365,4 +369,74 @@ export async function finishGame(answers: GameAnswers) {
 export async function subscribeSchedule(phone: string) {
   await delay(350)
   return { ok: true as const, phone }
+}
+
+/* ---------------------------------------------------------- فتح خروجة من عضو
+
+   الاحتياطي بيحاكي الشكل بس. الحدود هنا **صورة** من قيم `settings`
+   الافتراضية في الهجرة 0078 — القيمة الحقيقية من القاعدة دايمًا، والملف
+   ده بيشتغل لما مفيش قاعدة أصلًا.
+*/
+
+const hostedDemo: HostedSbota[] = [
+  {
+    id: 'demo-hosted-1',
+    slug: 'ehna-el-rabe3',
+    name: 'إحنا الرابع',
+    when: 'الخميس 8 بالليل',
+    startsAt: new Date(Date.now() + 6 * 864e5).toISOString(),
+    capacity: 8,
+    booked: 3,
+    status: 'open',
+    note: 'هنتقابل عند البوابة الساعة 7:45.',
+  },
+]
+
+export async function getVenueOptions(): Promise<VenueOption[]> {
+  await delay(120)
+  return [
+    { id: 'demo-venue-1', name: 'نادي بادل التجمع', kind: 'padel_club', area: 'التجمع' },
+    { id: 'demo-venue-2', name: 'كافيه المعادي', kind: 'cafe', area: 'المعادي' },
+    { id: 'demo-venue-3', name: 'مركب النيل', kind: 'kayak', area: 'وسط البلد والزمالك' },
+  ]
+}
+
+export async function getTemplateOptions(): Promise<TemplateOption[]> {
+  await delay(120)
+  return [
+    { id: 'demo-tpl-1', slug: 'padel', name: 'بادل', price: '300 جنيه', durationMin: 90, minGroup: 4, maxGroup: 8 },
+    { id: 'demo-tpl-2', slug: 'qahwa', name: 'قعدة قهوة', price: '120 جنيه', durationMin: 120, minGroup: 4, maxGroup: 10 },
+  ]
+}
+
+export async function getHostLimits(): Promise<HostLimits> {
+  await delay(80)
+  return { minCapacity: 4, maxCapacity: 12, maxOpen: 2, minLeadHours: 24, maxDaysAhead: 45 }
+}
+
+export async function createSbota(input: {
+  templateId: string
+  venueId: string
+  startsAt: string
+  capacity: number
+  girlsOnly?: boolean
+  note?: string
+}) {
+  await delay(400)
+  return { ok: true as const, id: `demo-${input.templateId}-${Date.now()}` }
+}
+
+export async function getMyHostedSbotat(): Promise<HostedSbota[]> {
+  await delay(150)
+  return hostedDemo
+}
+
+export async function updateMySbotaNote(id: string, note: string) {
+  await delay(200)
+  return { ok: true as const, id, note }
+}
+
+export async function cancelMySbota(id: string, reason?: string) {
+  await delay(200)
+  return { ok: true as const, id, reason }
 }
