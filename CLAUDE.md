@@ -184,8 +184,9 @@ psql -h 127.0.0.1 -p 5433 -U postgres -d nasbot --single-transaction -f WORK_MIG
 ## ٨. الحالة الحالية (٢٠٢٦-٠٩-١٢)
 
 - ✅ منشور وشغّال · دخول إيميل+باسورد · لوحة كاملة · طبقة الشغل (المراحل ١-٦) · إيميل بجدولة.
-- 🆕 **نقلة المنتج: العضو بيفتح خروجته بنفسه.** الكود كله واقع، والقاعدة مستنية اللزق في `WORK_MIGRATION_8.sql` (`0078` الأعمدة والدوال والحدود · `0079` اختبارها · `0080` أماكن الفورم · `0081` ٥٢ نص). **الترتيب: ٥ ← ٦ ← ٧ ← ٨.** لحد ما تتلزق، `/new` و`/me/sbotati` هيفشلوا على الإنتاج (الدوال مش موجودة) — الصفحات نفسها موجودة وورا مفتاح `member_sbota`.
-- 🆕 **صفحات الذيل بقت شغّالة.** كانت ٥ روابط و**أربعة منهم بيروحوا `/rules`** — «الأسئلة» و«مين إحنا» و«الشروط» مكانش ليهم صفحات أصلًا. دلوقتي كل واحدة لها مسار ومحتواها في `content_blocks`. القاعدة في `WORK_MIGRATION_9.sql` (`0082`) — **الترتيب: ٥ ← ٦ ← ٧ ← ٨ ← ٩**. و«بقى كابتن» بقى «افتح خروجة» → `/new`.
+- 🟢 **نقلة المنتج: العضو بيفتح خروجته بنفسه — اتلزقت** (`WORK_MIGRATION_8.sql`: `0078` الأعمدة والدوال والحدود · `0079` اختبارها · `0080` أماكن الفورم · `0081` ٥٢ نص). *(اللزق بكلام المالك ٢٠٢٦-٠٩-١٢ — لو حصل شك، شوف «التأكد إيه اللي اتلزق» تحت.)*
+- 🟢 **صفحات الذيل بقت شغّالة — اتلزقت** (`WORK_MIGRATION_9.sql` / `0082`). كانت ٥ روابط و**أربعة منهم بيروحوا `/rules`**؛ دلوقتي كل واحدة لها مسار ومحتواها في `content_blocks`. و«بقى كابتن» بقى «افتح خروجة» → `/new`.
+- 🔴 **الصفحات دي لسه فاضية من المحتوى.** `/faq` و`/about` و`/terms` مالهمش ولا فقرة — بيعرضوا «بنكتب الصفحة دي دلوقتي». والبريف الكامل لأي حد (أو AI) هيكتبهم في **`CONTENT_BRIEF.md`** — فيه الجرد كله والنبرة والممنوعات وشكل التسليم.
 - 🔴 **مراجعة شاملة عاملة `REVIEW.md`** (+ 4 ملفات تفصيلية) لقت 150 نتيجة، 34 حمرا. اقرأها قبل ما تكمّل أي حاجة.
 - 🟢 **الدفعة الأولى اتلزقت على القاعدة** (`WORK_MIGRATION_5.sql`) — أحمر الأمان والفلوس والقاعدة كله واقع.
 - 🟡 **الدفعة التانية في الكود ومستنية اللزق**: `WORK_MIGRATION_6.sql` (`0065` قوايم التسجيل · `0066` كتل الخريطة · `0067` اختبارها · `0070` تخمين رمز الدخول S7 · `0071` حجم الصفحة ومجاميع الفلوس · `0072` الصيانة بتوقف الحجز · `0073` صلاحيات رفع الصور · `0074` افتراضات التسعير). لحد ما تتلزق، **تخمين الرمز بالتوازي لسه ممكن على الإنتاج** (المسار بيرجع للطريق القديم لوحده — أضعف بس مش مقفول).
@@ -199,8 +200,27 @@ psql -h 127.0.0.1 -p 5433 -U postgres -d nasbot --single-transaction -f WORK_MIG
   - `activityToDb` بقى بحث حقيقي من `skill_activities` (`setActivityMap` في `map-db.ts` + `loadActivityMap` في `api.ts`)، والمجهول بيرجّع `null` وبيتخطّى بدل ما يتحفظ «سباحة».
   - ترقيم من القاعدة (`.range()` + `{ count: 'exact' }`) في `/admin/matching` · `captains` · `templates` · `shoghl`، والعدّادات فوق الجداول بقت `head: true` counts.
 
+### التأكد إيه اللي اتلزق فعلًا
+
+الملفات كلها آمنة تتكرر، فلو مش فاكر لزقت إيه — الزق تاني. وللفحص السريع،
+السطر ده بيقول كل دفعة واقعة ولا لأ:
+
+```sql
+select 'WM5 (fn_caller_is_browser)' as دفعة,
+       to_regprocedure('fn_caller_is_browser()') is not null as اتلزقت
+union all select 'WM6 (fn_maintenance_on)',   to_regprocedure('fn_maintenance_on()')   is not null
+union all select 'WM7 (test_last_review_items)', to_regprocedure('test_last_review_items()') is not null
+union all select 'WM8 (fn_create_sbota)',     to_regprocedure('fn_create_sbota(uuid,uuid,timestamptz,int,boolean,text)') is not null
+union all select 'WM9 (content_pages)',       to_regclass('content_pages')             is not null;
+```
+
+⚠ **الترتيب مش تفصيلة:** `fn_create_sbota` (دفعة ٨) بتنادي `fn_maintenance_on()`
+اللي جاية من دفعة ٦. بوستجرس ما بيتحققش من النداءات دي وقت إنشاء الدالة، فلو
+٦ مش متلزقة الدالة **بتتعمل عادي وبتقع وقت الاستعمال**. فلو السطر بتاع WM6
+رجع `false`، الزقها حتى لو ٨ و٩ اتلزقوا.
+
 ### ملفات التوثيق
-`README.md` · `DB_PLAN.md` · `ADMIN_PLAN.md` · `WORK_PLAN.md` · `DESIGN_TOKENS.md` · `COPY.md` · `ADMIN_GUIDE.md` · `RUNBOOK.md` · `DEPLOY_CHECKLIST.md` · **`REVIEW*.md`** (المراجعة) · ملفات `WORK_MIGRATION_*.sql` (لحد `_9`) و`WORK_CRON.sql` (تتلزق في SQL Editor).
+`CONTENT_BRIEF.md` (المحتوى الناقص — بريف جاهز يتبعت لكاتب) · `README.md` · `DB_PLAN.md` · `ADMIN_PLAN.md` · `WORK_PLAN.md` · `DESIGN_TOKENS.md` · `COPY.md` · `ADMIN_GUIDE.md` · `RUNBOOK.md` · `DEPLOY_CHECKLIST.md` · **`REVIEW*.md`** (المراجعة) · ملفات `WORK_MIGRATION_*.sql` (لحد `_9`) و`WORK_CRON.sql` (تتلزق في SQL Editor).
 
 ---
 
