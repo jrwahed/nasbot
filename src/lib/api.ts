@@ -31,9 +31,8 @@ import type {
   WorkSettings,
   WorkVenue,
   HostedSbota,
-  VenueOption,
-  TemplateOption,
   HostLimits,
+  NewSbotaInput,
 } from '@/types'
 import { supabase, hasSupabase } from '@/lib/supabase'
 import * as mock from '@/lib/api-mock'
@@ -129,7 +128,8 @@ const SBOTA_COLS_BASE =
   'includes_ar, excludes_ar, hero_photos, captain_id, overnight, reveal_at'
 
 /** أعمدة صاحب الخروجة — بتتضاف مع 0078 */
-const SBOTA_COLS_HOST = 'origin, host_id, host_name_ar, host_note_ar'
+const SBOTA_COLS_HOST =
+  'origin, host_id, host_name_ar, host_note_ar, venue_name_ar, cost_note_ar'
 
 const SBOTA_COLS = `${SBOTA_COLS_BASE}, ${SBOTA_COLS_HOST}`
 
@@ -162,7 +162,8 @@ async function selectSbotat<T>(
       return first
     }
     // مش أي غلطة — الغلطة بتاعة عمود مش موجود بس
-    if (!/origin|host_id|host_name_ar|host_note_ar/.test(first.error.message)) return first
+    if (!/origin|host_id|host_name_ar|host_note_ar|venue_name_ar|cost_note_ar/.test(first.error.message))
+      return first
     hostColsMissingAt = Date.now()
   }
   return run(SBOTA_COLS_BASE)
@@ -969,42 +970,6 @@ export async function requestGirlsOnly(bookingId: string) {
    الدالة من القالب و`settings`، فمفيش سعر بيتبعت من المتصفح خالص.
 */
 
-/** الأماكن اللي العضو يقدر يختار منها — الاسم والمنطقة بس، مفيش عنوان */
-export async function getVenueOptions(): Promise<VenueOption[]> {
-  if (!DB) return mock.getVenueOptions()
-  const { data, error } = await supabase().rpc('fn_venue_options')
-  if (error || !data) return []
-  return (data as { id: string; name: string; kind: string; area: string }[]).map((v) => ({
-    id: v.id,
-    name: v.name,
-    kind: v.kind,
-    area: areaFromDb(v.area),
-  }))
-}
-
-/** أنواع الخروجة — من القوالب. الشغل والغامضة مش متاحين للأعضاء. */
-export async function getTemplateOptions(): Promise<TemplateOption[]> {
-  if (!DB) return mock.getTemplateOptions()
-  const { data, error } = await supabase()
-    .from('sbota_templates')
-    .select('id, slug, name_ar, default_price, duration_min, min_group, max_group, kind')
-    .not('kind', 'in', '("work","mystery")')
-    .order('name_ar')
-  if (error || !data) return []
-  return (data as {
-    id: string; slug: string; name_ar: string; default_price: number
-    duration_min: number; min_group: number; max_group: number
-  }[]).map((t) => ({
-    id: t.id,
-    slug: t.slug,
-    name: t.name_ar,
-    price: priceLabel(t.default_price),
-    durationMin: t.duration_min,
-    minGroup: t.min_group,
-    maxGroup: t.max_group,
-  }))
-}
-
 /** حدود فتح الخروجة — كلها من `settings`، مفيش رقم في الكود */
 export async function getHostLimits(): Promise<HostLimits | null> {
   if (!DB) return mock.getHostLimits()
@@ -1027,31 +992,47 @@ export async function getHostLimits(): Promise<HostLimits | null> {
 }
 
 /**
- * بيفتح خروجة جديدة على اسم العضو الداخل.
+ * بيفتح خروجة جديدة على اسم العضو الداخل — بكلامه هو، مش باختيار من قايمة.
  *
- * ⚠ مفيش سعر في المدخلات عن قصد — القاعدة بتحسبه من القالب. لو ضفت
- * واحد هنا بعدين، بتكون فتحت باب «حجز ببلاش» من غير ما تاخد بالك.
+ * ⚠ مفيش سعر في المدخلات **عن قصد**: خروجة العضو الحجز فيها ببلاش على
+ * نسبوط، والقاعدة بتحط صفر بالقوة. التكلفة بتتكتب في `costNote` كمعلومة
+ * للناس («حوالي 150 في المكان») وكل واحد بيدفع لنفسه هناك — نسبوط ما
+ * بيمسكش فلوس نيابة عن حد.
  */
-export async function createSbota(input: {
-  templateId: string
-  venueId: string
-  startsAt: string
-  capacity: number
-  girlsOnly?: boolean
-  note?: string
-}) {
+export async function createSbota(input: NewSbotaInput) {
   if (!DB) return mock.createSbota(input)
   const { data, error } = await supabase().rpc('fn_create_sbota', {
-    p_template_id: input.templateId,
-    p_venue_id: input.venueId,
+    p_title: input.title,
+    p_details: input.details,
+    p_venue_name: input.venueName,
+    p_address: input.address,
+    // ⚠ قوايم التسجيل بترجّع المنطقة **بالعربي** («التجمع»)، والقاعدة
+    //   عايزة قيمة `area_t` («tagamoa»). التحويل مكانه هنا في طبقة
+    //   البيانات مش في الفورم — ده شغل `map-db` بالظبط.
+    p_area: areaToDb(input.area),
     p_starts_at: input.startsAt,
+    p_duration_min: input.durationMin,
     p_capacity: input.capacity,
     p_girls_only: input.girlsOnly ?? false,
-    p_note: input.note ?? null,
+    p_cost_note: input.costNote ?? null,
   })
   // رسالة القاعدة عربية ومكتوبة للعضو — بنعرضها زي ما هي بدل رسالة عامة.
   if (error) return { ok: false as const, error: error.message }
   return { ok: true as const, id: data as string }
+}
+
+/**
+ * حجز في خروجة عضو — ببلاش، من غير مسار دفع.
+ *
+ * ⚠ القاعدة بترفض أي سبوطة سعرها مش صفر أو مش من عضو. سياسة الإدراج
+ * للعضو (0054) لسه مضيّقة على `pending_payment` وصفر فلوس — الدالة دي
+ * هي الطريق المشروع الوحيد للتأكيد.
+ */
+export async function bookFree(sbotaId: string) {
+  if (!DB) return mock.bookFree(sbotaId)
+  const { data, error } = await supabase().rpc('fn_book_free', { p_sbota_id: sbotaId })
+  if (error) return { ok: false as const, error: error.message }
+  return { ok: true as const, bookingId: data as string }
 }
 
 /** الخروجات اللي أنا فاتحها — الأعداد بس، مفيش أسماء قبل الكشف */

@@ -13,7 +13,7 @@ import { StickyCTA } from '@/components/StickyCTA'
 import { BottomSheet } from '@/components/BottomSheet'
 import { PrimaryButton, SecondaryButton } from '@/components/Buttons'
 import { ClockIcon, ArrowIcon, PinIcon, LevelIcon } from '@/components/Icons'
-import { getSbota, getCaptain } from '@/lib/api'
+import { getSbota, getCaptain, bookFree } from '@/lib/api'
 import { useContentRef, useNumberedRules } from '@/components/FooterLinksProvider'
 import { track } from '@/lib/track'
 import { isLoggedIn } from '@/lib/session'
@@ -43,6 +43,8 @@ export default function SbotaPage() {
   const [sbota, setSbota] = useState<Sbota | null>(null)
   const [captain, setCaptain] = useState<Captain | null>(null)
   const [rulesOpen, setRulesOpen] = useState(false)
+  const [freeBusy, setFreeBusy] = useState(false)
+  const [freeErr, setFreeErr] = useState('')
   const [loading, setLoading] = useState(true)
   const waiting = search.get('wait') === '1'
 
@@ -69,6 +71,24 @@ export default function SbotaPage() {
     // setTheme ثابتة — مش محتاجة تدخل في الاعتماديات
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params.slug, router])
+
+  /**
+   * خروجة العضو ببلاش — مفيش مسار دفع أصلًا، فبنحجز على طول.
+   * القاعدة بترفض أي سبوطة سعرها مش صفر من الطريق ده.
+   */
+  const onBookFree = async () => {
+    if (!sbota || freeBusy) return
+    setFreeErr('')
+    setFreeBusy(true)
+    track('click_ana_gai', { slug: sbota.slug })
+    const res = await bookFree(sbota.id)
+    setFreeBusy(false)
+    if (!res.ok) {
+      setFreeErr(res.error || t('host.sbota.bookErr'))
+      return
+    }
+    router.push(`/my/${res.bookingId}`)
+  }
 
   const onBook = () => {
     if (!sbota) return
@@ -213,11 +233,18 @@ export default function SbotaPage() {
 
       {/* ===== السعر ===== */}
       <div className="px-5 pt-6">
+        {/* خروجة العضو الحجز فيها ببلاش على نسبوط. التكلفة اللي صاحبها
+            كتبها **معلومة** بيدفعها كل واحد في المكان — مش مبلغ بنحصّله،
+            وعشان كده مش معروضة كسعر. */}
         <div className="font-display text-34 font-black leading-[1.1]">
-          {sbota.price}
+          {sbota.origin === 'member' ? t('host.sbota.free') : sbota.price}
         </div>
         <div className="font-body text-14" style={{ color: 'var(--muted)' }}>
-          {sbota.priceBreakdown}
+          {sbota.origin === 'member'
+            ? sbota.costNote
+              ? t('host.sbota.costLine', { cost: sbota.costNote })
+              : t('host.sbota.freeNote')
+            : sbota.priceBreakdown}
         </div>
         {sbota.firstTimeOffer && (
           <div className="mt-2 font-body text-15 font-semibold">
@@ -248,10 +275,29 @@ export default function SbotaPage() {
               className="w-full"
               aria-label={t('sbota.text.1')}
             >{t('sbota.text.1')}</SecondaryButton>
+          ) : sbota.origin === 'member' ? (
+            /* خروجة العضو: حجز مباشر ببلاش، مفيش صفحة دفع */
+            <PrimaryButton
+              size="lg"
+              onClick={onBookFree}
+              disabled={freeBusy}
+              className="w-full"
+            >
+              {freeBusy ? t('host.sbota.booking') : t('host.sbota.bookCta')}
+            </PrimaryButton>
           ) : (
             <PrimaryButton size="lg" onClick={onBook} className="w-full">
               {t('sbota.cta', { price: sbota.price })}
             </PrimaryButton>
+          )}
+          {freeErr && (
+            <p
+              role="alert"
+              className="mt-2 text-center font-body text-14 font-semibold"
+              style={{ color: 'var(--err-text)' }}
+            >
+              {freeErr}
+            </p>
           )}
           <div
             className="mt-[6px] text-center font-body text-13"

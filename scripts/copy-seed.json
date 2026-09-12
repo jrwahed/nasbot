@@ -3660,28 +3660,10 @@
     "context_ar": "وإحنا بنحمّل القوايم"
   },
   {
-    "key": "host.new.type",
-    "value_ar": "نوع الخروجة",
-    "screen": "خروجات الأعضاء",
-    "context_ar": "عنوان خانة القالب"
-  },
-  {
-    "key": "host.new.pickType",
-    "value_ar": "اختار نوع",
-    "screen": "خروجات الأعضاء",
-    "context_ar": "الخانة وهي فاضية"
-  },
-  {
     "key": "host.new.venue",
     "value_ar": "المكان",
     "screen": "خروجات الأعضاء",
     "context_ar": "عنوان خانة المكان"
-  },
-  {
-    "key": "host.new.pickVenue",
-    "value_ar": "اختار مكان",
-    "screen": "خروجات الأعضاء",
-    "context_ar": "الخانة وهي فاضية"
   },
   {
     "key": "host.new.when",
@@ -3718,24 +3700,6 @@
     "value_ar": "سطرك للناس",
     "screen": "خروجات الأعضاء",
     "context_ar": "عنوان خانة السطر"
-  },
-  {
-    "key": "host.new.notePlaceholder",
-    "value_ar": "هنتقابل عند البوابة الساعة 7:45.",
-    "screen": "خروجات الأعضاء",
-    "context_ar": "مثال جوه الخانة"
-  },
-  {
-    "key": "host.new.priceNote",
-    "value_ar": "السعر بيطلع من نوع الخروجة — مش منك.",
-    "screen": "خروجات الأعضاء",
-    "context_ar": "سطر تحت الفورم قبل ما يختار نوع"
-  },
-  {
-    "key": "host.new.priceFrom",
-    "value_ar": "السعر {{price}} — من نوع الخروجة، مش منك.",
-    "screen": "خروجات الأعضاء",
-    "context_ar": "نفس السطر بعد ما يختار نوع"
   },
   {
     "key": "host.new.sending",
@@ -3964,5 +3928,137 @@
     "value_ar": "العب",
     "screen": "اللعبة",
     "context_ar": "زرار الشريط"
+  },
+  {
+    "key": "host.new.name",
+    "value_ar": "اسم الخروجة",
+    "screen": "خروجات الأعضاء",
+    "context_ar": "عنوان خانة الاسم — العضو بيكتبه بنفسه"
+  },
+  {
+    "key": "host.new.namePh",
+    "value_ar": "قهوة وطاولة في المعادي",
+    "screen": "خروجات الأعضاء",
+    "context_ar": "مثال جوه الخانة"
+  },
+  {
+    "key": "host.new.details",
+    "value_ar": "إيه اللي هتعملوه؟",
+    "screen": "خروجات الأعضاء",
+    "context_ar": "عنوان خانة التفاصيل"
+  },
+  {
+    "key": "host.new.detailsPh",
+    "value_ar": "هنقعد نشرب قهوة ونلعب طاولة. الجو هادي والكلام كتير. مفيش حاجة رسمية — تعالى بس.",
+    "screen": "خروجات الأعضاء",
+    "context_ar": "مثال جوه الخانة"
+  },
+  {
+    "key": "host.new.venuePh",
+    "value_ar": "كافيه البوسطة",
+    "screen": "خروجات الأعضاء",
+    "context_ar": "مثال جوه خانة المكان"
+  },
+  {
+    "key": "host.new.address",
+    "value_ar": "العنوان بالتفاصيل",
+    "screen": "خروجات الأعضاء",
+    "context_ar": "عنوان خانة العنوان"
+  },
+  {
+    "key": "host.new.addressPh",
+    "value_ar": "شارع 9، المعادي — جنب محطة المترو، الدور الأول فوق الصيدلية",
+    "screen": "خروجات الأعضاء",
+    "context_ar": "مثال جوه الخانة"
+  },
+  {
+    "key": "host.new.addressHint",
+    "value_ar": "العنوان ده ما بيظهرش لحد غير اللي حاجز، ووقت كشف المجموعة بس. اكتبه كامل عشان محدش يتوه.",
+    "screen": "خروجات الأعضاء",
+    "context_ar": "سطر تحت خانة العنوان — بيطمّن صاحب الخروجة"
+  },
+  {
+    "key": "host.new.area",
+    "value_ar": "المنطقة",
+    "screen": "خروجات الأعضاء",
+    "context_ar": "عنوان خانة المنطقة"
+  },
+  {
+    "key": "host.new.pickArea",
+    "value_ar": "اختار المنطقة",
+    "screen": "خروجات الأعضاء",
+    "context_ar": "الخانة وهي فاضية"
+  },
+  {
+    "key": "host.new.duration",
+    "value_ar": "هتقعدوا قد إيه؟",
+    "screen": "خروجات الأعضاء",
+    "context_ar": "عنوان خانة المدة"
+  },
+  {
+    "key": "host.new.durationValue",
+    "value_ar": "{{h}} ساعة",
+    "screen": "خروجات الأعضاء",
+    "context_ar": "شكل كل اختيار في قايمة المدة"
+  },
+  {
+    "key": "host.new.cost",
+    "value_ar": "التكلفة التقريبية",
+    "screen": "خروجات الأعضاء",
+    "context_ar": "عنوان خانة التكلفة"
+  },
+  {
+    "key": "host.new.costPh",
+    "value_ar": "حوالي 120 جنيه في المكان",
+    "screen": "خروجات الأعضاء",
+    "context_ar": "مثال جوه الخانة"
+  },
+  {
+    "key": "host.new.costHint",
+    "value_ar": "معلومة للناس بس — نسبوط مش بياخد منهم فلوس. كل واحد بيدفع لنفسه في المكان.",
+    "screen": "خروجات الأعضاء",
+    "context_ar": "سطر تحت خانة التكلفة"
+  },
+  {
+    "key": "host.new.reviewNote",
+    "value_ar": "خروجتك بتتراجع من نسبوط الأول، وبعدين تظهر للناس. مش بتاخد وقت.",
+    "screen": "خروجات الأعضاء",
+    "context_ar": "سطر بيوضّح إن فيه مراجعة"
+  },
+  {
+    "key": "host.sbota.free",
+    "value_ar": "ببلاش",
+    "screen": "خروجات الأعضاء",
+    "context_ar": "بدل السعر في صفحة خروجة العضو"
+  },
+  {
+    "key": "host.sbota.costLine",
+    "value_ar": "{{cost}} — بتدفعها في المكان، نسبوط مش بياخد منك حاجة.",
+    "screen": "خروجات الأعضاء",
+    "context_ar": "سطر التكلفة اللي صاحب الخروجة كتبها"
+  },
+  {
+    "key": "host.sbota.freeNote",
+    "value_ar": "الحجز ببلاش. لو في تكلفة في المكان، بتدفعها هناك.",
+    "screen": "خروجات الأعضاء",
+    "context_ar": "لو صاحب الخروجة ما كتبش تكلفة"
+  },
+  {
+    "key": "host.sbota.bookCta",
+    "value_ar": "أنا جاي",
+    "screen": "خروجات الأعضاء",
+    "context_ar": "زرار الحجز في خروجة العضو"
+  },
+  {
+    "key": "host.sbota.booking",
+    "value_ar": "بنحجزلك…",
+    "screen": "خروجات الأعضاء",
+    "context_ar": "الزرار وهو شغّال"
+  },
+  {
+    "key": "host.sbota.bookErr",
+    "value_ar": "مقدرناش نحجزلك. جرّب تاني.",
+    "screen": "خروجات الأعضاء",
+    "context_ar": "خطأ عام — القاعدة بترجّع سبب أوضح"
   }
 ]

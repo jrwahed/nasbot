@@ -220,6 +220,7 @@ export function sbotaFromDb(
     org_fee: number; captain_id: string | null
     origin: string | null; host_id: string | null
     host_name_ar: string | null; host_note_ar: string | null
+    venue_name_ar: string | null; cost_note_ar: string | null
   }
 
   const booked = who?.booked ?? 0
@@ -227,6 +228,7 @@ export function sbotaFromDb(
   const full = r.status === 'full' || left === 0
 
   return {
+    id: r.id,
     slug: r.slug,
     name: r.name_ar,
     meta: [r.meta_prefix_ar, whenLabel(r.starts_at), r.area_label_ar ?? areaFromDb(r.area)]
@@ -256,13 +258,15 @@ export function sbotaFromDb(
     hostId: r.host_id ?? '',
     hostName: r.host_name_ar ?? '',
     hostNote: r.host_note_ar ?? '',
+    costNote: r.cost_note_ar ?? '',
     story: r.story_ar,
     when: whenLabel(r.starts_at),
     duration: durationLabel(r.duration_min),
     level: r.level_ar ?? '',
     addressHint: address ? '' : '(العنوان بعد الحجز)',
     address: address?.address ?? '',
-    venueName: address?.venue_name ?? '',
+    // خروجة العضو: اسم المكان ظاهر من الأول (مش سر). العنوان هو السر.
+    venueName: address?.venue_name ?? r.venue_name_ar ?? '',
     includes: r.includes_ar ?? [],
     excludes: r.excludes_ar ?? [],
     // رسوم الكابتن راحت مع 0078 — `org_fee` بقى رسوم الموقع بس.

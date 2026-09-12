@@ -10,32 +10,34 @@ import { FeatureGate } from '@/components/FlagsProvider'
 import { useT } from '@/components/CopyProvider'
 import { isLoggedIn } from '@/lib/session'
 import { track } from '@/lib/track'
-import {
-  getVenueOptions,
-  getTemplateOptions,
-  getHostLimits,
-  createSbota,
-} from '@/lib/api'
-import type { VenueOption, TemplateOption, HostLimits } from '@/types'
+import { getHostLimits, createSbota } from '@/lib/api'
+import { getRegistrationLists, listsFallback, type RegistrationLists } from '@/lib/fields'
+import type { HostLimits } from '@/types'
 
 /**
- * «افتح خروجة» — العضو بيظبّط خروجته بنفسه.
+ * «افتح خروجة» — العضو بيكتب خروجته بنفسه.
  *
- * ⚠ مفيش خانة سعر هنا **عن قصد**. السعر بيتحسب في القاعدة من القالب
- * و`settings` (شوف `fn_create_sbota` في 0078). لو حد ضاف خانة سعر هنا
- * بعدين، المتصفح يبقى بيحدد الفلوس — وده بالظبط «الحجز ببلاش» اللي
- * المراجعة الأمنية سدّته.
+ * ⚠ **كان فيه قايمتين اختيار** (قالب + مكان) وكلهم بيانات عرض مبذورة —
+ * يعني عضو يفتح خروجة حقيقية في مكان نسبوط مالوش اتفاق معاه بسعر مخترع.
+ * دلوقتي بيكتب: الاسم · التفاصيل · المكان · العنوان · التكلفة التقريبية.
+ * الاختيارات في الحاجات الأساسية بس.
  *
- * وكل الحدود المعروضة (العدد · المهلة · أبعد ميعاد) بتتقرا من `settings`،
- * مفيش رقم مكتوب في الملف ده.
+ * ⚠ **مفيش خانة سعر ومش هيبقى فيه.** الحجز في خروجة العضو ببلاش على
+ * نسبوط — «التكلفة التقريبية» دي **معلومة للناس** بيدفعوها في المكان،
+ * مش مبلغ نسبوط بيحصّله. لو حد ضاف سعر هنا بعدين، بيكون حوّل نسبوط
+ * لوسيط بيمسك فلوس نيابة عن أعضاء، وده منتج تاني خالص.
+ *
+ * والحدود (العدد · المهلة · أبعد ميعاد) كلها من `settings` — مفيش رقم
+ * مكتوب في الملف ده.
  */
 
-/** `datetime-local` بيدي «2026-09-20T19:30» — بنحوّلها لـ ISO بتوقيت الجهاز */
+/** المدة — اختيار أساسي. الدقايق بتتحول لـ`ends_at` في القاعدة. */
+const DURATIONS = [60, 90, 120, 150, 180, 240, 300, 360]
+
 function toIso(local: string): string {
   return new Date(local).toISOString()
 }
 
-/** أقل ميعاد مسموح بيه في منتقي التاريخ — بصيغة `datetime-local` محليًا */
 function localMin(hoursAhead: number): string {
   const d = new Date(Date.now() + hoursAhead * 3600_000)
   const pad = (n: number) => String(n).padStart(2, '0')
@@ -52,17 +54,20 @@ function NewSbotaForm() {
   const t = useT()
   const router = useRouter()
 
-  const [templates, setTemplates] = useState<TemplateOption[]>([])
-  const [venues, setVenues] = useState<VenueOption[]>([])
   const [limits, setLimits] = useState<HostLimits | null>(null)
+  const [lists, setLists] = useState<RegistrationLists>(listsFallback)
   const [loading, setLoading] = useState(true)
 
-  const [templateId, setTemplateId] = useState('')
-  const [venueId, setVenueId] = useState('')
+  const [title, setTitle] = useState('')
+  const [details, setDetails] = useState('')
+  const [venueName, setVenueName] = useState('')
+  const [address, setAddress] = useState('')
+  const [area, setArea] = useState('')
   const [when, setWhen] = useState('')
+  const [duration, setDuration] = useState('120')
   const [capacity, setCapacity] = useState('')
   const [girlsOnly, setGirlsOnly] = useState(false)
-  const [note, setNote] = useState('')
+  const [costNote, setCostNote] = useState('')
 
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
@@ -72,49 +77,46 @@ function NewSbotaForm() {
       router.replace('/login?next=/new')
       return
     }
-    Promise.all([getTemplateOptions(), getVenueOptions(), getHostLimits()])
-      .then(([tpl, ven, lim]) => {
-        setTemplates(tpl)
-        setVenues(ven)
+    Promise.all([getHostLimits(), getRegistrationLists()])
+      .then(([lim, ls]) => {
         setLimits(lim)
+        setLists(ls)
       })
       .finally(() => setLoading(false))
   }, [router])
 
-  const chosen = useMemo(
-    () => templates.find((x) => x.id === templateId) ?? null,
-    [templates, templateId]
-  )
-
-  // حدود العدد: الأضيق بين حد القالب وحد الإعدادات — القاعدة بتفحص الاتنين
   const capOptions = useMemo(() => {
     if (!limits) return []
-    const lo = Math.max(limits.minCapacity, chosen?.minGroup ?? limits.minCapacity)
-    const hi = Math.min(limits.maxCapacity, chosen?.maxGroup ?? limits.maxCapacity)
     const out: Array<{ value: string; label: string }> = []
-    for (let i = lo; i <= hi; i++) out.push({ value: String(i), label: String(i) })
+    for (let i = limits.minCapacity; i <= limits.maxCapacity; i++) {
+      out.push({ value: String(i), label: String(i) })
+    }
     return out
-  }, [limits, chosen])
+  }, [limits])
 
   async function submit() {
     setErr('')
-    if (!templateId || !venueId || !when || !capacity) {
+    if (!title || !details || !venueName || !address || !area || !when || !capacity) {
       setErr(t('host.new.required'))
       return
     }
     setBusy(true)
-    track('create_sbota', { template: templateId })
+    track('create_sbota', { area })
     const res = await createSbota({
-      templateId,
-      venueId,
+      title,
+      details,
+      venueName,
+      address,
+      area,
       startsAt: toIso(when),
+      durationMin: Number(duration),
       capacity: Number(capacity),
       girlsOnly,
-      note,
+      costNote,
     })
     setBusy(false)
-    // رسالة القاعدة عربية ومكتوبة للعضو («العدد لازم يكون بين 4 و 12») —
-    // بنعرضها زي ما هي بدل رسالة عامة ما تقولش إيه اللي غلط.
+    // رسالة القاعدة عربية ومكتوبة للعضو («اكتب العنوان بالتفاصيل»، أو
+    // «الكلمة دي مش من كلامنا») — بنعرضها زي ما هي بدل رسالة عامة.
     if (!res.ok) {
       setErr(res.error || t('host.new.err'))
       return
@@ -142,23 +144,49 @@ function NewSbotaForm() {
           <p className="font-body text-16">{t('host.new.loading')}</p>
         ) : (
           <>
-            <Select
-              label={t('host.new.type')}
-              placeholder={t('host.new.pickType')}
-              value={templateId}
-              onChange={(e) => {
-                setTemplateId(e.target.value)
-                setCapacity('')
-              }}
-              options={templates.map((x) => ({ value: x.id, label: `${x.name} · ${x.price}` }))}
+            <Field
+              label={t('host.new.name')}
+              value={title}
+              maxLength={60}
+              placeholder={t('host.new.namePh')}
+              onChange={(e) => setTitle(e.target.value)}
             />
 
-            <Select
+            <TextArea
+              label={t('host.new.details')}
+              value={details}
+              maxLength={600}
+              placeholder={t('host.new.detailsPh')}
+              onChange={(e) => setDetails(e.target.value)}
+            />
+
+            <Field
               label={t('host.new.venue')}
-              placeholder={t('host.new.pickVenue')}
-              value={venueId}
-              onChange={(e) => setVenueId(e.target.value)}
-              options={venues.map((v) => ({ value: v.id, label: `${v.name} · ${v.area}` }))}
+              value={venueName}
+              maxLength={80}
+              placeholder={t('host.new.venuePh')}
+              onChange={(e) => setVenueName(e.target.value)}
+            />
+
+            <TextArea
+              label={t('host.new.address')}
+              value={address}
+              maxLength={300}
+              placeholder={t('host.new.addressPh')}
+              onChange={(e) => setAddress(e.target.value)}
+            />
+            {/* `TextArea` مفيهاش hint — بنكتبها تحتها. والسطر ده مهم:
+                العنوان سر لحد الكشف، وصاحب الخروجة لازم يعرف كده وهو بيكتبه. */}
+            <p className="-mt-3 font-body text-14" style={{ color: '#55575C' }}>
+              {t('host.new.addressHint')}
+            </p>
+
+            <Select
+              label={t('host.new.area')}
+              placeholder={t('host.new.pickArea')}
+              value={area}
+              onChange={(e) => setArea(e.target.value)}
+              options={lists.areas.map((a) => ({ value: a.value, label: a.label }))}
             />
 
             <Field
@@ -176,6 +204,16 @@ function NewSbotaForm() {
             />
 
             <Select
+              label={t('host.new.duration')}
+              value={duration}
+              onChange={(e) => setDuration(e.target.value)}
+              options={DURATIONS.map((m) => ({
+                value: String(m),
+                label: t('host.new.durationValue', { h: Math.round((m / 60) * 10) / 10 }),
+              }))}
+            />
+
+            <Select
               label={t('host.new.capacity')}
               placeholder={t('host.new.pickCapacity')}
               value={capacity}
@@ -183,25 +221,18 @@ function NewSbotaForm() {
               options={capOptions}
             />
 
+            <Field
+              label={t('host.new.cost')}
+              value={costNote}
+              maxLength={80}
+              placeholder={t('host.new.costPh')}
+              hint={t('host.new.costHint')}
+              onChange={(e) => setCostNote(e.target.value)}
+            />
+
             <Checkbox checked={girlsOnly} onChange={setGirlsOnly}>
               {t('host.new.girls')}
             </Checkbox>
-
-            <TextArea
-              label={t('host.new.note')}
-              placeholder={t('host.new.notePlaceholder')}
-              value={note}
-              maxLength={140}
-              onChange={(e) => setNote(e.target.value)}
-            />
-
-            {/* السعر بيتحدد من نوع الخروجة — بنقولها صريح علشان محدش يستنى
-                خانة سعر مش موجودة */}
-            <p className="font-body text-14" style={{ color: '#55575C' }}>
-              {chosen
-                ? t('host.new.priceFrom', { price: chosen.price })
-                : t('host.new.priceNote')}
-            </p>
 
             {err && (
               <p role="alert" className="font-body text-15 font-semibold" style={{ color: 'var(--err-text)' }}>
@@ -213,6 +244,9 @@ function NewSbotaForm() {
               {busy ? t('host.new.sending') : t('host.new.submit')}
             </PrimaryButton>
 
+            <p className="font-body text-14" style={{ color: '#55575C' }}>
+              {t('host.new.reviewNote')}
+            </p>
             <p className="font-body text-14" style={{ color: '#55575C' }}>
               {t('host.new.secretNote')}
             </p>

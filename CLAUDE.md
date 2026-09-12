@@ -105,7 +105,11 @@ scripts/         check-copy · فاحصات · بذور النصوص
 
 **صفحات المحتوى (0082):** `content_pages` · `content_blocks`. القواعد والأسئلة ومين إحنا والشروط — الفقرات بتتضاف وتتمسح وتترتّب من `/admin/content` ← «صفحات الموقع». الكتابة بـ`content.edit`. والفقرة اللي الكود بيسأل عنها بالاسم ليها `ref` ثابت (`guarantee`).
 
-**خروجات الأعضاء (0078–0081):** `sbotat.origin`/`host_id`/`host_name_ar`/`host_note_ar` · `fn_create_sbota` (الطريق الوحيد) · `fn_update_own_sbota` · `fn_cancel_own_sbota` · `fn_my_hosted_sbotat` · `fn_venue_options` · `fn_is_my_sbota_host`. الحدود السبعة في `settings` (`site_fee` · `member_sbota_*`) ومفتاح الميزة `member_sbota`.
+**خروجات الأعضاء (0078–0081 · 0086):** `sbotat.origin`/`host_id`/`host_name_ar`/`host_note_ar` · `fn_create_sbota` (الطريق الوحيد) · `fn_update_own_sbota` · `fn_cancel_own_sbota` · `fn_my_hosted_sbotat` · `fn_is_my_sbota_host`. الحدود السبعة في `settings` (`site_fee` · `member_sbota_*`) ومفتاح الميزة `member_sbota`.
+
+**العضو بيكتب خروجته (0086):** `sbotat.title_ar`/`details_ar`/`venue_name_ar`/`address_ar`/`cost_note_ar` — مش بيختار من قايمة. **الحجز فيها ببلاش** (`fn_book_free`، وبترفض أي سبوطة سعرها مش صفر)، والتكلفة **معلومة** مش مبلغ بنحصّله. العنوان بيبان مع الكشف بس (`fn_sbota_address`). وفيه محفّز `fn_guard_sbota_text` بيرفض الكلمات الممنوعة في القاعدة.
+
+⚠ **ليه قالب عام (`khroga-men-3odw`) بدل `template_id` nullable؟** العمود `not null` وعليه join في `sbotat_public` وبيتقرا في `fn_can_book`. القالب العام خلّى كل ده ما يتلمسش، وكلام العضو بيغطّي عليه في الفيو بـ`coalesce`.
 
 **⚠ الأمان الحرج — تلات قواعد اتكسروا قبل كده:**
 
@@ -189,6 +193,7 @@ psql -h 127.0.0.1 -p 5433 -U postgres -d nasbot --single-transaction -f WORK_MIG
 - ✅ منشور وشغّال · دخول إيميل+باسورد · لوحة كاملة · طبقة الشغل (المراحل ١-٦) · إيميل بجدولة.
 - 🟢 **نقلة المنتج: العضو بيفتح خروجته بنفسه — اتلزقت** (`WORK_MIGRATION_8.sql`: `0078` الأعمدة والدوال والحدود · `0079` اختبارها · `0080` أماكن الفورم · `0081` ٥٢ نص). *(اللزق بكلام المالك ٢٠٢٦-٠٩-١٢ — لو حصل شك، شوف «التأكد إيه اللي اتلزق» تحت.)*
 - 🟢 **صفحات الذيل بقت شغّالة — اتلزقت** (`WORK_MIGRATION_9.sql` / `0082`). كانت ٥ روابط و**أربعة منهم بيروحوا `/rules`**؛ دلوقتي كل واحدة لها مسار ومحتواها في `content_blocks`. و«بقى كابتن» بقى «افتح خروجة» → `/new`.
+- 🟡 **`WORK_MIGRATION_13.sql` مستني اللزق** — العضو بيكتب خروجته بدل ما يختار من قوالب وأماكن مبذورة (`0086`+`0087`). الحجز فيها **ببلاش**، والعنوان بيبان مع الكشف، وكل خروجة **مسوّدة لحد ما اللوحة تعتمدها**.
 - 🟡 **`WORK_MIGRATION_12.sql` مستني اللزق** — نصوص مدخل اللعبة (`0085`). اللعبة كانت **يتيمة**: مبنية وشغّالة ومفيش ولا لينك ليها في الموقع كله.
 - 🟡 **`WORK_MIGRATION_11.sql` مستني اللزق** — محتوى الصفحات والرسايل (`0084`). بعده `/faq` و`/about` يبقى فيهم كلام. **الشروط هتفضل مقفولة** لحد ما تملا مدة صلاحية الرصيد ووسيلة التواصل، ومحامي يراجعها.
 - 🟡 **`WORK_MIGRATION_10.sql` مستني اللزق** — تصليح صغير: «عجل» رجعت نشطة بعد صراع ترتيب بين `0065` و`0075`.
@@ -266,7 +271,7 @@ union all select 'WM9 (content_pages)',       to_regclass('content_pages')      
 رجع `false`، الزقها حتى لو ٨ و٩ اتلزقوا.
 
 ### ملفات التوثيق
-`CONTENT_BRIEF.md` (المحتوى الناقص — بريف جاهز يتبعت لكاتب) · `CHECK_DB.sql` (فاحص القاعدة الشامل) · `README.md` · `DB_PLAN.md` · `ADMIN_PLAN.md` · `WORK_PLAN.md` · `DESIGN_TOKENS.md` · `COPY.md` · `ADMIN_GUIDE.md` · `RUNBOOK.md` · `DEPLOY_CHECKLIST.md` · **`REVIEW*.md`** (المراجعة) · ملفات `WORK_MIGRATION_*.sql` (لحد `_12`) و`WORK_CRON.sql` (تتلزق في SQL Editor).
+`CONTENT_BRIEF.md` (المحتوى الناقص — بريف جاهز يتبعت لكاتب) · `CHECK_DB.sql` (فاحص القاعدة الشامل) · `README.md` · `DB_PLAN.md` · `ADMIN_PLAN.md` · `WORK_PLAN.md` · `DESIGN_TOKENS.md` · `COPY.md` · `ADMIN_GUIDE.md` · `RUNBOOK.md` · `DEPLOY_CHECKLIST.md` · **`REVIEW*.md`** (المراجعة) · ملفات `WORK_MIGRATION_*.sql` (لحد `_13`) و`WORK_CRON.sql` (تتلزق في SQL Editor).
 
 ---
 

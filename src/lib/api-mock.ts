@@ -16,9 +16,8 @@ import type {
   Profile,
   Sbota,
   HostedSbota,
-  VenueOption,
-  TemplateOption,
   HostLimits,
+  NewSbotaInput,
 } from '@/types'
 import { sbotat, sbotaBySlug, nightOrder, dayOrder } from '@/data/sbotat'
 import { captains, captainById } from '@/data/captains'
@@ -392,38 +391,19 @@ const hostedDemo: HostedSbota[] = [
   },
 ]
 
-export async function getVenueOptions(): Promise<VenueOption[]> {
-  await delay(120)
-  return [
-    { id: 'demo-venue-1', name: 'نادي بادل التجمع', kind: 'padel_club', area: 'التجمع' },
-    { id: 'demo-venue-2', name: 'كافيه المعادي', kind: 'cafe', area: 'المعادي' },
-    { id: 'demo-venue-3', name: 'مركب النيل', kind: 'kayak', area: 'وسط البلد والزمالك' },
-  ]
-}
-
-export async function getTemplateOptions(): Promise<TemplateOption[]> {
-  await delay(120)
-  return [
-    { id: 'demo-tpl-1', slug: 'padel', name: 'بادل', price: '300 جنيه', durationMin: 90, minGroup: 4, maxGroup: 8 },
-    { id: 'demo-tpl-2', slug: 'qahwa', name: 'قعدة قهوة', price: '120 جنيه', durationMin: 120, minGroup: 4, maxGroup: 10 },
-  ]
-}
-
 export async function getHostLimits(): Promise<HostLimits> {
   await delay(80)
   return { minCapacity: 4, maxCapacity: 12, maxOpen: 2, minLeadHours: 24, maxDaysAhead: 45 }
 }
 
-export async function createSbota(input: {
-  templateId: string
-  venueId: string
-  startsAt: string
-  capacity: number
-  girlsOnly?: boolean
-  note?: string
-}) {
+export async function createSbota(input: NewSbotaInput) {
   await delay(400)
-  return { ok: true as const, id: `demo-${input.templateId}-${Date.now()}` }
+  return { ok: true as const, id: `demo-${Date.now()}`, title: input.title }
+}
+
+export async function bookFree(sbotaId: string) {
+  await delay(300)
+  return { ok: true as const, bookingId: `demo-booking-${sbotaId}` }
 }
 
 export async function getMyHostedSbotat(): Promise<HostedSbota[]> {
