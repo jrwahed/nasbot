@@ -14,7 +14,8 @@
     "test": "playwright test",
     "ref-shots": "tsx scripts/ref-shots.ts",
     "check:copy": "node scripts/check-copy.mjs",
-    "verify": "npm run check:copy && tsc --noEmit && next build"
+    "check:notify": "node scripts/check-notify-vars.mjs",
+    "verify": "npm run check:copy && npm run check:notify && tsc --noEmit && next build"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",

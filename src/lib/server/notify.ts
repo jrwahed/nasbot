@@ -390,7 +390,7 @@ export async function runNotify(limit = BATCH): Promise<NotifyResult> {
       ? db
           .from('sbotat')
           .select(
-            'id, starts_at, venues(name), captains(display_name), sbota_templates(name_ar, slug)'
+            'id, starts_at, host_name_ar, venues(name), captains(display_name), sbota_templates(name_ar, slug)'
           )
           .in('id', [...sbotaIds])
       : Promise.resolve({ data: [] as unknown[] }),
@@ -419,6 +419,7 @@ export async function runNotify(limit = BATCH): Promise<NotifyResult> {
     venues: { name: string } | { name: string }[] | null
     captains: { display_name: string | null } | { display_name: string | null }[] | null
     sbota_templates: { name_ar: string; slug: string } | { name_ar: string; slug: string }[] | null
+    host_name_ar: string | null
   }
   const one = <T>(v: T | T[] | null): T | null => (Array.isArray(v) ? (v[0] ?? null) : v)
   const sbMap = new Map<string, { name: string; slug: string; startsAt: string; venue: string; captain: string }>()
@@ -431,7 +432,11 @@ export async function runNotify(limit = BATCH): Promise<NotifyResult> {
       slug: tpl?.slug ?? '',
       startsAt: s.starts_at,
       venue: ven?.name ?? '',
-      captain: cap?.display_name ?? '',
+      // ⚠ بعد 0078 مش كل سبوطة ليها كابتن — العضو بيفتح خروجته بنفسه.
+      //   من غير الاحتياطي ده، تذكير الـ3 ساعات كان بيوصل «‌ هيكون مستنيك
+      //   عند المكان» باسم فاضي في خروجات الأعضاء. صاحب الخروجة هو اللي
+      //   ماسك المجموعة، فاسمه هو الصح هنا.
+      captain: cap?.display_name || s.host_name_ar || '',
     })
   }
 

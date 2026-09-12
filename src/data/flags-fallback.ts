@@ -40,12 +40,12 @@ export type FlagKey =
 export type FlagMap = Record<string, FeatureFlag>
 
 export const flagsFallback: FlagMap = {
-  booking: { on: true, off: 'الحجز مقفول دلوقتي. ارجعلنا كمان شوية.' },
-  game: { on: true, off: 'اللعبة مقفولة دلوقتي. جرب تاني بعدين.' },
-  map: { on: true, off: 'الخريطة مقفولة دلوقتي.' },
-  mystery: { on: true, off: 'الغامضة راجعة قريب.' },
-  chat: { on: true, off: 'الشات مقفول دلوقتي.' },
-  referral: { on: true, off: 'الإحالة موقوفة مؤقتًا.' },
-  work_sbota: { on: true, off: 'سبوطات الشغل راجعة قريب.' },
-  member_sbota: { on: true, off: 'فتح الخروجات مقفول دلوقتي. جرب تاني بعدين.' },
+  booking: { on: true, off: 'الحجز مقفول دلوقتي — بنجهّز خروجات الأسبوع الجاي، ارجعلنا قريب.' },
+  game: { on: true, off: 'اللعبة مقفولة دلوقتي — هترجع تشتغل قريب.' },
+  map: { on: true, off: 'الخريطة مقفولة دلوقتي — بنحدّثها وترجع قريب.' },
+  mystery: { on: true, off: 'الغامضة مقفولة دلوقتي — استنانا، جايالك حاجة حلوة قريب.' },
+  chat: { on: true, off: 'الشات مقفول دلوقتي — هيرجع يشتغل قريب.' },
+  referral: { on: true, off: 'دعوة أصحابك موقوفة دلوقتي — هترجع قريب.' },
+  work_sbota: { on: true, off: 'سبوطات الشغل مقفولة دلوقتي — راجعة قريب.' },
+  member_sbota: { on: true, off: 'فتح الخروجات مقفول دلوقتي — هيفتح تاني قريب.' },
 }
