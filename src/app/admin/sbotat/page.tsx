@@ -915,7 +915,9 @@ function NewSbota({
   onDone: () => Promise<void>
 }) {
   const [templateId, setTemplateId] = useState('')
-  const [venueId, setVenueId] = useState('')
+  const [venueNameAr, setVenueNameAr] = useState('')
+  const [addressAr, setAddressAr] = useState('')
+  const [areaLabelAr, setAreaLabelAr] = useState('')
   const [captainId, setCaptainId] = useState('')
   const [date, setDate] = useState(dayAdd(todayCairo(), 7))
   const [time, setTime] = useState('18:00')
@@ -961,7 +963,11 @@ function NewSbota({
       .from('sbotat')
       .insert({
         template_id: t.id,
-        venue_id: venueId || null,
+        // المكان بيتكتب مش بيتختار — `venues` بقى فيه أماكن الشغل بس
+        venue_id: null,
+        venue_name_ar: venueNameAr.trim() || null,
+        address_ar: addressAr.trim() || null,
+        area_label_ar: areaLabelAr.trim() || null,
         captain_id: captainId || null,
         starts_at: startsAt,
         ends_at: endsAt,
@@ -984,7 +990,7 @@ function NewSbota({
   return (
     <Card
       title="سبوطة جديدة"
-      hint="اختار القالب الأول — السعر والعدد بييجوا منه، وبعد كده غيّرهم زي ما تحب."
+      hint="اختار القالب الأول — الاسم والحدوتة والصور والسعر والعدد كلهم بييجوا منه، وبعد كده غيّر اللي تحب. الاسم والتفاصيل بتتعدّل من «عدّل» بعد ما تعملها."
     >
       <div className="mt-3 flex flex-wrap items-end gap-3">
         <SelectField
@@ -994,17 +1000,6 @@ function NewSbota({
           options={[
             { value: '', label: '— اختار قالب —' },
             ...templates.map((t) => ({ value: t.id, label: t.name_ar })),
-          ]}
-        />
-        <SelectField
-          label="المكان"
-          value={venueId}
-          onChange={setVenueId}
-          options={[
-            { value: '', label: '— من غير مكان لسه —' },
-            ...venues
-              .filter((v) => v.is_active)
-              .map((v) => ({ value: v.id, label: `${v.name} — ${areaLabel(v.area)}` })),
           ]}
         />
         <SelectField
@@ -1018,6 +1013,39 @@ function NewSbota({
               .map((c) => ({ value: c.id, label: c.display_name ?? c.bio_line })),
           ]}
         />
+      </div>
+
+      {/* المكان بيتكتب — القايمة اتشالت لأن `venues` بقى فيه أماكن الشغل بس */}
+      <div className="mt-3 flex flex-wrap items-end gap-3">
+        <Inp
+          label="اسم المكان"
+          value={venueNameAr}
+          onChange={setVenueNameAr}
+          className="w-full md:w-[300px]"
+          hint="زي ما الناس بتقوله — «كافيه البوسطة»."
+        />
+        <Inp
+          label="اسم المنطقة اللي بيبان"
+          value={areaLabelAr}
+          onChange={setAreaLabelAr}
+          hint="اللي بيظهر على الكارت. مثلًا: المعادي."
+        />
+      </div>
+
+      <div className="mt-3">
+        <label className="block font-body text-13" style={{ color: 'var(--muted)' }}>
+          العنوان بالتفاصيل
+        </label>
+        <textarea
+          value={addressAr}
+          onChange={(e) => setAddressAr(e.target.value)}
+          rows={2}
+          className="mt-1 w-full rounded-12 p-3 font-body text-14"
+          style={{ background: 'var(--bg)', border: '2px solid var(--line)', color: 'inherit' }}
+        />
+        <div className="mt-1 font-body text-12" style={{ color: 'var(--muted)' }}>
+          ما بيبانش غير للي حاجزين بعد الكشف.
+        </div>
       </div>
 
       <div className="mt-3 flex flex-wrap items-end gap-3">
