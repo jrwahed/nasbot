@@ -7,11 +7,14 @@ import { ThemeToggle } from '@/components/ThemeToggle'
 import { isLoggedIn } from '@/lib/session'
 import { useTheme } from '@/lib/use-theme'
 import { useT } from '@/components/CopyProvider'
+import { useFlag } from '@/components/FlagsProvider'
 
 /**
  * رأس الرئيسية — من design/نسبوط.dc.html:
  * الشعار 34 يمين، «دخول» شمال، حشو 18px 20px 8px.
- * على الكمبيوتر بتظهر الروابط: الجدول · الخريطة · القواعد · الكباتن.
+ * على الكمبيوتر بتظهر الروابط: الجدول · الخريطة · القواعد · الكباتن · اللعبة.
+ * ⚠ الـnav دي `lg:flex` يعني كمبيوتر بس — فمدخل اللعبة على الموبايل هو
+ *   `GameStrip` في الرئيسية، مش الرابط ده.
  */
 export function Header({
   hideToggle = false,
@@ -23,6 +26,8 @@ export function Header({
   const [theme] = useTheme()
   const [loggedIn, setLoggedIn] = useState(false)
   useEffect(() => setLoggedIn(isLoggedIn()), [])
+  // اللعبة ورا مفتاحها — لو مقفولة، الرابط يختفي بدل ما يودّي على «مقفول»
+  const game = useFlag('game')
   // رابط «الشغل» نهاري بس — الشغل منتج الصبح
   const showWork = theme === 'day'
 
@@ -42,6 +47,7 @@ export function Header({
         <Link href="/map">{t('shared.text.17')}</Link>
         <Link href="/rules">{t('shared.text.16')}</Link>
         <Link href="/captains">{t('shared.text.15')}</Link>
+        {game.on && <Link href="/game">{t('game.nav')}</Link>}
       </nav>
 
       <div className="flex items-center gap-1">
