@@ -1149,6 +1149,27 @@ function EditPanel({
 
   const tpl = templates.find((t) => t.id === templateId)
 
+  /**
+   * تغيير القالب بيجيب أرقامه معاه — السعر والعمولة والمدة والعدد
+   * و«بنات بس» و«نهاري». نفس اللي بيحصل في «سبوطة جديدة».
+   *
+   * ⚠ الاسم والتفاصيل **مش** بيتمسحوا. لو المالك كاتب اسم مخصوص للموعد ده،
+   *    مش من حقنا نمسحه عشان غيّر القالب — بس بنوريه تحذير إن اللي كتبه
+   *    هو اللي هيظهر، مش اسم القالب الجديد.
+   */
+  function pickTemplate(id: string) {
+    setTemplateId(id)
+    const t = templates.find((x) => x.id === id)
+    if (!t) return
+    setPrice(String(Math.round(t.default_price / 100)))
+    setOrgFee(String(Math.round(t.org_fee / 100)))
+    setDuration(String(t.duration_min))
+    setCapacity(String(t.max_group))
+    setMinToRun(String(t.min_group))
+    setGirlsOnly(t.girls_only)
+    setIsDay(t.is_day)
+  }
+
   async function save() {
     const cap = Math.round(Number(capacity) || 0)
     if (cap < 2 || cap > 40) {
@@ -1211,10 +1232,24 @@ function EditPanel({
         <SelectField
           label="القالب"
           value={templateId}
-          onChange={setTemplateId}
+          onChange={pickTemplate}
           options={templates.map((t) => ({ value: t.id, label: t.name_ar }))}
         />
+        <div className="mt-1 font-body text-12" style={{ color: 'var(--muted)' }}>
+          لما تغيّر القالب بييجي معاه السعر والعمولة والمدة والعدد — وتقدر
+          تغيّرهم تحت.
+        </div>
       </div>
+
+      {(titleAr.trim() || detailsAr.trim()) && (
+        <div
+          className="mt-3 rounded-14 p-3 font-body text-13"
+          style={{ background: '#3A2A14', color: '#F2C98A' }}
+        >
+          ⚠ فيه كلام مكتوب تحت — ده اللي هيظهر للناس، مش كلام القالب.
+          فضّي الخانة لو عايز ترجع لكلام القالب.
+        </div>
+      )}
 
       {/* الاسم والتفاصيل **فوق** القالب: سيبهم فاضيين ياخد اللي في القالب */}
       <div className="mt-3">
