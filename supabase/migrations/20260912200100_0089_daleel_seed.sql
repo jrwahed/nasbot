@@ -345,23 +345,27 @@ declare
   n  int;
   me text := current_user;
 begin
-  test := '0089 · الـ٨٥ سبوطة كلها اتحطت';
+  -- ⚠ **البنود هنا بتتأكد إن قوالب الدليل موجودة وكاملة — مش إنها الوحيدة.**
+  --    أول نسخة كانت بتقول «لازم ٨٥ بالظبط» و«كل تصنيف بعدده» و«كل الأسعار
+  --    صفر». وأول ما المالك رجّع قوالب نسبوط الأصلية (بادل · عشا · لمة قهوة)
+  --    التلاتة بقوا أحمر — **على قاعدة سليمة**. نفس غلطة عدّ السبوطات.
+  --
+  --    قالب زيادة أو سعر مكتوب **مش** عطل — ده المالك بيشتغل. اللي يستاهل
+  --    فحص: إن اللي اتحط لسه موجود وما فيهوش نقص.
+  test := '0089 · قوالب الدليل لسه موجودة (٨٥ على الأقل)';
   select count(*) into n from sbota_templates
    where not is_work and slug not in ('khroga-men-3odw','test-fixture');
-  if n = 85 then result := 'نجح — ٨٥ قالب';
-  else result := format('فشل — %s قالب مش ٨٥', n); end if;
+  if n >= 85 then result := format('نجح — %s قالب', n);
+  else result := format('فشل — %s قالب بس، فيه نقص', n); end if;
   return next;
 
-  test := '0089 · التصنيفات الـ٨ بأعدادها زي الدليل';
-  select count(*) into n from (
-    select kind, count(*) c from sbota_templates
-     where not is_work and slug not in ('khroga-men-3odw','test-fixture') group by kind
-  ) t where (kind, c) in (
-    ('adventure',17), ('nile',5), ('water_sun',9), ('nature',14),
-    ('music',10), ('curious',18), ('handmade',7), ('culture',5)
-  );
+  test := '0089 · التصنيفات الـ٨ كلها فيها قوالب';
+  select count(distinct kind::text) into n from sbota_templates
+   where not is_work and slug not in ('khroga-men-3odw','test-fixture')
+     and kind::text in ('adventure','nile','water_sun','nature',
+                        'music','curious','handmade','culture');
   if n = 8 then result := 'نجح — ٨ تصنيفات';
-  else result := format('فشل — %s تصنيف بس بالعدد الصح', n); end if;
+  else result := format('فشل — %s تصنيف بس فيه قوالب', n); end if;
   return next;
 
   test := '0089 · كل قالب له كلمات مفتاحية ونص صورة';
@@ -373,14 +377,16 @@ begin
   else result := format('فشل — %s قالب ناقص', n); end if;
   return next;
 
-  test := '0089 · مفيش سعر مخترع — كلها صفر لحد ما المالك يسعّرها';
+  test := '0089 · كل قالب له اسم وسطر تحته وحدوتة';
   select count(*) into n from sbota_templates
-   where not is_work and slug not in ('khroga-men-3odw','test-fixture') and default_price <> 0;
+   where not is_work and slug not in ('khroga-men-3odw','test-fixture')
+     and (coalesce(btrim(name_ar),'') = ''
+          or coalesce(btrim(meta_prefix_ar),'') = ''
+          or coalesce(btrim(story_ar),'') = '');
   if n = 0 then result := 'نجح';
-  else result := format('فشل — %s قالب بسعر', n); end if;
+  else result := format('فشل — %s قالب ناقص كلام', n); end if;
   return next;
 
-  -- اللي ممنوع يتمسح
   test := '0089 · القالب العام لسه موجود (fn_create_sbota بتشاور عليه)';
   if exists (select 1 from sbota_templates where slug = 'khroga-men-3odw')
     then result := 'نجح';
