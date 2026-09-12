@@ -79,9 +79,24 @@ select 'skill_level', v, v, o from (values
 on conflict (field_key, value) do nothing;
 
 -- ===== ٥ · نشاطات المهارة — بادل/جري/سباحة بس =====
--- activityToDb في map-db.ts بيرجّع 'swimming' لأي حاجة غير بادل وجري،
--- فـ«عجل» كانت هتتحفظ سباحة. نقفلها لحد ما map-db يعرفها.
-update skill_activities set is_active = false where key = 'cycling';
+-- activityToDb في map-db.ts كان بيرجّع 'swimming' لأي حاجة غير بادل وجري،
+-- فـ«عجل» كانت هتتحفظ سباحة. قفلناها لحد ما map-db يعرفها.
+--
+-- ⚠ **الحل المؤقت ده بطل مع 0075** — `activityToDb` بقى بحث حقيقي، و0075
+--    بترجّع «عجل» نشطة. والسطر ده كان بيحصل بينه وبين 0075 صراع: لو حد
+--    لزق الدفعة ٦ **بعد** الدفعة ٧ (أو كرّرها بعدها)، القفل ده بيكسب
+--    والفتح بيضيع بالصمت. وده حصل فعلًا على قاعدة الإنتاج.
+--
+--    دلوقتي بنتأكد الأول: لو حارس 0075 موجود يبقى 0075 اتلزقت خلاص —
+--    فما نرجعش نقفلها. يعني الترتيب بقى مش مهم.
+do $$
+begin
+  if to_regproc('fn_skill_activity_guard') is null then
+    update skill_activities set is_active = false where key = 'cycling';
+  else
+    raise notice '0065: «عجل» سايبينها نشطة — 0075 اتلزقت خلاص';
+  end if;
+end $$;
 
 -- ===== ٦ · حد الاهتمامات — الرقم من اللوحة مش من الكود =====
 update profile_fields
