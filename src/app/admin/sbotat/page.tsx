@@ -201,6 +201,7 @@ function Inp({
   onChange,
   hint,
   className,
+  placeholder,
 }: {
   label?: string
   type?: string
@@ -208,6 +209,8 @@ function Inp({
   onChange: (v: string) => void
   hint?: string
   className?: string
+  /** بيوري اللي هييجي من القالب لو الخانة اتسابت فاضية */
+  placeholder?: string
 }) {
   return (
     <label className="flex flex-col gap-1">
@@ -220,6 +223,7 @@ function Inp({
         type={type}
         value={value}
         onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
         className={`rounded-14 px-3 py-2 font-body text-16 ${className ?? ''}`}
         style={{ background: 'var(--bg)', color: 'var(--fg)', border: '2px solid var(--line)' }}
       />
@@ -627,11 +631,9 @@ function SbotatEditor({ canEdit, canCancel }: { canEdit: boolean; canCancel: boo
                       <SbotaRow
                         row={r}
                         name={r.title_ar || tplName(r.template_id)}
-                        venueName={
-                          r.origin === 'member'
-                            ? r.venue_name_ar || '—'
-                            : (venueOf(r.venue_id)?.name ?? '—')
-                        }
+                        /* المكان المكتوب هو الأساس دلوقتي — `venues` بقى
+                           فيه أماكن الشغل بس، والقايمة اتشالت من التعديل */
+                        venueName={r.venue_name_ar || venueOf(r.venue_id)?.name || '—'}
                         areaText={r.area_label_ar ?? areaLabel(r.area)}
                         captain={
                           r.origin === 'member'
@@ -679,7 +681,7 @@ function SbotatEditor({ canEdit, canCancel }: { canEdit: boolean; canCancel: boo
                             {panel.mode === 'edit' && (
                               <EditPanel
                                 row={r}
-                                venues={venues}
+                                templates={templates}
                                 captains={captains}
                                 onClose={() => setPanel(null)}
                                 onSave={(p) => patch(r.id, p, 'التعديل اتحفظ ✓')}
@@ -773,7 +775,7 @@ function SbotatEditor({ canEdit, canCancel }: { canEdit: boolean; canCancel: boo
                             {cairoTime(r.starts_at)} · {tplName(r.template_id)}
                           </div>
                           <div className="font-body text-12" style={{ color: 'var(--muted)' }}>
-                            {venueOf(r.venue_id)?.name ?? 'من غير مكان'}
+                            {r.venue_name_ar || venueOf(r.venue_id)?.name || 'من غير مكان'}
                           </div>
                           <div className="mt-1 flex flex-wrap items-center gap-1">
                             <Tag color={STATUS_COLOR[r.status]}>{statusLabel(r.status)}</Tag>
@@ -1078,13 +1080,13 @@ function NewSbota({
 
 function EditPanel({
   row,
-  venues,
+  templates,
   captains,
   onClose,
   onSave,
 }: {
   row: Sbota
-  venues: Venue[]
+  templates: Template[]
   captains: Captain[]
   onClose: () => void
   onSave: (p: Record<string, unknown>) => Promise<boolean>
@@ -1110,7 +1112,14 @@ function EditPanel({
   const [isMystery, setIsMystery] = useState(row.is_mystery)
   const [addressHidden, setAddressHidden] = useState(row.address_hidden)
   const [areaLabelAr, setAreaLabelAr] = useState(row.area_label_ar ?? '')
+  const [templateId, setTemplateId] = useState(row.template_id)
+  const [titleAr, setTitleAr] = useState(row.title_ar ?? '')
+  const [detailsAr, setDetailsAr] = useState(row.details_ar ?? '')
+  const [venueNameAr, setVenueNameAr] = useState(row.venue_name_ar ?? '')
+  const [addressAr, setAddressAr] = useState(row.address_ar ?? '')
   const [busy, setBusy] = useState(false)
+
+  const tpl = templates.find((t) => t.id === templateId)
 
   async function save() {
     const cap = Math.round(Number(capacity) || 0)
@@ -1124,7 +1133,15 @@ function EditPanel({
     const ok = await onSave({
       starts_at: startsAt,
       ends_at: new Date(new Date(startsAt).getTime() + dur * 60000).toISOString(),
-      venue_id: venueId || null,
+      template_id: templateId,
+      // ⚠ الاسم والتفاصيل **فوق** القالب: فاضي = خد اللي في القالب.
+      //    `sbotat_public` بتعمل coalesce، فالفاضي مش بيمسح كلام القالب.
+      title_ar: titleAr.trim() || null,
+      details_ar: detailsAr.trim() || null,
+      // المكان بيتكتب مش بيتختار — `venues` بقى فيه أماكن الشغل بس
+      venue_id: null,
+      venue_name_ar: venueNameAr.trim() || null,
+      address_ar: addressAr.trim() || null,
       captain_id: captainId || null,
       price: Math.round(Number(price) || 0) * 100,
       org_fee: Math.round(Number(orgFee) || 0) * 100,
@@ -1161,15 +1178,56 @@ function EditPanel({
         />
       </div>
 
-      <div className="mt-3 flex flex-wrap items-end gap-3">
+      {/* ===== القالب — ده اللي الاسم والحدوتة والصور بييجوا منه ===== */}
+      <div className="mt-3">
         <SelectField
-          label="المكان"
-          value={venueId}
-          onChange={setVenueId}
-          options={[
-            { value: '', label: '— من غير مكان —' },
-            ...venues.map((v) => ({ value: v.id, label: `${v.name} — ${areaLabel(v.area)}` })),
-          ]}
+          label="القالب"
+          value={templateId}
+          onChange={setTemplateId}
+          options={templates.map((t) => ({ value: t.id, label: t.name_ar }))}
+        />
+      </div>
+
+      {/* الاسم والتفاصيل **فوق** القالب: سيبهم فاضيين ياخد اللي في القالب */}
+      <div className="mt-3">
+        <Inp
+          label="اسم الخروجة"
+          value={titleAr}
+          onChange={setTitleAr}
+          placeholder={tpl?.name_ar ?? ''}
+          className="w-full md:w-[420px]"
+          hint="سيبها فاضية تاخد اسم القالب. املاها بس لو الخروجة دي ليها اسم مخصوص."
+        />
+      </div>
+
+      <div className="mt-3">
+        <label className="block font-body text-13" style={{ color: 'var(--muted)' }}>
+          التفاصيل
+        </label>
+        <textarea
+          value={detailsAr}
+          onChange={(e) => setDetailsAr(e.target.value)}
+          rows={4}
+          placeholder="سيبها فاضية تاخد حدوتة القالب"
+          className="mt-1 w-full rounded-12 p-3 font-body text-14"
+          style={{ background: 'var(--bg)', border: '2px solid var(--line)', color: 'inherit' }}
+        />
+      </div>
+
+      {/* ===== المكان — بيتكتب مش بيتختار ===== */}
+      <div className="mt-3 flex flex-wrap items-end gap-3">
+        <Inp
+          label="اسم المكان"
+          value={venueNameAr}
+          onChange={setVenueNameAr}
+          className="w-full md:w-[300px]"
+          hint="زي ما الناس بتقوله — «كافيه البوسطة»."
+        />
+        <Inp
+          label="اسم المنطقة اللي بيبان"
+          value={areaLabelAr}
+          onChange={setAreaLabelAr}
+          hint="اللي بيظهر على الكارت. مثلًا: المعادي."
         />
         <SelectField
           label="الكابتن"
@@ -1180,12 +1238,22 @@ function EditPanel({
             ...captains.map((c) => ({ value: c.id, label: c.display_name ?? c.bio_line })),
           ]}
         />
-        <Inp
-          label="اسم المنطقة اللي بيبان"
-          value={areaLabelAr}
-          onChange={setAreaLabelAr}
-          hint="بييجي من المكان لوحده — غيّره بس لو محتاج."
+      </div>
+
+      <div className="mt-3">
+        <label className="block font-body text-13" style={{ color: 'var(--muted)' }}>
+          العنوان بالتفاصيل
+        </label>
+        <textarea
+          value={addressAr}
+          onChange={(e) => setAddressAr(e.target.value)}
+          rows={2}
+          className="mt-1 w-full rounded-12 p-3 font-body text-14"
+          style={{ background: 'var(--bg)', border: '2px solid var(--line)', color: 'inherit' }}
         />
+        <div className="mt-1 font-body text-12" style={{ color: 'var(--muted)' }}>
+          ما بيبانش غير للي حاجزين بعد الكشف — لو «العنوان مخفي» شغّال تحت.
+        </div>
       </div>
 
       <div className="mt-3 flex flex-wrap items-end gap-3">
