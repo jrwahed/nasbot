@@ -244,6 +244,7 @@ export type TrackEvent =
   | 'paid'
   | 'share_type_card'
   | 'use_referral'
+  | 'create_sbota'
 
 /* ============================================================ الشغل */
 

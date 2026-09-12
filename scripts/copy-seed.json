@@ -3628,5 +3628,317 @@
     "value_ar": "مقفول دلوقتي",
     "screen": "مفاتيح المزايا",
     "context_ar": "شارة جنب زرار مقفول"
+  },
+  {
+    "key": "host.badge.member",
+    "value_ar": "فتحها {{name}}",
+    "screen": "خروجات الأعضاء",
+    "context_ar": "وسم على كارت السبوطة — SbotaCard.tsx"
+  },
+  {
+    "key": "host.new.kicker",
+    "value_ar": "خروجة من عندك",
+    "screen": "خروجات الأعضاء",
+    "context_ar": "ستيكر فوق العنوان"
+  },
+  {
+    "key": "host.new.title",
+    "value_ar": "افتح خروجة",
+    "screen": "خروجات الأعضاء",
+    "context_ar": "عنوان الصفحة"
+  },
+  {
+    "key": "host.new.intro",
+    "value_ar": "اختار نوع وميعاد ومكان — وإحنا نجيبلك ناس ما تعرفهمش.",
+    "screen": "خروجات الأعضاء",
+    "context_ar": "سطر تحت العنوان"
+  },
+  {
+    "key": "host.new.loading",
+    "value_ar": "بنجهّز…",
+    "screen": "خروجات الأعضاء",
+    "context_ar": "وإحنا بنحمّل القوايم"
+  },
+  {
+    "key": "host.new.type",
+    "value_ar": "نوع الخروجة",
+    "screen": "خروجات الأعضاء",
+    "context_ar": "عنوان خانة القالب"
+  },
+  {
+    "key": "host.new.pickType",
+    "value_ar": "اختار نوع",
+    "screen": "خروجات الأعضاء",
+    "context_ar": "الخانة وهي فاضية"
+  },
+  {
+    "key": "host.new.venue",
+    "value_ar": "المكان",
+    "screen": "خروجات الأعضاء",
+    "context_ar": "عنوان خانة المكان"
+  },
+  {
+    "key": "host.new.pickVenue",
+    "value_ar": "اختار مكان",
+    "screen": "خروجات الأعضاء",
+    "context_ar": "الخانة وهي فاضية"
+  },
+  {
+    "key": "host.new.when",
+    "value_ar": "الميعاد",
+    "screen": "خروجات الأعضاء",
+    "context_ar": "عنوان خانة التاريخ والوقت"
+  },
+  {
+    "key": "host.new.whenHint",
+    "value_ar": "قبل الميعاد بـ {{hours}} ساعة على الأقل، وفي حدود {{days}} يوم.",
+    "screen": "خروجات الأعضاء",
+    "context_ar": "تلميح تحت خانة الميعاد — الأرقام من settings"
+  },
+  {
+    "key": "host.new.capacity",
+    "value_ar": "هتكونوا كام؟",
+    "screen": "خروجات الأعضاء",
+    "context_ar": "عنوان خانة العدد"
+  },
+  {
+    "key": "host.new.pickCapacity",
+    "value_ar": "اختار العدد",
+    "screen": "خروجات الأعضاء",
+    "context_ar": "الخانة وهي فاضية"
+  },
+  {
+    "key": "host.new.girls",
+    "value_ar": "بنات بس",
+    "screen": "خروجات الأعضاء",
+    "context_ar": "خانة اختيار — بتترفض من القاعدة لو اللي فاتح مش بنت"
+  },
+  {
+    "key": "host.new.note",
+    "value_ar": "سطرك للناس",
+    "screen": "خروجات الأعضاء",
+    "context_ar": "عنوان خانة السطر"
+  },
+  {
+    "key": "host.new.notePlaceholder",
+    "value_ar": "هنتقابل عند البوابة الساعة 7:45.",
+    "screen": "خروجات الأعضاء",
+    "context_ar": "مثال جوه الخانة"
+  },
+  {
+    "key": "host.new.priceNote",
+    "value_ar": "السعر بيطلع من نوع الخروجة — مش منك.",
+    "screen": "خروجات الأعضاء",
+    "context_ar": "سطر تحت الفورم قبل ما يختار نوع"
+  },
+  {
+    "key": "host.new.priceFrom",
+    "value_ar": "السعر {{price}} — من نوع الخروجة، مش منك.",
+    "screen": "خروجات الأعضاء",
+    "context_ar": "نفس السطر بعد ما يختار نوع"
+  },
+  {
+    "key": "host.new.sending",
+    "value_ar": "بنفتحها…",
+    "screen": "خروجات الأعضاء",
+    "context_ar": "الزرار وهو شغّال"
+  },
+  {
+    "key": "host.new.submit",
+    "value_ar": "افتح الخروجة",
+    "screen": "خروجات الأعضاء",
+    "context_ar": "زرار الإرسال"
+  },
+  {
+    "key": "host.new.secretNote",
+    "value_ar": "الناس هتحجز من غير ما تشوف بعض. المجموعة بتتكشف قبل الخروجة بيوم — وانت زيهم.",
+    "screen": "خروجات الأعضاء",
+    "context_ar": "سطر بيوضّح إن السرية شغّالة على صاحب الخروجة كمان"
+  },
+  {
+    "key": "host.new.required",
+    "value_ar": "كمّل الخانات الأول.",
+    "screen": "خروجات الأعضاء",
+    "context_ar": "خطأ: في خانة فاضية"
+  },
+  {
+    "key": "host.new.err",
+    "value_ar": "مقدرناش نفتحها. جرّب تاني.",
+    "screen": "خروجات الأعضاء",
+    "context_ar": "خطأ عام — بيظهر بس لو القاعدة ما بعتتش رسالة"
+  },
+  {
+    "key": "host.mine.title",
+    "value_ar": "خروجاتي",
+    "screen": "خروجات الأعضاء",
+    "context_ar": "عنوان الصفحة"
+  },
+  {
+    "key": "host.mine.new",
+    "value_ar": "افتح خروجة",
+    "screen": "خروجات الأعضاء",
+    "context_ar": "زرار فتح خروجة جديدة"
+  },
+  {
+    "key": "host.mine.created",
+    "value_ar": "الخروجة اتفتحت ✓",
+    "screen": "خروجات الأعضاء",
+    "context_ar": "ستيكر بعد ما يرجع من صفحة الفتح"
+  },
+  {
+    "key": "host.mine.loading",
+    "value_ar": "بنحمّل…",
+    "screen": "خروجات الأعضاء",
+    "context_ar": "وإحنا بنجيب القايمة"
+  },
+  {
+    "key": "host.mine.empty",
+    "value_ar": "لسه ما فتحتش خروجة. افتح واحدة والناس تيجي.",
+    "screen": "خروجات الأعضاء",
+    "context_ar": "القايمة فاضية"
+  },
+  {
+    "key": "host.mine.booked",
+    "value_ar": "{{booked}} من {{total}} حجزوا",
+    "screen": "خروجات الأعضاء",
+    "context_ar": "عدّاد الحجز — أرقام بس، مفيش أسماء قبل الكشف"
+  },
+  {
+    "key": "host.mine.note",
+    "value_ar": "سطرك للناس",
+    "screen": "خروجات الأعضاء",
+    "context_ar": "عنوان خانة التعديل"
+  },
+  {
+    "key": "host.mine.save",
+    "value_ar": "احفظ",
+    "screen": "خروجات الأعضاء",
+    "context_ar": "زرار حفظ السطر"
+  },
+  {
+    "key": "host.mine.saved",
+    "value_ar": "اتحفظ ✓",
+    "screen": "خروجات الأعضاء",
+    "context_ar": "الزرار بعد الحفظ"
+  },
+  {
+    "key": "host.mine.saveErr",
+    "value_ar": "مقدرناش نحفظ. جرّب تاني.",
+    "screen": "خروجات الأعضاء",
+    "context_ar": "خطأ الحفظ"
+  },
+  {
+    "key": "host.mine.cancel",
+    "value_ar": "الغي الخروجة",
+    "screen": "خروجات الأعضاء",
+    "context_ar": "زرار الإلغاء"
+  },
+  {
+    "key": "host.mine.cancelConfirm",
+    "value_ar": "متأكد؟",
+    "screen": "خروجات الأعضاء",
+    "context_ar": "سؤال التأكيد"
+  },
+  {
+    "key": "host.mine.cancelYes",
+    "value_ar": "أيوه، الغيها",
+    "screen": "خروجات الأعضاء",
+    "context_ar": "تأكيد الإلغاء"
+  },
+  {
+    "key": "host.mine.cancelNo",
+    "value_ar": "لأ، سيبها",
+    "screen": "خروجات الأعضاء",
+    "context_ar": "تراجع عن الإلغاء"
+  },
+  {
+    "key": "host.mine.cancelErr",
+    "value_ar": "مقدرناش نلغيها.",
+    "screen": "خروجات الأعضاء",
+    "context_ar": "خطأ عام — القاعدة بترجّع سبب أوضح لو في حد دافع"
+  },
+  {
+    "key": "host.mine.revealNote",
+    "value_ar": "هتعرف مين جاي معاك قبل الخروجة بيوم — زي أي حد حاجز بالظبط.",
+    "screen": "خروجات الأعضاء",
+    "context_ar": "سطر تحت القايمة: السرية شغّالة على صاحب الخروجة كمان"
+  },
+  {
+    "key": "host.status.draft",
+    "value_ar": "مستنية موافقة",
+    "screen": "خروجات الأعضاء",
+    "context_ar": "حالة السبوطة"
+  },
+  {
+    "key": "host.status.open",
+    "value_ar": "مفتوحة",
+    "screen": "خروجات الأعضاء",
+    "context_ar": "حالة السبوطة"
+  },
+  {
+    "key": "host.status.full",
+    "value_ar": "كاملة",
+    "screen": "خروجات الأعضاء",
+    "context_ar": "حالة السبوطة"
+  },
+  {
+    "key": "host.status.locked",
+    "value_ar": "اتقفلت",
+    "screen": "خروجات الأعضاء",
+    "context_ar": "حالة السبوطة"
+  },
+  {
+    "key": "host.status.running",
+    "value_ar": "شغّالة دلوقتي",
+    "screen": "خروجات الأعضاء",
+    "context_ar": "حالة السبوطة"
+  },
+  {
+    "key": "host.status.done",
+    "value_ar": "خلصت",
+    "screen": "خروجات الأعضاء",
+    "context_ar": "حالة السبوطة"
+  },
+  {
+    "key": "host.status.cancelled",
+    "value_ar": "ملغية",
+    "screen": "خروجات الأعضاء",
+    "context_ar": "حالة السبوطة"
+  },
+  {
+    "key": "host.card.label",
+    "value_ar": "صاحب الخروجة",
+    "screen": "خروجات الأعضاء",
+    "context_ar": "ستيكر فوق بطاقة صاحب الخروجة — HostCard.tsx"
+  },
+  {
+    "key": "host.card.noNote",
+    "value_ar": "عضو زيك فتح الخروجة دي.",
+    "screen": "خروجات الأعضاء",
+    "context_ar": "السطر الافتراضي لو صاحب الخروجة ما كتبش حاجة"
+  },
+  {
+    "key": "host.me.title",
+    "value_ar": "خروجاتك",
+    "screen": "خروجات الأعضاء",
+    "context_ar": "عنوان كرت فتح الخروجة في /me"
+  },
+  {
+    "key": "host.me.body",
+    "value_ar": "مش لازم تستنى نسبوط يظبّط. افتح خروجة انت، والناس تيجي.",
+    "screen": "خروجات الأعضاء",
+    "context_ar": "نص الكرت"
+  },
+  {
+    "key": "host.me.new",
+    "value_ar": "افتح خروجة",
+    "screen": "خروجات الأعضاء",
+    "context_ar": "زرار برتقالي"
+  },
+  {
+    "key": "host.me.mine",
+    "value_ar": "خروجاتي",
+    "screen": "خروجات الأعضاء",
+    "context_ar": "زرار تاني"
   }
 ]

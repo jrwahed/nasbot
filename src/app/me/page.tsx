@@ -19,6 +19,8 @@ export default function MePage() {
   const t = useT()
   // مفتاح «referral» من /admin/settings بيخفي كود الدعوة (مراجعة A2)
   const referral = useFlag('referral')
+  // «member_sbota» بيخفي كرت فتح الخروجة لو اللوحة قفلت الباب
+  const hosting = useFlag('member_sbota')
   const router = useRouter()
   const [theme, setTheme] = useTheme()
   const [me, setMe] = useState<Me | null>(null)
@@ -105,6 +107,33 @@ export default function MePage() {
             )
           })}
         </div>
+
+        {/* ===== خروجاتي — العضو بيفتح خروجته بنفسه ===== */}
+        {hosting.on && (
+          <div
+            className="mt-5 flex flex-col gap-3 rounded-20 p-5"
+            style={{ background: '#EFE3CF', color: '#14161A' }}
+          >
+            <span className="font-display text-20 font-black">{t('host.me.title')}</span>
+            <span className="font-body text-15">{t('host.me.body')}</span>
+            <div className="flex flex-wrap gap-3">
+              <Link
+                href="/new"
+                className="rounded-14 px-4 py-3 font-display text-16 font-black"
+                style={{ background: '#F4632A', color: '#14161A', border: '2px solid #14161A' }}
+              >
+                {t('host.me.new')}
+              </Link>
+              <Link
+                href="/me/sbotati"
+                className="rounded-14 px-4 py-3 font-display text-16 font-black"
+                style={{ background: '#FBF7EF', color: '#14161A', border: '2px solid #14161A' }}
+              >
+                {t('host.me.mine')}
+              </Link>
+            </div>
+          </div>
+        )}
 
         {/* ===== الرصيد والكود ===== */}
         <div
