@@ -202,8 +202,22 @@ psql -h 127.0.0.1 -p 5433 -U postgres -d nasbot --single-transaction -f WORK_MIG
 
 ### التأكد إيه اللي اتلزق فعلًا
 
-الملفات كلها آمنة تتكرر، فلو مش فاكر لزقت إيه — الزق تاني. وللفحص السريع،
-السطر ده بيقول كل دفعة واقعة ولا لأ:
+**الفحص الكامل: الزق `CHECK_DB.sql` في SQL Editor.** بيشغّل كل دوال
+الاختبار الموجودة (بيلاقيها لوحده) ويطلّع اللي فشل بس. لو رجع «مفيش ولا
+فشل» يبقى القاعدة تمام.
+
+⚠ فيه حاجتين اتعلمناهم وإحنا بنكتبه، ومكتوبين جواه:
+1. **لازم ترجّع الدور والهوية بين كل دالة والتانية.** الاختبارات السلوكية
+   بتلبس `anon` و`authenticated`، ومن غير الترجيع الدالة اللي بعدها بتشتغل
+   بهوية غلط وتقول «فشل» وهي سليمة. (حصل فعلًا مع `test_rls`
+   و`test_work_rls` — الاتنين بينجحوا لوحدهم.)
+2. **«فشل» بس هي اللي تتحسب، مش «مش نجح».** فيه صفوف معلوماتية زي «الموقع
+   شغّال» في `test_maintenance_blocks` — لا نجاح ولا فشل.
+
+وأي فاحص جديد اختبره بفشل متعمّد قبل ما تصدّقه: فاحص بيقول «تمام» على طول
+أسوأ من مفيش فاحص.
+
+وللفحص السريع بس (الشكل مش السلوك) — السطر ده بيقول كل دفعة واقعة ولا لأ:
 
 ```sql
 select 'WM5 (fn_caller_is_browser)' as دفعة,
@@ -220,7 +234,7 @@ union all select 'WM9 (content_pages)',       to_regclass('content_pages')      
 رجع `false`، الزقها حتى لو ٨ و٩ اتلزقوا.
 
 ### ملفات التوثيق
-`CONTENT_BRIEF.md` (المحتوى الناقص — بريف جاهز يتبعت لكاتب) · `README.md` · `DB_PLAN.md` · `ADMIN_PLAN.md` · `WORK_PLAN.md` · `DESIGN_TOKENS.md` · `COPY.md` · `ADMIN_GUIDE.md` · `RUNBOOK.md` · `DEPLOY_CHECKLIST.md` · **`REVIEW*.md`** (المراجعة) · ملفات `WORK_MIGRATION_*.sql` (لحد `_9`) و`WORK_CRON.sql` (تتلزق في SQL Editor).
+`CONTENT_BRIEF.md` (المحتوى الناقص — بريف جاهز يتبعت لكاتب) · `CHECK_DB.sql` (فاحص القاعدة الشامل) · `README.md` · `DB_PLAN.md` · `ADMIN_PLAN.md` · `WORK_PLAN.md` · `DESIGN_TOKENS.md` · `COPY.md` · `ADMIN_GUIDE.md` · `RUNBOOK.md` · `DEPLOY_CHECKLIST.md` · **`REVIEW*.md`** (المراجعة) · ملفات `WORK_MIGRATION_*.sql` (لحد `_9`) و`WORK_CRON.sql` (تتلزق في SQL Editor).
 
 ---
 
