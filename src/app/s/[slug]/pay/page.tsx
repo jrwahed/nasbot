@@ -131,8 +131,9 @@ function PayPage() {
     }
     if (res.paid) {
       // الرصيد غطّى الحجز كله
+      // ⚠ رقم الحجز بيتمرّر لصفحة التأكيد علشان «روح لحجزك» يفتح حجزه هو.
       qJump()
-      router.push(`/s/${sbota.slug}/done`)
+      router.push(`/s/${sbota.slug}/done?b=${encodeURIComponent(res.bookingId)}`)
       return
     }
     setStarted({
@@ -159,7 +160,9 @@ function PayPage() {
       return
     }
     qJump()
-    router.push(`/s/${sbota.slug}/done?pending=1`)
+    router.push(
+      `/s/${sbota.slug}/done?pending=1&b=${encodeURIComponent(started.bookingId)}`
+    )
   }
 
   return (

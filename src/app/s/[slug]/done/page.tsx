@@ -9,7 +9,6 @@ import { Sticker } from '@/components/Sticker'
 import { getSbota, getMe } from '@/lib/api'
 import { getSession } from '@/lib/session'
 import { buildIcs, downloadIcs } from '@/lib/ics'
-import { BOOKING_ID } from '@/data/bookings'
 import type { Sbota } from '@/types'
 import { useT } from '@/components/CopyProvider'
 
@@ -24,6 +23,10 @@ function DoneView() {
   const search = useSearchParams()
   // التحويل اتبعت بس لسه مااتراجعش — الحجز مش مؤكد
   const pending = search.get('pending') === '1'
+  // ⚠ رقم الحجز الحقيقي بييجي من صفحة الدفع في `?b=`. قبل كده كان الرابط
+  //   ثابت على `BOOKING_ID` بتاع بيانات العرض (`b1`) — يعني «روح لحجزك»
+  //   بعد أول دفع حقيقي كان بيفتح حجز مش موجود.
+  const bookingId = (search.get('b') ?? '').trim()
   const [sbota, setSbota] = useState<Sbota | null>(null)
   const [name, setName] = useState('')
   const [code, setCode] = useState('')
@@ -155,7 +158,7 @@ function DoneView() {
 
         <div className="mt-10 flex flex-col items-center gap-4">
           <Link
-            href={`/my/${BOOKING_ID}`}
+            href={bookingId ? `/my/${encodeURIComponent(bookingId)}` : '/me'}
             className="font-body text-16 font-semibold underline"
             style={{ color: '#F4632A' }}
           >{t('done.text.1')}</Link>

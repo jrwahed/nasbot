@@ -22,6 +22,7 @@ import { readFileSync, readdirSync } from 'node:fs'
 import path from 'node:path'
 
 const NOTIFY = 'src/lib/server/notify.ts'
+const WA = 'src/lib/wa-message.ts'
 const MIGRATIONS = 'supabase/migrations'
 
 /** الأسماء اللي `named` بيحطها دايمًا أو من الـpayload */
@@ -51,6 +52,26 @@ for (const m of core.matchAll(/^\s{2}([a-z_]+):\s*\{/gm)) {
 if (argCount.size === 0) {
   console.error('✗ مقدرتش أقرا CORE من ' + NOTIFY + ' — الحارس ده لازم يتظبط.')
   process.exit(1)
+}
+
+/* ------------------------ قوالب بتتملي من بره المصرف (اللوحة) */
+
+// ⚠ `whatsapp_booking` مش بيمر على `runNotify` خالص — اللوحة بتفتح بيه
+//    واتساب. فمصدر ترتيب متغيّراته هو `src/lib/wa-message.ts`، ولازم يتفحص
+//    زي أي قالب تاني وإلا رجعنا لنفس الباج: متغيّر ناقص بيوصل فراغ للعضو.
+{
+  const wa = readFileSync(WA, 'utf8')
+  const key = wa.match(/WA_BOOKING_KEY\s*=\s*'([a-z_]+)'/)?.[1]
+  // ⚠ بنقف عند `] as const` مش عند أول `]`. جرّبنا الحارس بفخ متعمّد وصفه
+  //    فيه قوس مربع، فالقراية وقفت بدري وعدّت ناقص و**قالت تمام**. الحارس
+  //    اللي بيعد غلط أسوأ من مفيش حارس.
+  const list = wa.match(/WA_BOOKING_VARS\s*=\s*\[([\s\S]*?)\]\s*as const/)?.[1]
+  const n = list === undefined ? 0 : [...list.matchAll(/'[^']*'/g)].length
+  if (!key || !n) {
+    console.error('✗ مقدرتش أقرا WA_BOOKING_KEY/WA_BOOKING_VARS من ' + WA + ' — الحارس لازم يتظبط.')
+    process.exit(1)
+  }
+  argCount.set(key, n)
 }
 
 /** القوالب اللي بتتبعت من مسار تاني ومش بتمر على المصرف */
