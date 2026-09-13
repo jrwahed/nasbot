@@ -145,15 +145,31 @@ const REFUNDABLE = ['succeeded', 'partially_refunded']
  * الجزء المدمج بس والدفعة نفسها بتفضل ظاهرة فاضية — وده اللي بيخلي
  * البحث «شغّال» في الشكل وغلط في النتيجة.
  */
-const paySelect = (join: 'none' | 'person' | 'sbota' = 'none') =>
-  [
+/**
+ * ⚠ **الفواصل كلها من `.join(',')` — مفيش ولا فاصلة مكتوبة بالإيد.**
+ *    الصيغة القديمة كانت بتلزق القطع بـ`.join('')` وكل واحدة كاتبة فاصلتها،
+ *    وواحدة نسيت — فالنص طلع `…created_atbookings!payments_booking_id_fkey(`
+ *    وبوستجرست رفض الطلب كله. النتيجة: **صفحة الفلوس كلها كانت بتقول
+ *    «مقدرناش نجيب التحويلات» من أول يوم**، والتبويبين التانيين كمان.
+ *    ومفيش حاجة كانت بتمسكه: النص بيتبني وقت التشغيل، فلا `tsc` ولا البناء
+ *    شايفينه. الشكل الجديد الغلطة دي مستحيلة فيه.
+ */
+const paySelect = (join: 'none' | 'person' | 'sbota' = 'none') => {
+  const bk = join === 'none' ? '' : '!inner'
+  const pr = join === 'person' ? '!inner' : ''
+  const sb = join === 'sbota' ? '!inner' : ''
+
+  const booking = [
+    'id,profile_id,status,price_paid,discount,wallet_used',
+    `profiles!bookings_profile_id_fkey${pr}(first_name,phone)`,
+    `sbotat${sb}(starts_at,title_ar,venue_name_ar,address_ar,sbota_templates${sb}(name_ar))`,
+  ].join(',')
+
+  return [
     'id,booking_id,provider,provider_ref,amount,fee_amount,status,receipt_path,reviewed_at,created_at',
-    `bookings!payments_booking_id_fkey${join === 'none' ? '' : '!inner'}(`,
-    'id,profile_id,status,price_paid,discount,wallet_used,',
-    `profiles!bookings_profile_id_fkey${join === 'person' ? '!inner' : ''}(first_name,phone),`,
-    `sbotat${join === 'sbota' ? '!inner' : ''}(starts_at,title_ar,venue_name_ar,address_ar,sbota_templates${join === 'sbota' ? '!inner' : ''}(name_ar))`,
-    ')',
-  ].join('')
+    `bookings!payments_booking_id_fkey${bk}(${booking})`,
+  ].join(',')
+}
 
 const PAY_SELECT = paySelect()
 
