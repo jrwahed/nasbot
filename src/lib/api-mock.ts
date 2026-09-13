@@ -62,7 +62,7 @@ export async function getSbota(slug: string): Promise<Sbota | null> {
 
 /** «نديها واحدة؟» — واحدة بس، مختارة حسب وقت اليوم */
 export async function getRandomSbota(
-  timeOfDay: 'day' | 'night',
+  timeOfDay?: 'day' | 'night',
   exclude?: string
 ): Promise<Sbota> {
   await delay(120)
@@ -70,7 +70,7 @@ export async function getRandomSbota(
     (s) =>
       s.kind !== 'mystery' &&
       !s.full &&
-      s.timeOfDay === timeOfDay &&
+      (!timeOfDay || s.timeOfDay === timeOfDay) &&
       s.slug !== exclude
   )
   const fallback = sbotat.filter(

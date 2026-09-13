@@ -268,6 +268,7 @@ export const copyFallback: Record<string, string> = {
   "shared.label.9": "وصلنا البلاغ. هنشوفه حالًا.",
   "shared.text.14": "بكرة",
   "shared.label.10": "فلاتر السبوطات",
+  "shared.menu": "القايمة",
   "shared.label.11": "نسبوط — الرئيسية",
   "shared.label.12": "دخول",
   "shared.text.15": "الكباتن",

@@ -239,13 +239,18 @@ export async function getSbota(slug: string): Promise<Sbota | null> {
   return sbotaFromDb(data, who, address)
 }
 
+/**
+ * ⚠ `timeOfDay` بقى **اختياري ومحدش بيبعته**. «نديها واحدة؟» كان بياخد
+ *   وقت الجهاز، فالصبح كان بيدوّر في السبوطات النهارية بس ويرجّع «مفيش».
+ *   سايبين الـparameter علشان الخريطة أو أي مكان يحتاج يفلتر بعدين.
+ */
 export async function getRandomSbota(
-  timeOfDay: 'day' | 'night',
+  timeOfDay?: 'day' | 'night',
   exclude?: string
 ): Promise<Sbota> {
   if (!DB) return mock.getRandomSbota(timeOfDay, exclude)
 
-  const all = await getSbotat({ timeOfDay })
+  const all = await getSbotat(timeOfDay ? { timeOfDay } : undefined)
   const pool = all.filter((s) => !s.full && s.slug !== exclude)
   const fallback = (await getSbotat()).filter((s) => !s.full && s.slug !== exclude)
   const from = pool.length ? pool : fallback.length ? fallback : all
