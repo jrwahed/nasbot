@@ -184,7 +184,7 @@ const CORE: Record<
   booking_confirmed: {
     subject: 'مكانك محجوز',
     path: '/me',
-    args: (c) => [c.name, c.sbotaName, c.when],
+    args: (c) => [c.name, c.sbotaName, c.when, c.link],
   },
   group_reveal: {
     subject: 'مجموعتك جاهزة',
@@ -390,7 +390,7 @@ export async function runNotify(limit = BATCH): Promise<NotifyResult> {
       ? db
           .from('sbotat')
           .select(
-            'id, starts_at, host_name_ar, venues(name), captains(display_name), sbota_templates(name_ar, slug)'
+            'id, starts_at, host_name_ar, title_ar, venue_name_ar, venues(name), captains(display_name), sbota_templates(name_ar, slug)'
           )
           .in('id', [...sbotaIds])
       : Promise.resolve({ data: [] as unknown[] }),
@@ -416,6 +416,8 @@ export async function runNotify(limit = BATCH): Promise<NotifyResult> {
   type SbRow = {
     id: string
     starts_at: string
+    title_ar: string | null
+    venue_name_ar: string | null
     venues: { name: string } | { name: string }[] | null
     captains: { display_name: string | null } | { display_name: string | null }[] | null
     sbota_templates: { name_ar: string; slug: string } | { name_ar: string; slug: string }[] | null
@@ -428,10 +430,16 @@ export async function runNotify(limit = BATCH): Promise<NotifyResult> {
     const ven = one(s.venues)
     const cap = one(s.captains)
     sbMap.set(s.id, {
-      name: tpl?.name_ar ?? '',
+      // ⚠ كلام المالك على السبوطة نفسها بيغلب اسم القالب — هو اللي الحاجز
+      //   شافه وهو بيحجز. من غير كده الإيميل بيقول «بادل مبتدئين» والموقع
+      //   بيقول «بادل».
+      name: (s.title_ar ?? '').trim() || tpl?.name_ar || '',
       slug: tpl?.slug ?? '',
       startsAt: s.starts_at,
-      venue: ven?.name ?? '',
+      // ⚠ و`venues` بقى فاضي لسبوطات نسبوط (المالك بيكتب المكان بإيده بعد
+      //   ما اتشالت القايمة من اللوحة) — فتذكير الـ24 ساعة كان بيوصل
+      //   «المكان: .» من غير مكان.
+      venue: (s.venue_name_ar ?? '').trim() || ven?.name || '',
       // ⚠ بعد 0078 مش كل سبوطة ليها كابتن — العضو بيفتح خروجته بنفسه.
       //   من غير الاحتياطي ده، تذكير الـ3 ساعات كان بيوصل «‌ هيكون مستنيك
       //   عند المكان» باسم فاضي في خروجات الأعضاء. صاحب الخروجة هو اللي
@@ -545,8 +553,13 @@ export async function runNotify(limit = BATCH): Promise<NotifyResult> {
     const corePath = CORE[key]?.path
     const workPath = WORK_PATH[key]
     let path = corePath ?? workPath ?? '/me'
-    if (path === '/me' && sb?.slug && (key === 'waitlist_promoted' || key === 'booking_confirmed')) {
-      path = `/sbota/${sb.slug}`
+    // ⚠ كان `/sbota/<slug>` — **مسار مش موجود**. المسارات الحقيقية `/s/<slug>`
+    //   لصفحة السبوطة و`/my/<رقم الحجز>` لحجزي. يعني زرار «افتح نسبوط» في
+    //   إيميل التأكيد كان بيوقّع الحاجز على 404 وهو لسه دافع.
+    if (path === '/me' && key === 'booking_confirmed' && typeof payload.booking_id === 'string') {
+      path = `/my/${payload.booking_id}`
+    } else if (path === '/me' && key === 'waitlist_promoted' && sb?.slug) {
+      path = `/s/${sb.slug}`
     }
     const link = typeof payload.link === 'string' && payload.link ? payload.link : `${SITE}${path}`
     ctx.link = link
