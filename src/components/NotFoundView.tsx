@@ -5,7 +5,6 @@ import Link from 'next/link'
 import { Logo } from '@/components/Logo'
 import { SbotaCard } from '@/components/SbotaCard'
 import { getRandomSbota } from '@/lib/api'
-import { timeOfDayNow } from '@/lib/theme'
 import type { Sbota } from '@/types'
 import { useT } from '@/components/CopyProvider'
 
@@ -18,7 +17,7 @@ export function NotFoundView() {
   const [sbota, setSbota] = useState<Sbota | null>(null)
 
   useEffect(() => {
-    getRandomSbota(timeOfDayNow()).then(setSbota)
+    getRandomSbota().then(setSbota)
   }, [])
 
   return (

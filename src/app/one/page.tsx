@@ -6,7 +6,6 @@ import { PhotoPlaceholder } from '@/components/PhotoPlaceholder'
 import { Sticker } from '@/components/Sticker'
 import { Logo } from '@/components/Logo'
 import { getRandomSbota } from '@/lib/api'
-import { timeOfDayNow } from '@/lib/theme'
 import { track } from '@/lib/track'
 import { isLoggedIn } from '@/lib/session'
 import type { Sbota } from '@/types'
@@ -25,7 +24,7 @@ export default function OnePage() {
 
   const roll = async (exclude?: string) => {
     setSpinning(true)
-    const s = await getRandomSbota(timeOfDayNow(), exclude)
+    const s = await getRandomSbota(undefined, exclude)
     // اللفة 1.2 ثانية قبل ما البطاقة تظهر
     setTimeout(() => {
       setSbota(s)

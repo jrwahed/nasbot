@@ -45,7 +45,12 @@ export default function Home() {
 
   useEffect(() => {
     let alive = true
-    getSbotat({ filter: active, timeOfDay: theme }).then((l) => {
+    // ⚠ **من غير فلتر نهاري/ليلي عن قصد.** الرئيسية كانت بتبعت
+    //   `timeOfDay: theme`، والوضع بيتحدد بساعة الجهاز (٥ص–٥م نهاري).
+    //   يعني أي حد يفتح الموقع الصبح كان بيشوف السبوطات النهارية بس —
+    //   وبما إن كل السبوطات المفتوحة كانت بالليل، كان بيلاقي **صفحة فاضية**
+    //   ويفتكر الموقع مفيهوش حاجة. الوضع بقى ألوان بس.
+    getSbotat({ filter: active }).then((l) => {
       if (alive) setList(l)
     })
     return () => {
