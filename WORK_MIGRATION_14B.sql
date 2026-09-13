@@ -426,16 +426,18 @@ begin
   --    مفيش حجز قديم واقف. وقوالب العرض مضمون إنها راحت أصلًا، لأن
   --    `sbotat.template_id` عليها `on delete restrict` — فأي سبوطة موجودة
   --    لازم تكون على قالب من الـ٨٥.
-  test := '0089 · بيانات العرض راحت';
-  select (select count(*) from captains)
-       + (select count(*) from bookings
-           where id::text not like 'aaaaaaaa-0000-0000-0000-%')
-    into n;
+  -- ⚠ **بنعدّ قوالب العرض بالـslug، مش الحجوزات.** النسخة اللي فاتت كانت
+  --    بتعدّ الكباتن والحجوزات — فأول ما المالك عمل حجزين تجربة، الفاحص قال
+  --    «لسه فيه ٢ صف عرض» على قاعدة سليمة. حجز موجود = المنتج شغّال، مش
+  --    بيانات عرض. اللي **مينفعش** يرجع هو قوالب البذرة القديمة بأسمائها.
+  test := '0089 · قوالب العرض القديمة ما رجعتش';
+  select count(*) into n from sbota_templates where slug in
+    ('ehna-el-rabe3','el-mal3ab-lina','tarabeza-setta','fetar-3al-nil',
+     'shoro2-men-el-gabal','ba3d-ma-el-shams-teghib','mystery');
   if n = 0 then result := 'نجح';
-  else result := format('فشل — لسه فيه %s صف عرض', n); end if;
+  else result := format('فشل — %s قالب عرض رجع', n); end if;
   return next;
 
-  -- ===== سلوكي — الزائر المجهول =====
   begin
     perform set_config('request.jwt.claims', '{"role":"anon"}', true);
     execute 'set local role anon';
