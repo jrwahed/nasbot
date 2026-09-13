@@ -924,7 +924,22 @@ export async function getGroup(bookingId: string): Promise<Group | null> {
   const sbota = await getSbota(booking.slug)
   if (!sbota) return null
 
-  const revealed = booking.revealAt ? Date.now() >= new Date(booking.revealAt).getTime() : false
+  /**
+   * ⚠ **الكشف مش بالساعة لوحدها — لازم الحجز يكون مدفوع كمان.**
+   *
+   *   الشرط كان `Date.now() >= revealAt` وبس. يعني حد يحجز، يرفع أي صورة
+   *   على إنها تحويل (الحجز بيفضل `pending_payment` لحد ما الإدارة تعتمد)،
+   *   ويستنى ميعاد الكشف يعدّي — وبعدين يفتح `/my/<id>` ويلاقي قسم المكان
+   *   «متكشّف». العنوان نفسه كان بيفضل فاضي (`fn_sbota_address` بتطلب
+   *   حجز مدفوع)، بس اسم المكان كان بيبان، والصفحة كلها كانت بتتصرّف
+   *   كأنه داخل.
+   *
+   *   القاعدة بتمنع الأسامي والعنوان أصلًا — ده حارس الواجهة اللي كان ناقص.
+   */
+  const revealed =
+    booking.paid && booking.revealAt
+      ? Date.now() >= new Date(booking.revealAt).getTime()
+      : false
 
   const { data: grp } = await supabase()
     .from('bookings')

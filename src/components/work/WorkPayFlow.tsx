@@ -137,6 +137,8 @@ export function WorkPayFlow({ slug, payWith }: { slug: string; payWith: WorkPayW
       >
         <PhotoPlaceholder
           label={sbota.img}
+          src={sbota.imgSrc}
+          alt={sbota.photoAlt}
           variant="sandDeep"
           className="shrink-0"
           style={{ width: 72, height: 72, borderRadius: 16, fontSize: 10, padding: 6 }}

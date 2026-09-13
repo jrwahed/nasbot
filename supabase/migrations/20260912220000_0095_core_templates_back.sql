@@ -115,9 +115,12 @@ begin
   else result := format('فشل — %s من ٨ بس', n); end if;
   return next;
 
-  test := '0095 · البادل والعشا واللمة موجودين بالاسم';
+  -- ⚠ بالـslug مش بالاسم: المالك بيغيّر الأسامي من اللوحة وده حقه.
+  --    النسخة الأولى كانت بتدوّر على «بادل مبتدئين» بالحرف، فأول ما غيّرها
+  --    لـ«بادل» بقى الفاحص أحمر على قاعدة سليمة.
+  test := '0095 · البادل والعشا واللمة موجودين';
   select count(*) into n from sbota_templates
-   where name_ar in ('بادل مبتدئين','عشا مع ٥ غرباء','لمة قهوة');
+   where slug in ('badl-mbtd2yn','3sha-m3-ghrba','lma-2hwa');
   if n = 3 then result := 'نجح';
   else result := format('فشل — %s من ٣، المنتج الأساسي ناقص', n); end if;
   return next;
