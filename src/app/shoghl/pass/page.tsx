@@ -55,6 +55,8 @@ export default function PassPage() {
   const [ready, setReady] = useState(false)
 
   const [kind, setKind] = useState<PassKindCode | null>(null)
+  /** الوسايل اللي رقمها متظبّط — `null` يعني لسه بنسأل (شوف /api/pay/methods) */
+  const [avail, setAvail] = useState<Record<PayMethod, boolean> | null>(null)
   const [method, setMethod] = useState<PayMethod>('vodafone_cash')
   const [pickHint, setPickHint] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -73,6 +75,24 @@ export default function PassPage() {
     setPasses(state)
     setPayment(state.pending ? await getPassPayment(state.pending.id) : null)
     setReady(true)
+  }, [])
+
+  useEffect(() => {
+    let alive = true
+    fetch('/api/pay/methods')
+      .then((r) => r.json())
+      .then((a: Record<PayMethod, boolean>) => {
+        if (!alive) return
+        setAvail(a)
+        // بنبدأ على أول وسيلة شغّالة بدل ما نسيبه على واحدة هتترفض
+        if (!a.vodafone_cash && a.instapay) setMethod('instapay')
+      })
+      .catch(() => {
+        /* المسار وقع — بنسيب الوسيلتين، والحارس في الخادم هو اللي بيمنع */
+      })
+    return () => {
+      alive = false
+    }
   }, [])
 
   useEffect(() => {
@@ -353,7 +373,9 @@ export default function PassPage() {
           <>
             <div className="font-display text-20 font-black">{t('shoghl.pass.method.title')}</div>
             <div className="mt-3 flex flex-col gap-3">
-              {METHOD_IDS.map((m) => {
+              {/* الوسيلة اللي رقمها لسه وهمي ما بتتعرضش — عرضها معناه إن
+                  العضو يختارها و`/api/pay/pass` يرفضها بـ503 */}
+              {METHOD_IDS.filter((m) => !avail || avail[m]).map((m) => {
                 const on = method === m
                 return (
                   <button

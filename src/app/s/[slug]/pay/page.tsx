@@ -39,6 +39,12 @@ function PayPage() {
   const fileRef = useRef<HTMLInputElement>(null)
 
   const [sbota, setSbota] = useState<Sbota | null>(null)
+  /**
+   * الوسايل اللي رقمها متظبّط فعلًا. `null` = لسه بنسأل.
+   * ⚠ من غير ده الصفحة كانت بتعرض الوسيلتين وفودافون كاش هي الافتراضية،
+   *   فالعضو يقع على «الدفع متوقف» رغم إن إنستاباي شغّال.
+   */
+  const [avail, setAvail] = useState<Record<Method, boolean> | null>(null)
   const [method, setMethod] = useState<Method>('vodafone_cash')
   const [ref, setRef] = useState('')
   const [discount, setDiscount] = useState(0)
@@ -55,6 +61,24 @@ function PayPage() {
 
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+
+  useEffect(() => {
+    let alive = true
+    fetch('/api/pay/methods')
+      .then((r) => r.json())
+      .then((a: Record<Method, boolean>) => {
+        if (!alive) return
+        setAvail(a)
+        // بنبدأ على أول وسيلة شغّالة بدل ما نسيبه على واحدة هتترفض
+        if (!a.vodafone_cash && a.instapay) setMethod('instapay')
+      })
+      .catch(() => {
+        /* المسار وقع — بنسيب الوسيلتين، والحارس في الخادم هو اللي بيمنع */
+      })
+    return () => {
+      alive = false
+    }
+  }, [])
 
   useEffect(() => {
     getSbota(params.slug).then((s) => {
@@ -198,7 +222,9 @@ function PayPage() {
           {/* ===== طريقة التحويل ===== */}
           <div className="mt-6 font-display text-20 font-black">{t('pay.text.10')}</div>
           <div className="mt-3 flex flex-col gap-3">
-            {METHODS.map((m) => {
+            {/* الوسيلة اللي رقمها لسه وهمي ما بتتعرضش — عرضها معناه إن
+                العضو يختارها ويترفض. `avail === null` يعني لسه بنسأل. */}
+            {METHODS.filter((m) => !avail || avail[m.id]).map((m) => {
               const on = method === m.id
               return (
                 <button
