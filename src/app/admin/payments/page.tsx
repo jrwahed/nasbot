@@ -19,9 +19,12 @@ import {
   Tabs,
   Tag,
   TextField,
+  WaBtn,
   day,
   money,
   useFlash,
+  useSiteOrigin,
+  useWaTemplate,
   when,
 } from '@/components/admin-ui'
 
@@ -148,7 +151,7 @@ const paySelect = (join: 'none' | 'person' | 'sbota' = 'none') =>
     `bookings!payments_booking_id_fkey${join === 'none' ? '' : '!inner'}(`,
     'id,profile_id,status,price_paid,discount,wallet_used,',
     `profiles!bookings_profile_id_fkey${join === 'person' ? '!inner' : ''}(first_name,phone),`,
-    `sbotat${join === 'sbota' ? '!inner' : ''}(starts_at,sbota_templates${join === 'sbota' ? '!inner' : ''}(name_ar))`,
+    `sbotat${join === 'sbota' ? '!inner' : ''}(starts_at,title_ar,venue_name_ar,address_ar,sbota_templates${join === 'sbota' ? '!inner' : ''}(name_ar))`,
     ')',
   ].join('')
 
@@ -169,7 +172,13 @@ interface BookingLite {
   discount: number
   wallet_used: number
   profiles: PersonLite | null
-  sbotat: { starts_at: string; sbota_templates: { name_ar: string } | null } | null
+  sbotat: {
+    starts_at: string
+    title_ar: string | null
+    venue_name_ar: string | null
+    address_ar: string | null
+    sbota_templates: { name_ar: string } | null
+  } | null
 }
 
 interface PayRow {
@@ -235,7 +244,18 @@ const nameOf = (p: PersonLite | null | undefined) => p?.first_name?.trim() || '�
 
 const personOf = (p: PayRow) => p.bookings?.profiles ?? null
 
-const outingOf = (p: PayRow) => p.bookings?.sbotat?.sbota_templates?.name_ar ?? 'سبوطة اتشالت'
+/** ⚠ العنوان اللي المالك كتبه على السبوطة يغلب اسم القالب — هو اللي في الموقع */
+const outingOf = (p: PayRow) =>
+  (p.bookings?.sbotat?.title_ar ?? '').trim() ||
+  p.bookings?.sbotat?.sbota_templates?.name_ar ||
+  'سبوطة اتشالت'
+
+/** المكان زي ما هيوصل للحاجز: الاسم — العنوان */
+const placeOf = (p: PayRow) =>
+  [p.bookings?.sbotat?.venue_name_ar, p.bookings?.sbotat?.address_ar]
+    .map((x) => (x ?? '').trim())
+    .filter(Boolean)
+    .join(' — ')
 
 /** جنيه → قروش، وبنتأكد إنه رقم صحيح مش كسر */
 const toPiastres = (pounds: number) => Math.round(pounds * 100)
@@ -441,6 +461,8 @@ function PendingTab({
   const [notes, setNotes] = useState<Record<string, string>>({})
   const [busy, setBusy] = useState<Record<string, boolean>>({})
   const [loading, setLoading] = useState(true)
+  const waTpl = useWaTemplate()
+  const origin = useSiteOrigin()
 
   const sign = useCallback(async (list: PayRow[]) => {
     const db = supabase()
@@ -646,7 +668,7 @@ function PendingTab({
                   />
                 </div>
 
-                <div className="mt-3 flex flex-wrap gap-2">
+                <div className="mt-3 flex flex-wrap items-center gap-2">
                   <Btn
                     kind="primary"
                     disabled={!canReview || Boolean(busy[p.id])}
@@ -661,6 +683,19 @@ function PendingTab({
                   >
                     ارفض
                   </Btn>
+                  {/* بعد ما تأكّد — الرسالة جاهزة، انت بس بتدوس إرسال */}
+                  <WaBtn
+                    phone={person?.phone}
+                    template={waTpl}
+                    values={[
+                      nameOf(person),
+                      outingOf(p),
+                      when(p.bookings?.sbotat?.starts_at),
+                      placeOf(p),
+                      `${origin}/my/${p.booking_id}`,
+                    ]}
+                    label="ابعتله واتساب"
+                  />
                 </div>
               </div>
             </div>

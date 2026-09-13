@@ -20,7 +20,10 @@ import {
   Tag,
   day,
   money,
+  WaBtn,
   useFlash,
+  useSiteOrigin,
+  useWaTemplate,
   when,
 } from '@/components/admin-ui'
 
@@ -56,6 +59,9 @@ interface SbotaRow {
   status: string
   price: number
   girls_only: boolean
+  title_ar: string | null
+  venue_name_ar: string | null
+  address_ar: string | null
   sbota_templates: TplRef | TplRef[] | null
 }
 
@@ -155,7 +161,16 @@ function one<T>(v: T | T[] | null | undefined): T | null {
   return Array.isArray(v) ? (v[0] ?? null) : v
 }
 
-const tplName = (s: SbotaRow | null) => one(s?.sbota_templates ?? null)?.name_ar ?? 'سبوطة'
+/** ⚠ عنوان السبوطة اللي المالك كتبه يغلب اسم القالب — هو اللي في الموقع */
+const tplName = (s: SbotaRow | null) =>
+  (s?.title_ar ?? '').trim() || one(s?.sbota_templates ?? null)?.name_ar || 'سبوطة'
+
+/** المكان زي ما هيوصل للحاجز: الاسم — العنوان */
+const placeOf = (s: SbotaRow | null) =>
+  [s?.venue_name_ar, s?.address_ar]
+    .map((x) => (x ?? '').trim())
+    .filter(Boolean)
+    .join(' — ')
 
 const sbotaLabel = (s: SbotaRow) => `${tplName(s)} · ${day(s.starts_at)}`
 
@@ -233,7 +248,9 @@ function BookingsEditor({ me }: { me: AdminMe }) {
       // دي قايمة اختيار مش جدول — بنجيب أحدث السبوطات وبس، مش الجدول كله
       const { data, error } = await db
         .from('sbotat')
-        .select('id, starts_at, capacity, status, price, girls_only, sbota_templates(name_ar)')
+        .select(
+          'id, starts_at, capacity, status, price, girls_only, title_ar, venue_name_ar, address_ar, sbota_templates(name_ar)'
+        )
         .order('starts_at', { ascending: false })
         .range(0, ADMIN_SCAN_MAX - 1)
       if (error) setErr(error.message)
@@ -368,6 +385,8 @@ function BookingsTab({
   }, [reload])
 
   const byId = useMemo(() => new Map(sbotat.map((s) => [s.id, s])), [sbotat])
+  const waTpl = useWaTemplate()
+  const origin = useSiteOrigin()
 
   async function cancelBooking(b: BookingRow, by: 'user' | 'us') {
     const name = personName(one(b.profiles))
@@ -473,6 +492,19 @@ function BookingsTab({
                     <div className="font-body text-12" style={{ color: 'var(--muted)' }}>
                       {p?.phone ?? '—'} · قبل كده {p?.sbota_count ?? 0} مرة
                       {(p?.no_show_count ?? 0) > 0 ? ` · مجاش ${p?.no_show_count} مرة` : ''}
+                    </div>
+                    <div className="mt-1">
+                      <WaBtn
+                        phone={p?.phone}
+                        template={waTpl}
+                        values={[
+                          personName(p),
+                          tplName(s),
+                          when(s?.starts_at),
+                          placeOf(s),
+                          `${origin}/my/${b.id}`,
+                        ]}
+                      />
                     </div>
                   </td>
                   <td className="p-2">
