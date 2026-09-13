@@ -260,6 +260,19 @@ function BookingsEditor({ me }: { me: AdminMe }) {
     <div>
       <Tabs tabs={TABS.map((t) => ({ id: t.id, label: t.label }))} value={tab} onChange={setTab} />
 
+      {/* ⚠ الصفحة دي بتعرض «مستني الدفع» وما بتقولش تروح فين. المالك فضل
+          يدوّر على زرار تأكيد هنا وهو أصلًا في «الفلوس» — الاعتماد بيمر من
+          `fn_approve_transfer` بس علشان الدفعة والحجز يتحركوا مع بعض. */}
+      <div
+        className="mt-4 rounded-14 p-3 font-body text-14"
+        style={{ background: 'var(--bg)', color: 'var(--muted)' }}
+      >
+        <b style={{ color: 'var(--fg)' }}>«مستني الدفع» بيتأكد من «الفلوس».</b>{' '}
+        روح <a href="/admin/payments" style={{ color: 'var(--accent-text)' }}>الفلوس ← التحويلات المستنية</a>،
+        شوف صورة التحويل ودوس «أكّد». ساعتها بس الحجز بيبقى «دافع» ويوصله
+        العنوان وقت الكشف.
+      </div>
+
       {!canEdit && (
         <div className="mt-4 font-body text-14" style={{ color: 'var(--muted)' }}>
           أنت بتتفرّج بس — التعديل محتاج صلاحية bookings.edit.
