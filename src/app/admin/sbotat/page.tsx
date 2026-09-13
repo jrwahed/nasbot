@@ -1044,7 +1044,8 @@ function NewSbota({
           style={{ background: 'var(--bg)', border: '2px solid var(--line)', color: 'inherit' }}
         />
         <div className="mt-1 font-body text-12" style={{ color: 'var(--muted)' }}>
-          ما بيبانش غير للي حاجزين بعد الكشف.
+          ما بيوصلش غير للي <b>دفع فعلًا</b>. رفع صورة تحويل مش كفاية — لازم
+          تعتمده من «الفلوس».
         </div>
       </div>
 
@@ -1138,7 +1139,6 @@ function EditPanel({
   const [girlsOnly, setGirlsOnly] = useState(row.girls_only)
   const [isDay, setIsDay] = useState(row.is_day)
   const [isMystery, setIsMystery] = useState(row.is_mystery)
-  const [addressHidden, setAddressHidden] = useState(row.address_hidden)
   const [areaLabelAr, setAreaLabelAr] = useState(row.area_label_ar ?? '')
   const [templateId, setTemplateId] = useState(row.template_id)
   const [titleAr, setTitleAr] = useState(row.title_ar ?? '')
@@ -1200,7 +1200,6 @@ function EditPanel({
       girls_only: girlsOnly,
       is_day: isDay,
       is_mystery: isMystery,
-      address_hidden: addressHidden,
       area_label_ar: areaLabelAr || null,
     })
     setBusy(false)
@@ -1315,7 +1314,8 @@ function EditPanel({
           style={{ background: 'var(--bg)', border: '2px solid var(--line)', color: 'inherit' }}
         />
         <div className="mt-1 font-body text-12" style={{ color: 'var(--muted)' }}>
-          ما بيبانش غير للي حاجزين بعد الكشف — لو «العنوان مخفي» شغّال تحت.
+          ما بيوصلش غير للي <b>دفع فعلًا</b>. رفع صورة تحويل مش كفاية — لازم
+          تعتمده من «الفلوس».
         </div>
       </div>
 
@@ -1354,12 +1354,12 @@ function EditPanel({
         <Toggle label="بنات بس" value={girlsOnly} onChange={setGirlsOnly} />
         <Toggle label="نهاري" value={isDay} onChange={setIsDay} />
         <Toggle label="غامضة" value={isMystery} onChange={setIsMystery} />
-        <Toggle
-          label="العنوان مخفي"
-          value={addressHidden}
-          onChange={setAddressHidden}
-          hint="ما يبانش غير للي حجزوا بعد الكشف."
-        />
+        {/* ⚠ «العنوان مخفي» اتشالت — كانت **ديكور**. العمود `address_hidden`
+            مش مستعمل لا في الموقع ولا في أي دالة، فشيل علامتها أو حطها
+            مكانش بيفرق. والمالك شالها فعلًا وهو فاكر إنه بينشر العنوان.
+
+            القاعدة الحقيقية في `fn_sbota_address`: العنوان بيوصل لصاحب
+            **حجز مدفوع** بس (وبعد الكشف كمان في خروجة العضو). */}
       </div>
 
       <div
