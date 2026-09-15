@@ -50,18 +50,37 @@ function MapPage() {
 
       <CairoMap sbotat={shown} className="mt-4" />
 
-      <div className="mt-4 flex flex-wrap gap-4 font-body text-14">
+      {/*
+        ⚠ المفتاح ده كان بيوصف **نقط اتشالت من زمان**: دايرة برتقالي اسمها
+          «سبوطة» ودايرة كوبالت، والنقط بقت كتل. والعنوان فوق كان بيقول «دوس
+          على أي نقطة». المفتاح دلوقتي بيوصف اللي على الشاشة فعلًا: كتلة
+          دافية = فيها سبوطات · كتلة كوبالت = الغامضة · ختم = خدتها.
+      */}
+      <div className="mt-4 flex flex-wrap items-center gap-4 font-body text-14">
         <span className="flex items-center gap-2">
           <span
             className="inline-block"
-            style={{ width: 12, height: 12, borderRadius: '50%', background: '#F4632A' }}
-          />{t('map.text.3')}</span>
+            style={{ width: 16, height: 12, borderRadius: 4, background: '#3A2B24', border: '2px solid #F4632A' }}
+          />
+          {t('map.text.3')}
+        </span>
         <span className="flex items-center gap-2">
           <span
             className="inline-block"
-            style={{ width: 12, height: 12, borderRadius: '50%', background: '#2B4CFF' }}
-          />{t('map.text.2')}</span>
-        <span style={{ color: 'var(--muted)' }}>{t('map.text.1')}</span>
+            style={{ width: 16, height: 12, borderRadius: 4, background: '#2B4CFF' }}
+          />
+          {t('map.text.2')}
+        </span>
+        <span className="flex items-center gap-2" style={{ color: 'var(--muted)' }}>
+          <span
+            className="inline-grid place-items-center"
+            style={{ width: 14, height: 14, borderRadius: '50%', background: '#F4632A', color: '#14161A', font: '900 9px sans-serif' }}
+            aria-hidden="true"
+          >
+            ✓
+          </span>
+          {t('map.text.1')}
+        </span>
       </div>
     </main>
   )
