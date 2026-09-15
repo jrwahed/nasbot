@@ -144,6 +144,84 @@ const AREAS = [
   { value: 'downtown_zamalek', label: 'وسط البلد والزمالك' },
   { value: 'other', label: 'مكان تاني' },
 ]
+/**
+ * مناطق الخريطة — الكبسولات اللي بتخلي اللي تكتبه يوصل لكتلة على الخريطة.
+ *
+ * ⚠ السبوطة بتوصل لكتلتها على `/map` بمطابقة **اسم المنطقة**. ولما المطابقة
+ *    بتفشل السبوطة بتختفي من الخريطة من غير أي رسالة — ده اللي كان حاصل
+ *    للتلات سبوطات المفتوحة. الكود بقى فيه كتلة أخيرة بتلم اللي مش معروف،
+ *    بس أحسن حاجة إنك تدوس على المنطقة من هنا: الاسم بيبقى مظبوط والكود
+ *    بيتحط معاه، فالسبوطة بتقع في مكانها بالظبط.
+ */
+function useMapAreas() {
+  const [rows, setRows] = useState<
+    { key: string; label: string; area: string | null; far: boolean }[]
+  >([])
+  useEffect(() => {
+    let alive = true
+    void supabase()
+      .from('map_areas')
+      .select('key, label_ar, area, is_far, is_mystery, w')
+      .eq('is_active', true)
+      .order('sort', { ascending: true })
+      .then((res: { data: MapAreaRow[] | null }) => {
+        if (!alive) return
+        setRows(
+          (res.data ?? [])
+            .filter((r) => !r.is_mystery && (r.w > 0 || r.is_far))
+            .map((r) => ({ key: r.key, label: r.label_ar, area: r.area, far: r.is_far }))
+        )
+      })
+    return () => {
+      alive = false
+    }
+  }, [])
+  return rows
+}
+
+interface MapAreaRow {
+  key: string
+  label_ar: string
+  area: string | null
+  is_far: boolean
+  is_mystery: boolean
+  w: number
+}
+
+function AreaChips({
+  value,
+  onPick,
+}: {
+  value: string
+  onPick: (label: string, area: string | null) => void
+}) {
+  const areas = useMapAreas()
+  if (!areas.length) return null
+  return (
+    <div className="mt-2 flex flex-wrap gap-2">
+      {areas.map((a) => {
+        const on = value.trim() === a.label
+        return (
+          <button
+            key={a.key}
+            type="button"
+            onClick={() => onPick(a.label, a.area)}
+            className="min-h-[32px] cursor-pointer rounded-pill px-3 font-display text-13 font-black"
+            style={{
+              background: on ? '#F4632A' : 'transparent',
+              color: on ? '#14161A' : 'var(--fg)',
+              border: `2px solid ${on ? '#F4632A' : 'var(--line)'}`,
+              opacity: a.far ? 0.75 : 1,
+            }}
+          >
+            {a.label}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
 const areaLabel = (a: string | null) =>
   a ? (AREAS.find((x) => x.value === a)?.label ?? a) : '—'
 
@@ -918,6 +996,9 @@ function NewSbota({
   const [venueNameAr, setVenueNameAr] = useState('')
   const [addressAr, setAddressAr] = useState('')
   const [areaLabelAr, setAreaLabelAr] = useState('')
+  // كود المنطقة بيتحط بس لما تدوس على كبسولة — الكتابة الحرة بتسيبه فاضي
+  // والكود بيطابق بالاسم.
+  const [areaKey, setAreaKey] = useState<string | null>(null)
   const [captainId, setCaptainId] = useState('')
   const [date, setDate] = useState(dayAdd(todayCairo(), 7))
   const [time, setTime] = useState('18:00')
@@ -968,6 +1049,7 @@ function NewSbota({
         venue_name_ar: venueNameAr.trim() || null,
         address_ar: addressAr.trim() || null,
         area_label_ar: areaLabelAr.trim() || null,
+        area: areaKey,
         captain_id: captainId || null,
         starts_at: startsAt,
         ends_at: endsAt,
@@ -1024,12 +1106,24 @@ function NewSbota({
           className="w-full md:w-[300px]"
           hint="زي ما الناس بتقوله — «كافيه البوسطة»."
         />
-        <Inp
-          label="اسم المنطقة اللي بيبان"
-          value={areaLabelAr}
-          onChange={setAreaLabelAr}
-          hint="اللي بيظهر على الكارت. مثلًا: المعادي."
-        />
+        <div className="w-full">
+          <Inp
+            label="اسم المنطقة اللي بيبان"
+            value={areaLabelAr}
+            onChange={(v) => {
+              setAreaLabelAr(v)
+              setAreaKey(null)
+            }}
+            hint="دوس على منطقة تحت — كده السبوطة بتبان على الخريطة في مكانها."
+          />
+          <AreaChips
+            value={areaLabelAr}
+            onPick={(label, area) => {
+              setAreaLabelAr(label)
+              setAreaKey(area)
+            }}
+          />
+        </div>
       </div>
 
       <div className="mt-3">
@@ -1140,6 +1234,7 @@ function EditPanel({
   const [isDay, setIsDay] = useState(row.is_day)
   const [isMystery, setIsMystery] = useState(row.is_mystery)
   const [areaLabelAr, setAreaLabelAr] = useState(row.area_label_ar ?? '')
+  const [areaKey, setAreaKey] = useState<string | null>(row.area)
   const [templateId, setTemplateId] = useState(row.template_id)
   const [titleAr, setTitleAr] = useState(row.title_ar ?? '')
   const [detailsAr, setDetailsAr] = useState(row.details_ar ?? '')
@@ -1201,6 +1296,7 @@ function EditPanel({
       is_day: isDay,
       is_mystery: isMystery,
       area_label_ar: areaLabelAr || null,
+      area: areaKey,
     })
     setBusy(false)
     if (ok) onClose()
@@ -1285,12 +1381,24 @@ function EditPanel({
           className="w-full md:w-[300px]"
           hint="زي ما الناس بتقوله — «كافيه البوسطة»."
         />
-        <Inp
-          label="اسم المنطقة اللي بيبان"
-          value={areaLabelAr}
-          onChange={setAreaLabelAr}
-          hint="اللي بيظهر على الكارت. مثلًا: المعادي."
-        />
+        <div className="w-full">
+          <Inp
+            label="اسم المنطقة اللي بيبان"
+            value={areaLabelAr}
+            onChange={(v) => {
+              setAreaLabelAr(v)
+              setAreaKey(null)
+            }}
+            hint="دوس على منطقة تحت — كده السبوطة بتبان على الخريطة في مكانها."
+          />
+          <AreaChips
+            value={areaLabelAr}
+            onPick={(label, area) => {
+              setAreaLabelAr(label)
+              setAreaKey(area)
+            }}
+          />
+        </div>
         <SelectField
           label="الكابتن"
           value={captainId}
