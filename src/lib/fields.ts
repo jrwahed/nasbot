@@ -112,8 +112,19 @@ export interface MapBlock {
 export interface MapData {
   blocks: MapBlock[]
   mystery: { x: number; y: number }
-  /** أكواد المناطق (area_t) اللي صاحب الحساب راحها */
-  visitedAreas: string[]
+  /**
+   * مفاتيح **الكتل** اللي صاحب الحساب راحها.
+   *
+   * ⚠ كانت أكواد `area_t`. المشكلة إن الكتل الجديدة مالهاش كود enum (ما
+   *    ضفناش قيم للنوع علشان ما نفتحش باب `alter type` من غير داعي)، فكانت
+   *    هتبقى «مستحيل تروحها». المفتاح بيشتغل مع الكل، وبيعدّي من نفس دالة
+   *    المطابقة بتاعة العرض — فاللي بيبان على الخريطة واللي بيتحسب واحد.
+   */
+  visitedBlocks: string[]
+  /** مفتاح كتلة صاحب الحساب — علشان «انت هنا» */
+  myBlock: string | null
+  /** فيه جلسة؟ «لسه مخدتش ولا منطقة» مالهاش معنى لزائر مش داخل */
+  signedIn: boolean
   fromDb: boolean
 }
 
@@ -163,7 +174,9 @@ export const mapFallback: MapData = {
     note: a.note ?? null,
   })),
   mystery: { ...FB_MYSTERY },
-  visitedAreas: [],
+  visitedBlocks: [],
+  myBlock: null,
+  signedIn: false,
   fromDb: false,
 }
 
@@ -286,7 +299,9 @@ export async function getMapData(): Promise<MapData> {
     'getMapData',
     async () => {
       const db = supabase()
-      const [areas, mine] = await Promise.all([
+      const { data: auth } = await db.auth.getUser()
+      const uid = auth.user?.id ?? null
+      const [areas, mine, me] = await Promise.all([
         db
           .from('map_areas')
           .select(
@@ -294,41 +309,67 @@ export async function getMapData(): Promise<MapData> {
           )
           .eq('is_active', true)
           .order('sort', { ascending: true }),
-        db.from('bookings').select('sbotat(area)').in('status', ['paid', 'attended']),
+        db
+          .from('bookings')
+          .select('sbotat(area, area_label_ar)')
+          .in('status', ['paid', 'attended']),
+        uid
+          ? db.from('profiles').select('area, area_other').eq('id', uid).maybeSingle()
+          : Promise.resolve({ data: null }),
       ])
 
       const rows = (areas.data ?? []) as unknown as AreaRow[]
       if (!rows.length) return mapFallback
 
-      const visitedAreas = Array.from(
+      const mysteryRow = rows.find((r) => r.is_mystery)
+      const blocks: MapBlock[] = rows
+        .filter((r) => !r.is_mystery)
+        .map((r) => ({
+          key: r.key,
+          label: r.label_ar,
+          area: r.area,
+          matchLabels: r.match_labels?.length ? r.match_labels : [r.label_ar],
+          x: r.x,
+          y: r.y,
+          w: r.w,
+          h: r.h,
+          r: r.r,
+          lx: r.lx,
+          ly: r.ly,
+          far: r.is_far,
+          note: r.note_ar,
+        }))
+
+      // ⚠ «رحت فين» بيمر من **نفس** دالة المطابقة بتاعة العرض. لو اتفصلوا،
+      //    ممكن سبوطة تبان في كتلة وتتحسب في كتلة تانية.
+      const visitedBlocks = Array.from(
         new Set(
-          ((mine.data ?? []) as { sbotat?: { area?: string } }[])
-            .map((r) => r.sbotat?.area)
+          ((mine.data ?? []) as { sbotat?: { area?: string; area_label_ar?: string } }[])
+            .map((r) =>
+              r.sbotat
+                ? blockKeyFor(blocks, {
+                    areaKey: r.sbotat.area ?? null,
+                    area: r.sbotat.area_label_ar ?? null,
+                  })
+                : null
+            )
             .filter(Boolean) as string[]
         )
       )
 
-      const mysteryRow = rows.find((r) => r.is_mystery)
+      const mineRow = (me as { data: { area?: string; area_other?: string } | null }).data
+      // ⚠ «انت هنا» مالوش معنى على كتلة «مناطق تانية» — دي مش مكان.
+      const myRaw = mineRow
+        ? blockKeyFor(blocks, { areaKey: mineRow.area ?? null, area: mineRow.area_other ?? null })
+        : null
+      const myBlock = myRaw === CATCH_ALL_KEY ? null : myRaw
+
       return {
-        blocks: rows
-          .filter((r) => !r.is_mystery)
-          .map((r) => ({
-            key: r.key,
-            label: r.label_ar,
-            area: r.area,
-            matchLabels: r.match_labels?.length ? r.match_labels : [r.label_ar],
-            x: r.x,
-            y: r.y,
-            w: r.w,
-            h: r.h,
-            r: r.r,
-            lx: r.lx,
-            ly: r.ly,
-            far: r.is_far,
-            note: r.note_ar,
-          })),
+        blocks,
         mystery: mysteryRow ? { x: mysteryRow.lx, y: mysteryRow.ly } : mapFallback.mystery,
-        visitedAreas,
+        visitedBlocks,
+        myBlock,
+        signedIn: !!uid,
         fromDb: true,
       }
     },
@@ -359,21 +400,91 @@ export interface AreaGroup {
  * معناها «فيه حاجة هنا» وخلاص، والمستخدم لازم يدوس على كل واحدة عشان يعرف.
  * لما نجمّع بالمنطقة نقدر نكتب «٣ سبوطات» ونخلّي الكتلة نفسها هي الزرار.
  */
+/**
+ * تنضيف اسم منطقة قبل المقارنة.
+ *
+ * المالك بيكتب المنطقة بإيده، والناس بتكتب نفس المكان بعشر طرق: «٦ أكتوبر»
+ * و«6 اكتوبر» و«اكتوبر»، «مصر الجديدة» و«مصر الجديده». المقارنة الحرفية
+ * بتفشل في كل دي.
+ */
+export function normArea(s: string | null | undefined): string {
+  return (s ?? '')
+    .normalize('NFKD')
+    // ⚠ **لازم كل العلامات المركّبة، مش نطاق التشكيل بس.** `NFKD` بتفكّ «أ»
+    //    لـ«ا» + همزة (U+0654)، والهمزة دي **بره** نطاق التشكيل
+    //    (U+064B–U+0652). فكانت بتعدّي وتتحوّل بعدين لمسافة، و«٦ أكتوبر»
+    //    تبقى «٦ ا كتوبر» وما تلاقيش «6 اكتوبر». الحارس مسكها من أول تشغيل.
+    .replace(/\p{M}/gu, '')
+    .replace(/\u0640/g, '') // تطويل
+    .replace(/[أإآٱ]/g, 'ا')
+    .replace(/ة/g, 'ه')
+    .replace(/[ىي]/g, 'ي')
+    .replace(/[٠-٩]/g, (d) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)))
+    .replace(/\bال/g, '')
+    .replace(/[^\p{L}\p{N}]+/gu, ' ')
+    .trim()
+    .toLowerCase()
+}
+
+/** الكتلة اللي بتجمّع أي منطقة مش معروفة — بتتحدد بـ`is_catch_all` في القاعدة */
+export const CATCH_ALL_KEY = 'other'
+
+/**
+ * السبوطة دي بتقع في أنهي كتلة؟
+ *
+ * ⚠ **ده كان أهم باج في الخريطة كلها.** المطابقة كانت نص حرفي بين اسم
+ *    المنطقة وقايمة `match_labels`. ولما اتشالت قايمة الأماكن من اللوحة وبقى
+ *    المالك يكتب المنطقة بإيده، أول كلمة بره القايمة كانت بتخلّي السبوطة
+ *    **تختفي من الخريطة خالص** — من غير ولا رسالة. التلات سبوطات المفتوحة
+ *    على الإنتاج كانوا كلهم مش بيبانوا.
+ *
+ * فالترتيب دلوقتي: كود المنطقة (enum) → الاسم بعد التنضيف → مطابقة جزئية
+ * (كلمة من الكتلة جوه النص أو العكس) → وفي الآخر كتلة «مناطق تانية».
+ * **مفيش طريق بيرجّع «مش لاقي»** — السبوطة لازم تبان في مكان ما.
+ */
+export function blockKeyFor(
+  blocks: MapBlock[],
+  s: { area?: string | null; areaKey?: string | null; tags?: string[] }
+): string | null {
+  if (!blocks.length) return null
+
+  // ١) كود المنطقة من القاعدة — أدق حاجة عندنا
+  if (s.areaKey) {
+    const byEnum = blocks.find((b) => b.area === s.areaKey)
+    if (byEnum) return byEnum.key
+  }
+
+  const names = [s.area, ...(s.tags ?? [])].map(normArea).filter(Boolean)
+  if (names.length) {
+    // ٢) الاسم بعد التنضيف
+    for (const b of blocks) {
+      const labels = [b.label, ...b.matchLabels].map(normArea)
+      if (labels.some((l) => l && names.includes(l))) return b.key
+    }
+    // ٣) مطابقة جزئية — «كارتنج في العبور» تلاقي «العبور»
+    for (const b of blocks) {
+      const labels = [b.label, ...b.matchLabels].map(normArea).filter((l) => l.length >= 3)
+      if (labels.some((l) => names.some((n) => n.includes(l) || l.includes(n)))) return b.key
+    }
+  }
+
+  // ٤) الباقي كله في كتلة واحدة — أهون ألف مرة من إنها تختفي
+  const fallback = blocks.find((b) => b.key === CATCH_ALL_KEY)
+  return fallback ? fallback.key : null
+}
+
 export function groupByArea(
   blocks: MapBlock[],
-  sbotat: { slug: string; area: string; tags?: string[] }[]
+  sbotat: { slug: string; area: string; areaKey?: string | null; tags?: string[] }[]
 ): AreaGroup[] {
   const byKey = new Map<string, string[]>()
 
   for (const s of sbotat) {
-    const labels = [s.area, ...(s.tags ?? [])].filter(Boolean)
-    const block =
-      blocks.find((b) => labels.some((l) => b.matchLabels.includes(l))) ??
-      blocks.find((b) => b.label === s.area)
-    if (!block) continue
-    const list = byKey.get(block.key) ?? []
+    const key = blockKeyFor(blocks, s)
+    if (!key) continue
+    const list = byKey.get(key) ?? []
     list.push(s.slug)
-    byKey.set(block.key, list)
+    byKey.set(key, list)
   }
 
   return blocks
