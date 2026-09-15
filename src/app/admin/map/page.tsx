@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AdminShell } from '@/components/AdminShell'
 import { supabase } from '@/lib/supabase'
 import { rejected } from '@/lib/admin'
@@ -28,9 +28,17 @@ import {
  */
 
 /**
- * كتلة من كتل الخريطة العامة — جدول `map_areas` (هجرة 0066).
- * الهندسة (x/y/w/h/r/lx/ly) مساحة رسم SVG بمقاس 400×520، والمحرّر هنا
- * **مش** بيلمسها عن قصد — شوف الملاحظة فوق قسم «كتل الخريطة».
+ * كتلة من كتل الخريطة العامة — جدول `map_areas` (هجرة 0066، والرسم الجديد 0099).
+ *
+ * ⚠ الهندسة (x/y/w/h) كانت **مقفولة** عن قصد: «تغييرها بالأرقام بيبوّظ الرسم».
+ *    ده كان صح — تعديل رقم في خانة وانت مش شايف النتيجة مقامرة. بس النتيجة
+ *    كانت إن المالك ما عندوش أي تحكم في خريطته غير إنه يطلب هجرة.
+ *    الحل مش إنك تفتح الأرقام، الحل إنك **تشوف وانت بتحرّك**: المحرّر تحت
+ *    بيرسم نفس خريطة `/map` وبتسحب الكتلة بإيدك.
+ *
+ *    و`lx`/`ly` (مكان التسمية) بقوا بيتحسبوا لوحدهم = نص الكتلة. كانوا
+ *    عمودين منفصلين بيتظبطوا بالإيد، ولما الكتلة بتتحرّك كانت التسمية بتفضل
+ *    مكانها وتطلع بره. عمود بيتحسب أضمن من عمود بيتنسى.
  */
 interface AreaRow {
   key: string
@@ -42,6 +50,41 @@ interface AreaRow {
   is_mystery: boolean
   is_active: boolean
   sort: number
+  x: number
+  y: number
+  w: number
+  h: number
+  r: number
+  lx: number
+  ly: number
+}
+
+/** مساحة الرسم — نفس اللي في `src/components/CairoMap.tsx` */
+const VB = { w: 400, h: 404 }
+
+/** أقل مقاس للكتلة — أقل من كده التسمية ما تبانش */
+const MIN_W = 60
+const MIN_H = 44
+
+/** عربي → مفتاح لاتيني للكتلة الجديدة */
+const AR_TO_LATIN: Record<string, string> = {
+  ا: 'a', أ: 'a', إ: 'a', آ: 'a', ب: 'b', ت: 't', ث: 'th', ج: 'g', ح: 'h', خ: 'kh',
+  د: 'd', ذ: 'z', ر: 'r', ز: 'z', س: 's', ش: 'sh', ص: 's', ض: 'd', ط: 't', ظ: 'z',
+  ع: 'a', غ: 'gh', ف: 'f', ق: 'q', ك: 'k', ل: 'l', م: 'm', ن: 'n', ه: 'h', و: 'w',
+  ي: 'y', ى: 'a', ة: 'a', ء: '', ئ: 'y', ؤ: 'w',
+}
+
+function blockKey(label: string): string {
+  const out: string[] = []
+  for (const ch of label.trim()) {
+    if (/[a-z0-9]/i.test(ch)) out.push(ch.toLowerCase())
+    else if (ch in AR_TO_LATIN) out.push(AR_TO_LATIN[ch])
+    else if (/\s|-/.test(ch)) out.push('_')
+  }
+  return (
+    out.join('').replace(/_+/g, '_').replace(/^_|_$/g, '').slice(0, 30) ||
+    `area_${Date.now().toString(36)}`
+  )
 }
 
 interface VenueRow {
@@ -96,6 +139,243 @@ const EGYPT = { minLat: 21.5, maxLat: 32.0, minLng: 24.5, maxLng: 37.0 }
 const inEgypt = (lat: number, lng: number) =>
   lat >= EGYPT.minLat && lat <= EGYPT.maxLat && lng >= EGYPT.minLng && lng <= EGYPT.maxLng
 
+/* ==================================================== الأسماء المرادفة */
+
+/**
+ * أسماء المنطقة المرادفة — الخانة اللي بتقرر السبوطة هتقع فين.
+ *
+ * ⚠ ده مش تفصيلة تجميلية. السبوطة بتوصل لكتلتها بمطابقة **اسم المنطقة**
+ *    اللي المالك كتبها مع القايمة دي. قبل كده كانت القايمة للقراية بس في
+ *    اللوحة، يعني لو كتب «العبور» ومفيش كتلة فيها الاسم ده، السبوطة كانت
+ *    **تختفي من الخريطة** من غير ولا رسالة. دلوقتي بتتعدّل من هنا.
+ */
+function MatchLabels({
+  labels,
+  onChange,
+}: {
+  labels: string[]
+  onChange: (next: string[]) => void
+}) {
+  const [draft, setDraft] = useState('')
+
+  function add() {
+    const v = draft.trim()
+    if (!v) return
+    if (labels.some((l) => l.trim() === v)) {
+      setDraft('')
+      return
+    }
+    onChange([...labels, v])
+    setDraft('')
+  }
+
+  return (
+    <div className="mt-3">
+      <div className="font-body text-13" style={{ color: 'var(--muted)' }}>
+        الأسماء اللي بتوقّع السبوطة في الكتلة دي — زوّد كل اسم ممكن حد يكتبه.
+      </div>
+
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        {labels.length === 0 && (
+          <span className="font-body text-13" style={{ color: 'var(--err-text)' }}>
+            مفيش ولا اسم — مش هيوصل الكتلة دي أي سبوطة.
+          </span>
+        )}
+
+        {labels.map((l) => (
+          <span
+            key={l}
+            className="inline-flex items-center gap-2 rounded-pill px-3 py-1 font-body text-14"
+            style={{ background: 'var(--bg)', border: '2px solid var(--line)' }}
+          >
+            {l}
+            <button
+              type="button"
+              onClick={() => onChange(labels.filter((x) => x !== l))}
+              aria-label={`شيل ${l}`}
+              className="cursor-pointer border-0 bg-transparent font-display text-16 font-black"
+              style={{ color: 'var(--err-text)' }}
+            >
+              ×
+            </button>
+          </span>
+        ))}
+      </div>
+
+      <div className="mt-2 flex flex-wrap gap-2">
+        <input
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault()
+              add()
+            }
+          }}
+          placeholder="اسم زيادة — مثلًا: الشروق"
+          className="min-w-[200px] rounded-14 px-3 py-2 font-body text-15"
+          style={{ background: 'var(--bg)', color: 'var(--fg)', border: '2px solid var(--line)' }}
+        />
+        <Btn onClick={add} disabled={!draft.trim()}>
+          زوّد
+        </Btn>
+      </div>
+    </div>
+  )
+}
+
+/* ==================================================== محرّر الخريطة بالسحب */
+
+/** النيل — نفس الشكل اللي في الخريطة العامة بالظبط */
+const NILE =
+  'M168 0 C 160 70, 150 120, 146 175 C 142 240, 150 300, 162 360 L 162 404 L 186 404 ' +
+  'C 176 330, 168 260, 172 190 C 176 120, 186 60, 192 0 Z'
+
+/**
+ * محرّر الخريطة — بتسحب الكتلة بإيدك وانت شايف النتيجة.
+ *
+ * ⚠ **ليه سحب مش خانات أرقام؟** الملاحظة القديمة في الصفحة دي كانت بتقول
+ *    «الهندسة مش بتتعدّل من هنا عن قصد — تغييرها بالأرقام بيبوّظ الرسم بسهولة»
+ *    وده صح تمامًا. بس النتيجة كانت إن المالك ما عندوش تحكم في خريطته خالص،
+ *    ولازم يطلب هجرة علشان يحرّك كتلة. الحل إنك تشوف وانت بتحرّك.
+ *
+ * الحفظ بيحصل لما تسيب الكتلة (`pointerup`) — مش مع كل حركة، علشان ما
+ * نضربش القاعدة بمية طلب في الثانية.
+ */
+function BlockCanvas({
+  areas,
+  onMove,
+  selected,
+  onSelect,
+}: {
+  areas: AreaRow[]
+  onMove: (key: string, box: { x: number; y: number; w: number; h: number }) => void
+  selected: string | null
+  onSelect: (key: string) => void
+}) {
+  const svgRef = useRef<SVGSVGElement>(null)
+  /** الحركة اللي بتحصل دلوقتي — بتتعرض فورًا وبتتحفظ لما تسيب */
+  const [live, setLive] = useState<{
+    key: string
+    mode: 'move' | 'size'
+    x: number
+    y: number
+    w: number
+    h: number
+  } | null>(null)
+  const start = useRef<{ px: number; py: number; box: AreaRow } | null>(null)
+
+  /** من إحداثيات الشاشة لإحداثيات الرسم — الاتجاه (rtl) ما بيأثرش على SVG */
+  function toVb(e: { clientX: number; clientY: number }) {
+    const r = svgRef.current?.getBoundingClientRect()
+    if (!r) return { x: 0, y: 0 }
+    return { x: ((e.clientX - r.left) / r.width) * VB.w, y: ((e.clientY - r.top) / r.height) * VB.h }
+  }
+
+  const drawn = areas.filter((a) => !a.is_mystery && a.w > 0 && a.h > 0 && a.is_active)
+
+  function down(e: React.PointerEvent, a: AreaRow, mode: 'move' | 'size') {
+    e.preventDefault()
+    e.stopPropagation()
+    ;(e.target as Element).setPointerCapture(e.pointerId)
+    const p = toVb(e)
+    start.current = { px: p.x, py: p.y, box: a }
+    setLive({ key: a.key, mode, x: a.x, y: a.y, w: a.w, h: a.h })
+    onSelect(a.key)
+  }
+
+  function move(e: React.PointerEvent) {
+    if (!live || !start.current) return
+    const p = toVb(e)
+    const dx = p.x - start.current.px
+    const dy = p.y - start.current.py
+    const b = start.current.box
+    // التقريب لأقرب ٢ — الكتل بتتلزق ببعض بدل ما تسيب خط شعرة بينها
+    const snap = (n: number) => Math.round(n / 2) * 2
+
+    if (live.mode === 'move') {
+      setLive({
+        ...live,
+        x: Math.max(0, Math.min(VB.w - b.w, snap(b.x + dx))),
+        y: Math.max(0, Math.min(VB.h - b.h, snap(b.y + dy))),
+      })
+    } else {
+      setLive({
+        ...live,
+        w: Math.max(MIN_W, Math.min(VB.w - b.x, snap(b.w + dx))),
+        h: Math.max(MIN_H, Math.min(VB.h - b.y, snap(b.h + dy))),
+      })
+    }
+  }
+
+  function up() {
+    if (live) {
+      const b = areas.find((a) => a.key === live.key)
+      if (b && (b.x !== live.x || b.y !== live.y || b.w !== live.w || b.h !== live.h)) {
+        onMove(live.key, { x: live.x, y: live.y, w: live.w, h: live.h })
+      }
+    }
+    setLive(null)
+    start.current = null
+  }
+
+  return (
+    <svg
+      ref={svgRef}
+      viewBox={`0 0 ${VB.w} ${VB.h}`}
+      className="block h-auto w-full touch-none select-none"
+      style={{ background: '#191C22', borderRadius: 20, border: '2px solid #333845' }}
+      onPointerMove={move}
+      onPointerUp={up}
+      onPointerCancel={up}
+    >
+      <path d={NILE} fill="#2B3A52" />
+
+      {drawn.map((a) => {
+        const on = live?.key === a.key
+        const box = on ? live : a
+        const sel = selected === a.key
+        return (
+          <g key={a.key}>
+            <rect
+              x={box.x}
+              y={box.y}
+              width={box.w}
+              height={box.h}
+              rx={a.r}
+              fill={sel ? '#3A2B24' : '#262A32'}
+              stroke={sel ? '#F4632A' : '#333845'}
+              strokeWidth={sel ? 3 : 2}
+              style={{ cursor: 'grab' }}
+              onPointerDown={(e) => down(e, a, 'move')}
+            />
+            <text
+              x={box.x + box.w / 2}
+              y={box.y + box.h / 2 + 5}
+              textAnchor="middle"
+              fill={sel ? '#FBF7EF' : '#9EA2AB'}
+              style={{ font: '800 14px var(--font-plex), sans-serif', pointerEvents: 'none' }}
+            >
+              {a.label_ar}
+            </text>
+            {/* مقبض التكبير — الركن اللي تحت */}
+            <rect
+              x={box.x + box.w - 14}
+              y={box.y + box.h - 14}
+              width="14"
+              height="14"
+              rx="4"
+              fill={sel ? '#F4632A' : '#4A4E58'}
+              style={{ cursor: 'nwse-resize' }}
+              onPointerDown={(e) => down(e, a, 'size')}
+            />
+          </g>
+        )
+      })}
+    </svg>
+  )
+}
+
 export default function AdminMapPage() {
   return (
     <AdminShell title="الخريطة" needs="map.edit">
@@ -110,6 +390,7 @@ function MapEditor() {
   const [counts, setCounts] = useState<Record<string, number>>({})
   const [areaFilter, setAreaFilter] = useState('all')
   const [selected, setSelected] = useState<string | null>(null)
+  const [selectedArea, setSelectedArea] = useState<string | null>(null)
   const { flash, node: flashNode } = useFlash()
 
   const reload = useCallback(async () => {
@@ -123,7 +404,9 @@ function MapEditor() {
       db.from('sbotat').select('venue_id').limit(5000),
       db
         .from('map_areas')
-        .select('key, label_ar, area, match_labels, is_far, note_ar, is_mystery, is_active, sort')
+        .select(
+          'key, label_ar, area, match_labels, is_far, note_ar, is_mystery, is_active, sort, x, y, w, h, r, lx, ly'
+        )
         .order('sort'),
     ])
     setRows((v.data ?? []) as VenueRow[])
@@ -190,6 +473,72 @@ function MapEditor() {
       return flash('القاعدة رفضت التعديل — محتاج صلاحية map.edit.')
     setAreas((list) => list.map((r) => (r.key === key ? { ...r, ...p } : r)))
     flash('الكتلة اتحفظت ✓ — الخريطة العامة هتشوفها على طول.')
+  }
+
+  /**
+   * تحريك/تكبير كتلة. `lx`/`ly` بيتحسبوا لوحدهم = نص الكتلة — كانوا بيتظبطوا
+   * بالإيد، ولما الكتلة بتتحرّك كانت التسمية بتفضل مكانها وتطلع بره الكتلة.
+   */
+  async function moveArea(key: string, box: { x: number; y: number; w: number; h: number }) {
+    await patchArea(key, {
+      ...box,
+      lx: Math.round(box.x + box.w / 2),
+      ly: Math.round(box.y + box.h / 2),
+    })
+  }
+
+  /** الأسماء المرادفة — دي اللي بتحدد السبوطة هتقع في أنهي كتلة */
+  async function setLabels(key: string, labels: string[]) {
+    const clean = Array.from(new Set(labels.map((l) => l.trim()).filter(Boolean)))
+    // ⚠ اسم في كتلتين = الترتيب هو اللي بيقرر، وده هش. بنمنعه هنا زي ما
+    //    `test_map_blocks()` بتمنعه في القاعدة.
+    const clash = areas.find(
+      (a) => a.key !== key && (a.match_labels ?? []).some((l) => clean.includes(l.trim()))
+    )
+    if (clash) return flash(`الاسم ده متسجّل في «${clash.label_ar}» — اسم واحد لكتلة واحدة.`)
+    await patchArea(key, { match_labels: clean })
+  }
+
+  /** منطقة جديدة على الخريطة */
+  async function addArea() {
+    const label = prompt('اسم المنطقة زي ما هيبان على الخريطة (قصير — «المقطم» مش «المقطم والهضبة»)')
+    if (!label?.trim()) return
+    const key = blockKey(label)
+    if (areas.some((a) => a.key === key)) return flash('فيه منطقة بنفس الاسم خلاص.')
+
+    const { data, error } = await supabase()
+      .from('map_areas')
+      .insert({
+        key,
+        label_ar: label.trim(),
+        match_labels: [label.trim()],
+        // بتتحط في ركن فاضي والمالك بيسحبها مكانها
+        x: 8, y: VB.h - 80, w: 110, h: 64, r: 24,
+        lx: 63, ly: VB.h - 48,
+        sort: Math.max(0, ...areas.map((a) => a.sort)) + 10,
+      })
+      .select('key')
+    if (error) return flash(`مقدرناش نضيف المنطقة: ${error.message}`)
+    if (rejected(data)) return flash('القاعدة رفضت الإضافة — محتاج صلاحية map.edit.')
+    await reload()
+    setSelectedArea(key)
+    flash('المنطقة اتضافت ✓ — اسحبها مكانها على الرسم.')
+  }
+
+  /** مكان جديد في دليل الأماكن */
+  async function addVenue() {
+    const name = prompt('اسم المكان')
+    if (!name?.trim()) return
+    const { data, error } = await supabase()
+      .from('venues')
+      .insert({ name: name.trim(), kind: 'cafe', area: 'other', address: '', is_active: true })
+      .select('id')
+    if (error) return flash(`مقدرناش نضيف المكان: ${error.message}`)
+    // ⚠ `venues_write` بتطلب `sbotat.edit` مش `map.edit` — الصفحة دي بتفتح
+    //    بـ`map.edit`، فممكن تكون داخل الصفحة ومش من حقك تضيف مكان.
+    if (rejected(data)) return flash('القاعدة رفضت الإضافة — محتاج صلاحية sbotat.edit.')
+    await reload()
+    flash('المكان اتضاف ✓ — كمّل نوعه ومنطقته وإحداثياته تحت.')
   }
 
   /** بيغيّر اسم المنطقة العربي على كل أماكن المنطقة مرة واحدة */
@@ -343,13 +692,27 @@ function MapEditor() {
       {/* كتل الخريطة العامة — map_areas */}
       <Card
         title="كتل الخريطة العامة"
-        hint="ده اللي الأعضاء بيشوفوه في /map. الاسم والملاحظة و«بعيدة» بتتحفظ لما تسيب الخانة."
+        hint="ده اللي الأعضاء بيشوفوه في /map. اسحب الكتلة مكانها، وشدّ الركن تكبّرها."
       >
         <div className="mt-2 font-body text-13" style={{ color: 'var(--muted)' }}>
-          الهندسة (مكان الكتلة ومقاسها في الرسم) مش بتتعدّل من هنا عن قصد — دي
-          إحداثيات SVG في مساحة 400×520 وتغييرها بالأرقام بيبوّظ الرسم بسهولة.
-          لو محتاج تحرّك كتلة، اعملها في هجرة على <code>map_areas</code>.
+          اسحب أي كتلة بإيدك، والمربع الصغير في ركنها بيكبّرها ويصغّرها. بتتحفظ
+          لما تسيبها. مكان التسمية بيتحسب لوحده في نص الكتلة.
           الكتلة المقفولة بتختفي من الخريطة العامة خالص.
+        </div>
+
+        <div className="mt-3">
+          <BlockCanvas
+            areas={areas}
+            selected={selectedArea}
+            onSelect={setSelectedArea}
+            onMove={moveArea}
+          />
+        </div>
+
+        <div className="mt-3 flex flex-wrap gap-2">
+          <Btn kind="primary" onClick={addArea}>
+            منطقة جديدة
+          </Btn>
         </div>
 
         <div className="mt-4 flex flex-col gap-3">
@@ -382,11 +745,22 @@ function MapEditor() {
                   </Tag>
                 )}
                 <span className="ms-auto font-body text-12" style={{ color: 'var(--muted)' }}>
-                  {(a.match_labels ?? []).length
-                    ? `بتلم سبوطات: ${(a.match_labels ?? []).join(' · ')}`
-                    : 'مش مربوطة بأسماء مناطق'}
+                  {a.w > 0 ? `${a.w}×${a.h} عند ${a.x},${a.y}` : 'شريط تحت الخريطة'}
                 </span>
               </div>
+
+              {/*
+                ⚠ **دي أهم خانة في الصفحة كلها.** السبوطة بتوصل لكتلتها بمطابقة
+                  اسم المنطقة اللي كتبته مع الأسماء دي. لو ما لقتش، بتقع في
+                  «مناطق تانية» — وقبل ما نعمل الكتلة دي كانت **بتختفي خالص**.
+                  زوّد هنا كل اسم ممكن حد يكتبه للمنطقة.
+              */}
+              {!a.is_mystery && (
+                <MatchLabels
+                  labels={a.match_labels ?? []}
+                  onChange={(next) => setLabels(a.key, next)}
+                />
+              )}
 
               <div className="mt-3 grid gap-3 md:grid-cols-2">
                 <TextField
@@ -476,6 +850,18 @@ function MapEditor() {
 
       {/* الأماكن */}
       <Card title="الأماكن" hint="اكتب الإحداثيات وسيب الخانة، بتتحفظ لوحدها.">
+        <div className="mt-2 font-body text-13" style={{ color: 'var(--muted)' }}>
+          دي دليل أماكنك الداخلي (وأماكن الشغل). سبوطات نسبوط بقت بتكتب المكان
+          والعنوان بإيدها في <code>/admin/sbotat</code>، فالأماكن هنا **مش**
+          بتظهر على خريطة الأعضاء — الكتل اللي فوق هي اللي بتظهر.
+        </div>
+
+        <div className="mt-3">
+          <Btn kind="primary" onClick={addVenue}>
+            مكان جديد
+          </Btn>
+        </div>
+
         <div className="mt-3 flex flex-col gap-3">
           {shown.length === 0 && <Empty>مفيش أماكن في المنطقة دي.</Empty>}
 
