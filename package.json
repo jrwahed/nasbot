@@ -17,7 +17,8 @@
     "check:notify": "node scripts/check-notify-vars.mjs",
     "check:content": "node scripts/check-content-fallback.mjs",
     "check:bundles": "node scripts/check-migration-bundles.mjs",
-    "verify": "npm run check:copy && npm run check:notify && npm run check:content && npm run check:bundles && tsc --noEmit && next build"
+    "verify": "npm run check:copy && npm run check:notify && npm run check:content && npm run check:bundles && npm run check:map && tsc --noEmit && next build",
+    "check:map": "tsx scripts/check-map-match.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",
