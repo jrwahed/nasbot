@@ -14,7 +14,7 @@ import type { WorkCollab } from '@/lib/collab'
  *
  * «ابعتله» بتفتح نفس شات الواحد-لواحد الموجود: fn_open_one_on_one عبر
  * openOneOnOne (لو الغرفة لسه ما اتفتحتش بتتعمل)، وبعدين نفس مسار
- * /me/chat/[name] اللي بيستعمله /me. مفيش شات جديد هنا.
+ * /me/chat/[id] اللي بيستعمله /me. مفيش شات جديد هنا.
  */
 export function CollabList({ items }: { items: WorkCollab[] }) {
   const t = useT()
@@ -44,7 +44,8 @@ export function CollabList({ items }: { items: WorkCollab[] }) {
     // بنكمّل على نفس صفحة الشات زي ما /me بتعمل بالظبط.
     await openOneOnOne(c.id)
     setBusy(null)
-    router.push(`/me/chat/${encodeURIComponent(c.firstName)}`)
+    // ⚠ بالرقم مش بالاسم — الصفحة بقت بتفتح الغرفة الحقيقية من القاعدة
+    router.push(`/me/chat/${encodeURIComponent(c.id)}`)
   }
 
   return (

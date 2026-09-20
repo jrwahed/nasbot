@@ -14,7 +14,7 @@
  *   game        → /game و /game/result
  *   map         → /map
  *   mystery     → /s/mystery
- *   chat        → /my/[bookingId]/chat و /me/chat/[name]
+ *   chat        → /my/[bookingId]/chat و /me/chat/[id]
  *   referral    → كرت كود الدعوة في /me
  *   work_sbota  → /shoghl/* كله
  *   member_sbota → /new (العضو بيفتح خروجته) و/me/sbotati
