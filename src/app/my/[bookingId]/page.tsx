@@ -8,6 +8,7 @@ import { PhotoPlaceholder } from '@/components/PhotoPlaceholder'
 import { Sticker } from '@/components/Sticker'
 import { Countdown, CountdownText } from '@/components/Countdown'
 import { PlaceMap } from '@/components/MiniMap'
+import { EmergencyCall } from '@/components/EmergencyBlock'
 import { groupRuleStickers } from '@/data/lists'
 import { getGroup, requestGirlsOnly, type Group } from '@/lib/api'
 import { getSession } from '@/lib/session'
@@ -192,11 +193,14 @@ export default function GroupPage() {
         className="nb-safe-bottom sticky bottom-0 z-30 -mx-5 mt-6 flex flex-col gap-2 px-5 pt-3"
         style={{ background: 'var(--bg)', borderTop: '2px solid var(--line)' }}
       >
-        <a
-          href="tel:+201000000000"
-          className="grid w-full place-items-center rounded-14 font-display text-16 font-black"
-          style={{ background: '#3A3D44', color: '#FBF7EF', minHeight: 50 }}
-        >{t('group.text.3')}</a>
+        {/* ⚠ كان `tel:+201000000000` مكتوب هنا بالحرف — نفس الرقم الوهمي
+            اللي `getEmergencyPhone` بترفضه في /rules. المكوّن بيقرا من
+            `settings` وبيخفي نفسه لو الرقم لسه مش متظبط. */}
+        <EmergencyCall
+          label={t('group.text.3')}
+          className="text-16"
+          style={{ background: '#3A3D44', minHeight: 50, borderRadius: 14 }}
+        />
         {isGirl &&
           (moved ? (
             <div

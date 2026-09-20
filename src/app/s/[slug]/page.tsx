@@ -8,7 +8,7 @@ import { publicMediaUrl } from '@/lib/supabase'
 import { Sticker } from '@/components/Sticker'
 import { CaptainCard } from '@/components/CaptainCard'
 import { HostCard } from '@/components/HostCard'
-import { WhoBooked, GuaranteeBox } from '@/components/WhoBooked'
+import { WhoBooked, GuaranteeBox, SafetyLink } from '@/components/WhoBooked'
 import { StickyCTA } from '@/components/StickyCTA'
 import { BottomSheet } from '@/components/BottomSheet'
 import { PrimaryButton, SecondaryButton } from '@/components/Buttons'
@@ -256,6 +256,7 @@ export default function SbotaPage() {
       {/* ===== الضمان ===== */}
       <div className="px-5 pt-4">
         <GuaranteeBox text={guarantee} />
+        <SafetyLink className="mt-3" />
       </div>
 
       <div className="px-5 pt-[14px]">

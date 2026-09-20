@@ -771,4 +771,5 @@ export const copyFallback: Record<string, string> = {
   "host.sbota.bookCta": "أنا جاي",
   "host.sbota.booking": "بنحجزلك…",
   "host.sbota.bookErr": "مقدرناش نحجزلك. جرّب تاني.",
+  "aman.link": "إزاي بنأمّنك؟",
 }

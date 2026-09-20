@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import type { WhoBooked as WhoBookedData } from '@/types'
 import { ShieldIcon } from '@/components/Icons'
 import { useT } from '@/components/CopyProvider'
@@ -41,6 +42,28 @@ export function GuaranteeBox({ text }: { text: string }) {
     >
       <ShieldIcon />
       <div className="font-body text-15 font-semibold">{text}</div>
+    </div>
+  )
+}
+
+/**
+ * رابط صفحة الأمان — بيقعد تحت صندوق الضمان في صفحة السبوطة وصفحة الدفع.
+ *
+ * ليه هنا؟ لأن دي اللحظة اللي السؤال بيتسأل فيها بالظبط: «هدفع لحد ما
+ * أعرفوش وأروح مكان ما أعرفهوش». الصفحة نفسها في `content_blocks`
+ * والمالك بيعدّلها من اللوحة.
+ */
+export function SafetyLink({ className = '' }: { className?: string }) {
+  const t = useT()
+  return (
+    <div className={`text-center ${className}`}>
+      <Link
+        href="/aman"
+        className="font-body text-15 font-semibold underline"
+        style={{ color: 'var(--accent-text)' }}
+      >
+        {t('aman.link')}
+      </Link>
     </div>
   )
 }

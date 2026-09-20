@@ -6,7 +6,7 @@ import { InnerHeader } from '@/components/Header'
 import { Field } from '@/components/Field'
 import { PrimaryButton } from '@/components/Buttons'
 import { StickyCTA } from '@/components/StickyCTA'
-import { GuaranteeBox } from '@/components/WhoBooked'
+import { GuaranteeBox, SafetyLink } from '@/components/WhoBooked'
 import { PhotoPlaceholder } from '@/components/PhotoPlaceholder'
 import { Sticker } from '@/components/Sticker'
 import { getSbota, startBooking, submitTransfer, redeemReferral } from '@/lib/api'
@@ -343,6 +343,7 @@ function PayPage() {
 
       <div className="mt-4">
         <GuaranteeBox text={guarantee} />
+        <SafetyLink className="mt-3" />
       </div>
 
       {error && (

@@ -15,7 +15,7 @@ import {
   saveCaptainReport,
   type CaptainBoard,
 } from '@/lib/api'
-import { emergencyPhone } from '@/data/lists'
+import { EmergencyCall } from '@/components/EmergencyBlock'
 import { captainReportFields } from '@/data/bookings'
 import { isLoggedIn } from '@/lib/session'
 import { useT } from '@/components/CopyProvider'
@@ -95,11 +95,11 @@ export default function CaptainBoardPage() {
       </div>
 
       {/* ===== زر الطوارئ ===== */}
-      <a
-        href={`tel:${emergencyPhone}`}
-        className="mt-6 grid w-full place-items-center rounded-16 font-display text-22 font-black"
-        style={{ background: '#8E2F1F', color: '#FBF7EF', minHeight: 64 }}
-      >{t('captainboard.text.5')}</a>
+      <EmergencyCall
+        label={t('captainboard.text.5')}
+        className="mt-6 text-22"
+        style={{ minHeight: 64 }}
+      />
 
       {/* ===== الكشف بالصور ===== */}
       <h2 className="mt-8 font-display text-24 font-black">{t('captainboard.text.4')}</h2>

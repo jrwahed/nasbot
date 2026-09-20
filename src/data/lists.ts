@@ -174,8 +174,14 @@ export const lastFriday = [
 //   بإذنه — وما يتخترعش اسم تاني.
 export const quote = { text: 'تروح لوحدك، وترجع مش لوحدك.', by: '' }
 
-/** رقم الطوارئ */
-export const emergencyPhone = '+201000000000'
+/**
+ * ⚠ `emergencyPhone` اتشال من هنا خالص.
+ *
+ * كان رقم **وهمي** (`+201000000000`) وكان بيتقرا في `/captain/[sbotaId]`
+ * وبنفس القيمة مكتوبة بالحرف في `/my/[bookingId]`. الرقم الحقيقي في
+ * `settings.emergency_phone` وبيتقرا بـ`EmergencyCall`، واللي بيخفي
+ * الزرار لو الرقم لسه وهمي. متحطش رقم هنا تاني.
+ */
 
 /** رقم إنستا باي للتحويل */
 export const instapayHandle = 'nasbot@instapay'
