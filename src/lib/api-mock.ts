@@ -229,11 +229,32 @@ export async function requestGirlsOnly(bookingId: string) {
 
 /* ---------------------------------------------------------- الشات */
 
+/**
+ * حالة غرفة الشات.
+ *
+ * ⚠ `state` **مش زينة**: قبلها كانت الدالة بترجّع `null` لما الغرفة لسه
+ *    ما اتعملتش، والواجهة بتقف على «بنحمّل» للأبد. الغرفة بتتعمل مع الكشف
+ *    (قبل الخروجة بيوم) — يعني «لسه بدري» هو الوضع الطبيعي، مش استثناء.
+ */
+export type ChatState =
+  /** الغرفة مفتوحة وفيها كلام */
+  | 'ok'
+  /** الحجز مدفوع بس المجموعة لسه ما اتكشفتش */
+  | 'waiting'
+  /** الحجز لسه مستني تأكيد التحويل */
+  | 'unpaid'
+  /** الحجز نفسه مش موجود (أو مش بتاعك) */
+  | 'missing'
+
 export interface ChatRoomState {
+  state: ChatState
   messages: ChatMessage[]
   closed: boolean
   closesAt: string
   title: string
+  roomId?: string
+  /** ميعاد الكشف — بيتعرض في حالة `waiting` */
+  revealAt?: string
 }
 
 export async function getChat(bookingId: string): Promise<ChatRoomState | null> {
@@ -243,10 +264,11 @@ export async function getChat(bookingId: string): Promise<ChatRoomState | null> 
   const stored = loadRoom(bookingId)
   const seeded = seedMessages.filter((m) => m.roomId === bookingId)
   return {
+    state: 'ok',
     messages: [...seeded, ...stored],
     closed: Date.now() >= new Date(booking.chatClosesAt).getTime(),
     closesAt: booking.chatClosesAt,
-    title: `شات ${booking.sbotaName}`,
+    title: booking.sbotaName,
   }
 }
 

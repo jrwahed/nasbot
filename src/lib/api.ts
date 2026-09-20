@@ -1097,42 +1097,81 @@ export async function cancelMySbota(id: string, reason?: string) {
 
 /* ============================================================ الشات */
 
-export interface ChatRoomState {
-  messages: ChatMessage[]
-  closed: boolean
-  closesAt: string
-  title: string
-  roomId?: string
-}
+/**
+ * ⚠ النوع بقى واحد مع `api-mock` — كان متعرّف في الملفين بشكلين، والمحاكاة
+ *    بترجّع `null` والحقيقي بيرجّع `null` كمان، فالواجهة اتبنت على «مفيش».
+ */
+export type { ChatState, ChatRoomState } from '@/lib/api-mock'
+type ChatRoomState = import('@/lib/api-mock').ChatRoomState
 
+/**
+ * الغرفة بتاعة حجز — ومعاها **ليه** مش موجودة لو مش موجودة.
+ *
+ * ⚠ كانت بترجّع `roomId: null` وبس. و`getChat` كانت بترجّع `null`، والواجهة
+ *    بتعمل `return` من غير ما تقفل حالة التحميل — فصفحة الشات كانت بتفضل على
+ *    «بنحمّل» **للأبد**. والغرفة دي أصلًا ما بتتعملش غير مع الكشف (`fn_reveal`)،
+ *    يعني ده مش استثناء نادر: ده الوضع الطبيعي لأي حد بيفتح شات حجزه قبل
+ *    الكشف. «لسه بدري» حالة، مش عطل.
+ */
 async function roomForBooking(bookingId: string) {
   const { data } = await supabase()
     .from('bookings')
-    .select('sbota_groups(chat_room_id), sbotat(sbota_templates(name_ar))')
+    .select(
+      'status, sbota_groups(chat_room_id), sbotat(reveal_at, title_ar, sbota_templates(name_ar))'
+    )
     .eq('id', bookingId)
     .maybeSingle()
   const r = data as {
+    status?: string
     sbota_groups?: { chat_room_id: string | null }
-    sbotat?: { sbota_templates?: { name_ar: string } }
+    sbotat?: { reveal_at: string | null; title_ar: string | null; sbota_templates?: { name_ar: string } }
   } | null
+
   return {
     roomId: r?.sbota_groups?.chat_room_id ?? null,
-    title: r?.sbotat?.sbota_templates?.name_ar ?? '',
+    found: !!r,
+    paid: r?.status === 'paid' || r?.status === 'attended',
+    revealAt: r?.sbotat?.reveal_at ?? null,
+    // كلام المالك على السبوطة يغلب اسم القالب — نفس القاعدة في كل مكان
+    title: (r?.sbotat?.title_ar ?? '').trim() || r?.sbotat?.sbota_templates?.name_ar || '',
   }
 }
 
-export async function getChat(bookingId: string): Promise<ChatRoomState | null> {
-  if (!DB) return mock.getChat(bookingId)
+export async function getChat(bookingId: string): Promise<ChatRoomState> {
+  if (!DB) {
+    const m = await mock.getChat(bookingId)
+    return m
+      ? { ...m, state: 'ok' as const }
+      : { state: 'missing' as const, messages: [], closed: false, closesAt: '', title: '', roomId: '' }
+  }
 
-  const { roomId, title } = await roomForBooking(bookingId)
-  if (!roomId) return null
+  const { roomId, found, paid, revealAt, title } = await roomForBooking(bookingId)
+
+  // ⚠ كل طريق هنا بيرجّع **حالة**، مفيش ولا واحد بيرجّع null. الواجهة بتقول
+  //    للحاجز هو مستني إيه بالظبط بدل ما تفضل بتلف.
+  if (!found) {
+    return { state: 'missing', messages: [], closed: false, closesAt: '', title, roomId: '' }
+  }
+  if (!roomId) {
+    return {
+      state: paid ? 'waiting' : 'unpaid',
+      revealAt: revealAt ?? '',
+      messages: [],
+      closed: false,
+      closesAt: '',
+      title,
+      roomId: '',
+    }
+  }
 
   const { data: room } = await supabase()
     .from('chat_rooms')
     .select('id, opens_at, closes_at, is_closed, pinned_message_id')
     .eq('id', roomId)
     .maybeSingle()
-  if (!room) return null
+  if (!room) {
+    return { state: 'waiting', revealAt: revealAt ?? '', messages: [], closed: false, closesAt: '', title, roomId }
+  }
   const rm = room as {
     closes_at: string | null; is_closed: boolean; pinned_message_id: string | null
   }
@@ -1179,7 +1218,7 @@ export async function getChat(bookingId: string): Promise<ChatRoomState | null> 
 
   const closed = rm.is_closed || (rm.closes_at ? Date.now() >= new Date(rm.closes_at).getTime() : false)
 
-  return { messages, closed, closesAt: rm.closes_at ?? '', title: `شات ${title}`, roomId }
+  return { state: 'ok', messages, closed, closesAt: rm.closes_at ?? '', title, roomId }
 }
 
 export async function sendMessage(bookingId: string, text: string, author = 'أنا') {
