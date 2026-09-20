@@ -1341,6 +1341,105 @@ export async function removeFromRoom(bookingId: string, personName: string, pers
     : { ok: true as const, bookingId, personName }
 }
 
+/* ------------------------------------------------- الشات الخاص (واحد لواحد) */
+
+/**
+ * غرفة الشات الخاص مع حد اخترتوا بعض.
+ *
+ * ⚠ **الشات الخاص كان مزيّف بالكامل.** صفحة `/me/chat/[name]` كانت بتقرا
+ *    الناس من `src/data/people.ts` (بيانات عرض في الكود) وبتحفظ الرسايل في
+ *    `localStorage` — **صفر نداءات للقاعدة**. يعني اتنين يختاروا بعض، كل
+ *    واحد يفتح الشات ويكتب، وكل واحد بيكتب لنفسه في متصفحه هو. ولا واحد
+ *    فيهم شاف كلام التاني أبدًا — والشاشة شكلها شغّالة تمامًا.
+ *
+ *    والدالة الحقيقية `fn_open_one_on_one` موجودة في القاعدة من `0007`
+ *    وبتتنادى في **طبقة الشغل بس**. نفس قصة `subscribeChat`: الحاجة الصح
+ *    مكتوبة وشغّالة والموقع العام بينادي على المزيّف.
+ *
+ * الدالة دي بترجّع نفس شكل `getChat` بالظبط علشان نفس الغرفة تعرض الاتنين.
+ */
+export async function getDirectChat(profileId: string): Promise<ChatRoomState> {
+  const empty = { messages: [], closed: false, closesAt: '', title: '' }
+  if (!DB) return { state: 'missing', ...empty }
+
+  const open = await openOneOnOne(profileId)
+  // ⚠ `fn_open_one_on_one` بترفض لو مش مختارين بعض — ودي مش «عطل»،
+  //    دي الحالة الطبيعية لأي حد لسه ما وصلش للاختيار المتبادل.
+  if (!open.ok) return { state: 'waiting', ...empty }
+
+  const roomId = open.roomId
+  const { data: other } = await supabase()
+    .from('profiles')
+    .select('first_name')
+    .eq('id', profileId)
+    .maybeSingle()
+
+  const { data: msgs } = await supabase()
+    .from('messages')
+    .select('id, room_id, sender_id, body, created_at, profiles!messages_sender_id_fkey(first_name)')
+    .eq('room_id', roomId)
+    .is('deleted_at', null)
+    .order('created_at', { ascending: true })
+
+  const { data: auth } = await supabase().auth.getUser()
+  const me = auth.user?.id
+
+  type DbMsg = {
+    id: string; room_id: string; sender_id: string | null; body: string
+    created_at: string; profiles?: { first_name: string } | null
+  }
+  const messages: ChatMessage[] = ((msgs ?? []) as DbMsg[]).map((r) => {
+    const name = r.profiles?.first_name ?? 'حد'
+    return {
+      id: r.id,
+      roomId: r.room_id,
+      author: name,
+      initial: name[0] ?? '؟',
+      text: r.body,
+      at: r.created_at,
+      mine: r.sender_id === me,
+    }
+  })
+
+  return {
+    state: 'ok',
+    messages,
+    closed: false,
+    closesAt: '',
+    title: (other as { first_name: string } | null)?.first_name ?? '',
+    roomId,
+  }
+}
+
+/** بيبعت في الشات الخاص — بيرمي لو الغرفة مش مفتوحة */
+export async function sendDirectMessage(profileId: string, text: string, author = 'أنا') {
+  if (!DB) throw new Error('مش متاح')
+  const open = await openOneOnOne(profileId)
+  if (!open.ok) throw new Error(open.error)
+
+  const { data: auth } = await supabase().auth.getUser()
+  const uid = auth.user?.id
+  if (!uid) throw new Error('لازم تكون داخل بحسابك')
+
+  const { data, error } = await supabase()
+    .from('messages')
+    .insert({ room_id: open.roomId, sender_id: uid, body: text })
+    .select('id, created_at')
+    .single()
+  if (error) throw new Error(error.message)
+
+  const r = data as { id: string; created_at: string }
+  return {
+    id: r.id,
+    roomId: open.roomId,
+    author,
+    initial: author[0] ?? '؟',
+    text,
+    at: r.created_at,
+    mine: true,
+  } as ChatMessage
+}
+
 export async function openOneOnOne(profileId: string) {
   if (!DB) return { ok: false as const, error: 'مش متاح' }
   const { data, error } = await supabase().rpc('fn_open_one_on_one', { other_id: profileId })

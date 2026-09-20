@@ -3,7 +3,15 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ChatMessage } from '@/types'
 import type { ChatRoomState } from '@/lib/api-mock'
-import { getChat, sendMessage, reportMessage, removeFromRoom, subscribeChat } from '@/lib/api'
+import {
+  getChat,
+  sendMessage,
+  getDirectChat,
+  sendDirectMessage,
+  reportMessage,
+  removeFromRoom,
+  subscribeChat,
+} from '@/lib/api'
 import { setQState } from '@/lib/liveq'
 import { useT } from '@/components/CopyProvider'
 
@@ -43,10 +51,21 @@ interface Pending {
 
 export function ChatRoom({
   bookingId,
+  directWith,
   isCaptain = false,
   me,
 }: {
-  bookingId: string
+  /** شات السبوطة — غرفة المجموعة */
+  bookingId?: string
+  /**
+   * شات خاص مع حد اخترتوا بعض — رقم حسابه.
+   *
+   * ⚠ نفس الغرفة بتخدم الاتنين عن قصد. النسخة القديمة من الشات الخاص كانت
+   *    **شاشة تانية خالص** مكتوبة بإيدها على `localStorage`، وعشان كده فضلت
+   *    مزيّفة شهور من غير ما حد ياخد باله: ما كانتش بتشارك أي حتة مع الشات
+   *    اللي بيشتغل.
+   */
+  directWith?: string
   isCaptain?: boolean
   /** اسم صاحب الرسالة — لو مااتبعتش بياخد «أنا» من النصوص */
   me?: string
@@ -80,10 +99,18 @@ export function ChatRoom({
 
   /* ---------------------------------------------------- التحميل والمتابعة */
 
+  /** مفتاح ثابت للغرفة — بيتحط في deps بدل الاتنين */
+  const key = directWith ? `d:${directWith}` : `b:${bookingId ?? ''}`
+
+  const fetchRoom = useCallback(
+    () => (directWith ? getDirectChat(directWith) : getChat(bookingId ?? '')),
+    [directWith, bookingId]
+  )
+
   const load = useCallback(
     async (quiet = false) => {
       try {
-        const next = await getChat(bookingId)
+        const next = await fetchRoom()
         setRoom((prev) => {
           // كلام جديد وانت قاري فوق ← نعدّه بدل ما ننطّك
           if (prev && !atBottom.current) {
@@ -97,7 +124,7 @@ export function ChatRoom({
         if (!quiet) setNotice(tRef.current('chat.offline'))
       }
     },
-    [bookingId]
+    [fetchRoom]
   )
 
   useEffect(() => {
@@ -106,7 +133,7 @@ export function ChatRoom({
     let timer: ReturnType<typeof setInterval> | null = null
 
     // ⚠ أول تحميل بيقفل حالة التحميل مهما حصل — ده كان أصل «مش بيفتح».
-    void getChat(bookingId)
+    void fetchRoom()
       .then((r) => {
         if (!alive) return
         setRoom(r)
@@ -135,7 +162,7 @@ export function ChatRoom({
       if (timer) clearInterval(timer)
       setQState('idle')
     }
-  }, [bookingId, load])
+  }, [key, fetchRoom, load])
 
   useEffect(() => {
     if (atBottom.current) {
@@ -157,7 +184,8 @@ export function ChatRoom({
   const deliver = useCallback(
     async (text: string, key: string) => {
       try {
-        await sendMessage(bookingId, text, me ?? tRef.current('shared.me'))
+        if (directWith) await sendDirectMessage(directWith, text, me ?? tRef.current('shared.me'))
+        else await sendMessage(bookingId ?? '', text, me ?? tRef.current('shared.me'))
         setPending((p) => p.filter((x) => x.key !== key))
         await load(true)
       } catch {
@@ -166,7 +194,7 @@ export function ChatRoom({
         setPending((p) => p.map((x) => (x.key === key ? { ...x, failed: true } : x)))
       }
     },
-    [bookingId, me, load]
+    [bookingId, directWith, me, load]
   )
 
   function send(e: React.FormEvent) {
@@ -194,6 +222,7 @@ export function ChatRoom({
 
   const onRemove = async (author: string) => {
     setMenuFor(null)
+    if (!bookingId) return
     await removeFromRoom(bookingId, author)
     setNotice(t('shared.label.10', { name: author }))
     setTimeout(() => setNotice(''), 4000)

@@ -197,8 +197,14 @@ export default function MePage() {
                 </div>
               </div>
               <div className="flex shrink-0 gap-2">
+                {/*
+                  ⚠ بالرقم مش بالاسم. الاسم مش مفتاح: اتنين بنفس الاسم كانوا
+                    هيروحوا نفس «الغرفة»، والحارس في القاعدة مالوش معنى لو
+                    اللي جايله اسم.
+                */}
                 <Link
-                  href={`/me/chat/${encodeURIComponent(p.name)}`}
+                  href={`/me/chat/${encodeURIComponent(p.id ?? '')}`}
+                  hidden={!p.id}
                   className="grid min-h-[44px] place-items-center rounded-pill px-4 font-display text-14 font-black"
                   style={{ background: '#F4632A', color: '#14161A' }}
                 >{t('me.text.11')}</Link>
