@@ -371,7 +371,12 @@ insert into copy_strings (key, value_ar) values
   ('gate.endorse.do','أزكّيه'),
   ('gate.endorse.done','اتزكّى ✓'),
   ('gate.invites.left','فاضلك {{n}} دعوة'),
-  ('gate.invites.none','خلصت دعواتك')
+  ('gate.invites.none','خلصت دعواتك'),
+  ('gate.endorse.body.link','انسخ لينك التزكية'),
+  ('gate.zakki.title','تزكية'),
+  ('gate.zakki.body','{{name}} عايز يدخل نسبوط. انت تعرفه؟'),
+  ('gate.zakki.bad','اللينك ده مش مظبوط.'),
+  ('gate.zakki.mine','روح لصفحتك')
 on conflict (key) do update set value_ar = excluded.value_ar;
 
 -- ===== دالة الاختبار =====

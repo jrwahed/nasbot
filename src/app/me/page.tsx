@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { InnerHeader } from '@/components/Header'
+import { GateCard, InvitesCard } from '@/components/GateCard'
 import { PhotoPlaceholder } from '@/components/PhotoPlaceholder'
 import { Sticker } from '@/components/Sticker'
 import { Footer } from '@/components/Footer'
@@ -64,6 +65,10 @@ export default function MePage() {
     <main className="mx-auto w-full max-w-page">
       <div className="px-5">
         <InnerHeader back={t('me.label.7')} padded={false} />
+
+        {/* بوابة الدخول — الكرتين ما بيبانوش غير لما يكون ليهم لازمة */}
+        <GateCard me={me} onChange={() => void getMe().then(setMe)} />
+        <InvitesCard me={me} />
 
         {/* ===== الرأس ===== */}
         <div className="mt-4 flex items-center gap-4">

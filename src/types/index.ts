@@ -238,6 +238,20 @@ export interface Me {
   credit: number
   referralCode: string
   role: 'member' | 'captain'
+  /** بوابة الدخول (0101) — حالتك، وسبب الرفض لو مرفوض */
+  gate?: {
+    status: 'pending' | 'approved' | 'rejected'
+    /** رسالة البوابة — null يعني عدّيت */
+    blocked: string | null
+    note: string | null
+    invitesLeft: number
+    endorsements: number
+    needed: number
+    /** ⚠ الحالة بتتقرر من **بيانات** مش من نص الرسالة: الرسالة بتتعدّل من
+     *  اللوحة، وأي `includes('كود')` بيبوظ أول ما المالك يغيّر كلمة. */
+    inviteOnly: boolean
+    hasInviter: boolean
+  }
 }
 
 export type TrackEvent =

@@ -672,7 +672,9 @@ export async function getMe(): Promise<Me> {
 
   const { data } = await supabase()
     .from('profiles')
-    .select('id, first_name, avatar_path, type, wallet_balance, referral_code, sbota_count, role, gender')
+    .select(
+      'id, first_name, avatar_path, type, wallet_balance, referral_code, sbota_count, role, gender, gate_status, gate_note, invites_left, referred_by'
+    )
     .eq('id', uid)
     .maybeSingle()
 
@@ -680,7 +682,19 @@ export async function getMe(): Promise<Me> {
   const r = data as {
     first_name: string; avatar_path: string | null; type: string | null
     wallet_balance: number; referral_code: string; sbota_count: number; role: string
+    gate_status?: 'pending' | 'approved' | 'rejected'
+    gate_note?: string | null
+    invites_left?: number
+    referred_by?: string | null
   }
+
+  // ⚠ سبب المنع بييجي من **القاعدة** (`fn_gate_state`) مش محسوب هنا — لو
+  //    اتحسب في الواجهة كمان، الاتنين بيتخالفوا وواحد منهم بيكدب.
+  const [{ data: blocked }, { count: endorsed }, { data: cfg }] = await Promise.all([
+    supabase().rpc('fn_gate_state', { p_id: uid }),
+    supabase().from('endorsements').select('by_id', { count: 'exact', head: true }).eq('profile_id', uid),
+    supabase().from('settings').select('gate_needs_endorsements, gate_invite_only').maybeSingle(),
+  ])
   const persona = personas.find((p) => p.id === personaIdFromDb(r.type)) ?? personas[0]
 
   return {
@@ -692,7 +706,38 @@ export async function getMe(): Promise<Me> {
     credit: toPounds(r.wallet_balance ?? 0),
     referralCode: r.referral_code,
     role: r.role === 'captain' ? 'captain' : 'member',
+    gate: {
+      status: r.gate_status ?? 'approved',
+      blocked: typeof blocked === 'string' && blocked ? blocked : null,
+      note: r.gate_note ?? null,
+      invitesLeft: r.invites_left ?? 0,
+      endorsements: endorsed ?? 0,
+      needed: (cfg as { gate_needs_endorsements?: number } | null)?.gate_needs_endorsements ?? 0,
+      inviteOnly: !!(cfg as { gate_invite_only?: boolean } | null)?.gate_invite_only,
+      hasInviter: !!r.referred_by,
+    },
   }
+}
+
+/**
+ * بيستعمل كود دعوة — بيرجّع رسالة الخطأ أو null لو تمام.
+ *
+ * ⚠ الاسم **مش** `useInvite`: أي دالة بتبدأ بـ`use` قاعدة React بتحسبها هوك،
+ *    وlint بيرفض نداءها جوّه معالج حدث. اتسمّت `redeemInvite`.
+ */
+export async function redeemInvite(code: string): Promise<string | null> {
+  if (!DB) return null
+  const { data, error } = await supabase().rpc('fn_use_invite', { p_code: code })
+  if (error) return error.message
+  return typeof data === 'string' && data ? data : null
+}
+
+/** بيزكّي عضو — بيرجّع رسالة الخطأ أو null لو تمام */
+export async function endorse(profileId: string): Promise<string | null> {
+  if (!DB) return null
+  const { data, error } = await supabase().rpc('fn_endorse', { p_profile: profileId })
+  if (error) return error.message
+  return typeof data === 'string' && data ? data : null
 }
 
 /* ============================================================ الحجز والدفع */
