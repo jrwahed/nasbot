@@ -222,6 +222,127 @@ const FLAG_EMBED = 'behavior_flags(id, kind, note, weight, created_at)'
 const PROFILE_COLS =
   'id, first_name, phone, area, area_other, gender, birth_year, girls_only_pref, social_energy, group_pref, budget_max, wish_text, type, role, sbota_count, no_show_count, wallet_balance, avatar_path, banned_at, ban_reason, deleted_at, created_at'
 
+/* ------------------------------------------------- طلبات الدخول (0101) */
+
+interface GateRow {
+  id: string
+  first_name: string | null
+  phone: string | null
+  area: string | null
+  area_other: string | null
+  work_status: string | null
+  work_status_other: string | null
+  apply_social: string | null
+  apply_why: string | null
+  created_at: string
+  referred_by: string | null
+  inviter: { first_name: string | null } | null
+}
+
+/**
+ * الناس اللي مستنيين يتقبلوا.
+ *
+ * ⚠ الكرت ده **ما بيبانش لو مفيش طلبات** — البوابة مقفولة افتراضيًا، ومفيش
+ *    داعي لقسم فاضي في صفحة مزحومة أصلًا.
+ *
+ * ⚠ القبول والرفض بيمروا من `fn_gate_decide` مش `update` مباشر: الدالة
+ *    بتتحقق من `people.manage` جوّه القاعدة وبتدي الدعوات وبتسجّل مين قرر
+ *    وإمتى. حارس في الواجهة بس معناه إن أي حد بينده الـAPI بيقبل نفسه.
+ */
+function GateRequests({ onDone, flash }: { onDone: () => void; flash: (m: string) => void }) {
+  const [rows, setRows] = useState<GateRow[] | null>(null)
+  const [notes, setNotes] = useState<Record<string, string>>({})
+  const [busy, setBusy] = useState<Record<string, boolean>>({})
+
+  const load = useCallback(async () => {
+    const { data } = await supabase()
+      .from('profiles')
+      .select(
+        'id, first_name, phone, area, area_other, work_status, work_status_other, apply_social, apply_why, created_at, referred_by, inviter:profiles!profiles_referred_by_fkey(first_name)'
+      )
+      .eq('gate_status', 'pending')
+      .is('deleted_at', null)
+      .order('created_at', { ascending: true })
+      .limit(50)
+    setRows((data ?? []) as unknown as GateRow[])
+  }, [])
+
+  useEffect(() => {
+    void load()
+  }, [load])
+
+  async function decide(id: string, ok: boolean) {
+    if (!ok && !(notes[id] ?? '').trim()) {
+      return flash('اكتب سبب الرفض — العضو بيوصله الكلام ده.')
+    }
+    setBusy((b) => ({ ...b, [id]: true }))
+    const { data, error } = await supabase().rpc('fn_gate_decide', {
+      p_profile: id,
+      p_ok: ok,
+      p_note: notes[id] ?? null,
+    })
+    setBusy((b) => ({ ...b, [id]: false }))
+    if (error) return flash(`مقدرناش نحفظ: ${error.message}`)
+    // ⚠ الدالة بترجّع **رسالة الخطأ** أو null — مش بترمي استثناء.
+    if (data) return flash(String(data))
+    flash(ok ? 'اتقبل ✓' : 'اترفض')
+    await load()
+    onDone()
+  }
+
+  if (rows === null || rows.length === 0) return null
+
+  return (
+    <Card title={`طلبات الدخول (${rows.length})`} hint="دول مسجّلين بس ما يقدروش يحجزوا لحد ما تقبلهم.">
+      <div className="mt-3 flex flex-col gap-3">
+        {rows.map((r) => (
+          <div key={r.id} className="rounded-16 p-4" style={{ background: 'var(--bg)' }}>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="font-display text-17 font-black">
+                {r.first_name?.trim() || 'من غير اسم'}
+              </span>
+              <span className="font-body text-13" style={{ color: 'var(--muted)' }}>
+                {r.phone ?? '—'}
+              </span>
+              {r.inviter && <Tag color="#F4632A">دعوة من {r.inviter.first_name ?? 'عضو'}</Tag>}
+              <span className="ms-auto font-body text-12" style={{ color: 'var(--muted)' }}>
+                {day(r.created_at)}
+              </span>
+            </div>
+
+            <div className="mt-2 font-body text-14" style={{ color: 'var(--muted)' }}>
+              {[
+                (r.area_other ?? '').trim() || r.area,
+                (r.work_status_other ?? '').trim() || r.work_status,
+                r.apply_social,
+              ]
+                .filter(Boolean)
+                .join(' · ') || 'ما كتبش حاجة'}
+            </div>
+            {r.apply_why && <div className="mt-2 font-body text-15">{r.apply_why}</div>}
+
+            <div className="mt-3 flex flex-wrap items-end gap-2">
+              <input
+                value={notes[r.id] ?? ''}
+                onChange={(e) => setNotes((n) => ({ ...n, [r.id]: e.target.value }))}
+                placeholder="سبب الرفض — العضو بيشوفه"
+                className="min-w-[220px] flex-1 rounded-14 px-3 py-2 font-body text-15"
+                style={{ background: 'var(--surface)', color: 'var(--fg)', border: '2px solid var(--line)' }}
+              />
+              <Btn kind="primary" disabled={busy[r.id]} onClick={() => decide(r.id, true)}>
+                {busy[r.id] ? 'ثانية…' : 'اقبله'}
+              </Btn>
+              <Btn kind="danger" disabled={busy[r.id]} onClick={() => decide(r.id, false)}>
+                ارفض
+              </Btn>
+            </div>
+          </div>
+        ))}
+      </div>
+    </Card>
+  )
+}
+
 /* ---------------------------------------------------------- الصفحة */
 
 export default function AdminPeoplePage() {
@@ -348,6 +469,13 @@ function People({ me }: { me: AdminMe }) {
 
   return (
     <div className="mt-6">
+      {/* طلبات الدخول — بتبان بس لما يكون فيه طلبات */}
+      {canEdit && (
+        <div className="mb-5">
+          <GateRequests onDone={() => void loadSums()} flash={flash} />
+        </div>
+      )}
+
       {/* أرقام سريعة */}
       <div className="flex flex-wrap gap-3">
         <Stat label="كل الناس" value={sums ? String(sums.all) : '…'} />
