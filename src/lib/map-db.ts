@@ -207,6 +207,7 @@ export function sbotaFromDb(
     age_max: number | null
     first_timers: number
     returning_count: number
+    same_area?: number | null
   } | null,
   address?: { address: string; venue_name: string } | null
 ): Sbota {
@@ -275,6 +276,10 @@ export function sbotaFromDb(
     whoBooked: {
       booked,
       total: r.capacity,
+      // ⚠ `?? null` مش `?? 0` — صفر معناه «مفيش حد من ناحيتك»، وnull
+      //   معناها «مش عارفين» (زائر أو «غير كده»). الفرق ده هو اللي بيخلّي
+      //   السطر يختفي بدل ما يكذب.
+      sameArea: who?.same_area ?? null,
       line: whoLine(who),
       revealLine: 'هتعرف مجموعتك قبلها بيوم الساعة 8 بالليل.',
     },
@@ -338,6 +343,7 @@ export function personFromDb(row: Record<string, unknown>, gender?: string): Per
   const r = row as {
     profile_id: string; first_name: string; initial: string
     persona: string | null; line_ar: string; avatar_path?: string | null
+    area_code?: string | null; area_label?: string | null; same_area?: boolean | null
   }
   const p = personas.find((x) => x.id === personaIdFromDb(r.persona)) ?? personas[0]
   const isF = gender === 'female'
@@ -349,6 +355,9 @@ export function personFromDb(row: Record<string, unknown>, gender?: string): Per
     line: r.line_ar,
     tagColors: p.colors,
     photo: r.avatar_path ?? '[صورة]',
+    areaCode: r.area_code ?? '',
+    areaLabel: r.area_label ?? '',
+    sameArea: Boolean(r.same_area),
   }
 }
 

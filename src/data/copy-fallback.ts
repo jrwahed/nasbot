@@ -800,4 +800,9 @@ export const copyFallback: Record<string, string> = {
   "safety.page.expired": "الرابط ده خلص — الخروجة عدّت.",
   "safety.page.none": "الرابط ده مش شغّال.",
   "safety.page.back": "نسبوط",
+  "shared.sameArea": "منهم {{n}} من ناحيتك",
+  "group.ride.title": "جايين منين",
+  "group.ride.note": "اللي من ناحيتك متعلّم. اتفقوا تروحوا سوا لو عايزين.",
+  "group.ride.mine": "من ناحيتك",
+  "group.ride.none": "مفيش حد من ناحيتك في المجموعة دي.",
 }
