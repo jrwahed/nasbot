@@ -174,6 +174,8 @@ interface RowCtx {
   venue: string
   captain: string
   link: string
+  /** سبب رفض البوابة — من payload */
+  note: string
 }
 
 /** موضوع الإيميل + مسار الرابط الافتراضي + مواضع {{n}} لكل قالب أساسي */
@@ -235,6 +237,19 @@ const CORE: Record<
     subject: 'جدول الأسبوع الجاي',
     path: '/',
     args: (c) => [c.link],
+  },
+  // بوابة الدخول (0102)
+  gate_approved: {
+    subject: 'أهلًا بيك في نسبوط',
+    path: '/',
+    args: (c) => [c.name, c.link],
+  },
+  gate_rejected: {
+    subject: 'بخصوص طلبك',
+    path: '/',
+    // ⚠ السبب بييجي من `payload.note` اللي `fn_gate_decide` بتحطه — ولو
+    //    المالك رفض من غير سبب بنحط جملة محترمة بدل فراغ.
+    args: (c) => [c.name, c.note || 'لو حابب تعرف أكتر، كلمنا.'],
   },
 }
 
@@ -536,6 +551,7 @@ export async function runNotify(limit = BATCH): Promise<NotifyResult> {
       venue: sb?.venue ?? '',
       captain: sb?.captain ?? '',
       link: '',
+      note: typeof payload.note === 'string' ? payload.note : '',
     }
 
     // القيم المسماة {key} — للقوالب اللي بتستخدمها (الشغل)
