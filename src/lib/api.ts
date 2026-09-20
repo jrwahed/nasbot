@@ -1026,6 +1026,106 @@ export async function requestGirlsOnly(bookingId: string) {
   return error ? { ok: false as const, error: error.message } : { ok: true as const, bookingId }
 }
 
+/* ===================================================== «معايا حد يعرف»
+
+   رابط اطمئنان العضو بيبعته لحد يثق فيه. اللي معاه الرابط **قارئ فقط** —
+   كل الكتابة (اعمل · وصلت · اقفل) بتمر على دوال القاعدة وبتطلب إنك صاحب
+   الحجز. تفاصيل الحراس في هجرة 0105.
+
+   ⚠ العنوان في الصفحة دي بنفس حارس العضو بالحرف (`fn_can_see_place`) —
+     مش نسخة تانية منه. لو هو لسه مش شايف العنوان، اللي بيطمن عليه برضه لأ.
+*/
+
+/** الرابط بتاع حجزي — بيرجّع التوكن، أو null لو القاعدة رفضت */
+export async function makeSafetyLink(bookingId: string): Promise<string | null> {
+  if (!DB) return null
+  const { data, error } = await supabase().rpc('fn_safety_link', { p_booking_id: bookingId })
+  if (error) return null
+  return typeof data === 'string' && data ? data : null
+}
+
+/** «وصلت بالسلامة» أو «خلصت ورجعت» — من صاحب الحجز بس */
+export async function markSafety(bookingId: string, kind: 'arrived' | 'done'): Promise<boolean> {
+  if (!DB) return false
+  const { error } = await supabase().rpc('fn_safety_mark', {
+    p_booking_id: bookingId,
+    p_kind: kind,
+  })
+  return !error
+}
+
+/** اقفل الرابط دلوقتي */
+export async function revokeSafetyLink(bookingId: string): Promise<boolean> {
+  if (!DB) return false
+  const { error } = await supabase().rpc('fn_safety_revoke', { p_booking_id: bookingId })
+  return !error
+}
+
+/** حالة الرابط من وجهة نظر العضو — عشان الكرت يعرف يعرض إيه */
+export interface MySafetyLink {
+  token: string
+  arrivedAt: string | null
+  doneAt: string | null
+}
+
+/**
+ * الرابط الشغّال بتاع حجزي لو موجود — **من غير ما نعمل واحد جديد**.
+ *
+ * ⚠ ليه مش `fn_safety_link`؟ لأنها بتعمل رابط لو مفيش. لو صفحة الحجز
+ *   نادتها وهي بتحمّل، كل واحد يفتح حجزه كان هيتعملّه رابط ما طلبهوش
+ *   ويفضل شغّال لحد ما الخروجة تعدّي. الرابط بيتعمل بقرار مش بزيارة صفحة.
+ */
+export async function getMySafetyLink(bookingId: string): Promise<MySafetyLink | null> {
+  if (!DB) return null
+  const { data, error } = await supabase().rpc('fn_safety_my', { p_booking_id: bookingId })
+  if (error) return null
+  const r = (Array.isArray(data) ? data[0] : data) as Record<string, unknown> | undefined
+  if (!r || !r.token) return null
+  return {
+    token: String(r.token),
+    arrivedAt: (r.arrived_at as string | null) ?? null,
+    doneAt: (r.done_at as string | null) ?? null,
+  }
+}
+
+/** اللي بيشوفه اللي معاه الرابط — نفس أعمدة `fn_safety_view` بالظبط */
+export interface SafetyView {
+  state: 'ok' | 'expired' | 'none'
+  firstName: string
+  sbotaName: string
+  startsAt: string | null
+  endsAt: string | null
+  areaCode: string
+  areaLabel: string
+  venueName: string
+  address: string
+  arrivedAt: string | null
+  doneAt: string | null
+}
+
+/** صفحة `/tamenny/[token]` — مفتوحة للزائر المجهول عن قصد */
+export async function getSafetyView(token: string): Promise<SafetyView | null> {
+  if (!DB) return null
+  const { data, error } = await supabase().rpc('fn_safety_view', { p_token: token })
+  if (error) return null
+  const r = (Array.isArray(data) ? data[0] : data) as Record<string, unknown> | undefined
+  if (!r) return null
+  const st = String(r.state ?? 'none')
+  return {
+    state: st === 'ok' || st === 'expired' ? st : 'none',
+    firstName: String(r.first_name ?? ''),
+    sbotaName: String(r.sbota_name ?? ''),
+    startsAt: (r.starts_at as string | null) ?? null,
+    endsAt: (r.ends_at as string | null) ?? null,
+    areaCode: String(r.area_code ?? ''),
+    areaLabel: String(r.area_label ?? ''),
+    venueName: String(r.venue_name ?? ''),
+    address: String(r.address ?? ''),
+    arrivedAt: (r.arrived_at as string | null) ?? null,
+    doneAt: (r.done_at as string | null) ?? null,
+  }
+}
+
 /* ================================================ فتح خروجة من عضو
 
    نسبوط ما بقاش قايم على الكابتن والتنظيم: العضو بيفتح خروجته بنفسه.

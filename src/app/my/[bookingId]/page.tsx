@@ -9,6 +9,7 @@ import { Sticker } from '@/components/Sticker'
 import { Countdown, CountdownText } from '@/components/Countdown'
 import { PlaceMap } from '@/components/MiniMap'
 import { EmergencyCall } from '@/components/EmergencyBlock'
+import { SafetyCard } from '@/components/SafetyCard'
 import { groupRuleStickers } from '@/data/lists'
 import { getGroup, requestGirlsOnly, type Group } from '@/lib/api'
 import { getSession } from '@/lib/session'
@@ -167,6 +168,9 @@ export default function GroupPage() {
           >{t('group.text.6')}</a>
         </div>
       </div>
+
+      {/* ===== معايا حد يعرف ===== */}
+      <SafetyCard bookingId={booking.id} sbotaName={booking.sbotaName} />
 
       {/* ===== القواعد في سطرين ===== */}
       <div className="mt-[22px] flex flex-wrap gap-2">
