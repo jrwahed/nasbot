@@ -103,7 +103,7 @@ scripts/         check-copy · فاحصات · بذور النصوص
 
 **الجداول:** `profiles` · `sbotat`(+`sbotat_public`) · `sbota_templates` · `venues` · `bookings` · `payments` · `wallet_ledger` · `coupons` · `pair_affinity` · `matching_runs` · `chat_rooms`/`chat_members` · `notifications`/`notification_templates` · `admin_users`/`admin_roles`/`role_permissions` · `settings`(صف واحد) · `copy_strings` · `safety_links` · `audit_log`. **طبقة الشغل:** `professions` · `work_venues` · `work_passes` · `pass_redemptions` · `recurring_bookings` · `work_affinity` · `venue_reports` · `leads` · `work_metrics`.
 
-**دوال مهمة:** `fn_can_book` · `fn_capacity_guard` (قفل السعة) · `fn_booking_paid` · `fn_cancel_booking` · `fn_approve_transfer` · `fn_redeem_pass`/`fn_revert_pass`/`fn_activate_pass` · `fn_build_matching`/`fn_build_work_matching` · `fn_reveal` · `fn_pair_want`/`fn_work_want` (الطريق الصح لكتابة التبادل) · `fn_is_admin`/`fn_has_permission` · `fn_can_see_place`/`fn_sbota_place` (الحارس والبيانات، كل واحد لوحده) · `fn_safety_link`/`fn_safety_my`/`fn_safety_view`/`fn_safety_mark`/`fn_safety_revoke`.
+**دوال مهمة:** `fn_can_book` · `fn_capacity_guard` (قفل السعة) · `fn_booking_paid` · `fn_cancel_booking` · `fn_approve_transfer` · `fn_redeem_pass`/`fn_revert_pass`/`fn_activate_pass` · `fn_build_matching`/`fn_build_work_matching` · `fn_reveal` · `fn_pair_want`/`fn_work_want` (الطريق الصح لكتابة التبادل) · `fn_is_admin`/`fn_has_permission` · `fn_can_see_place`/`fn_sbota_place` (الحارس والبيانات، كل واحد لوحده) · `fn_safety_link`/`fn_safety_my`/`fn_safety_view`/`fn_safety_mark`/`fn_safety_revoke` · `fn_sbota_arrival`/`fn_set_sbota_sign`.
 
 **صفحات المحتوى (0082):** `content_pages` · `content_blocks`. القواعد والأسئلة ومين إحنا والشروط — الفقرات بتتضاف وتتمسح وتترتّب من `/admin/content` ← «صفحات الموقع». الكتابة بـ`content.edit`. والفقرة اللي الكود بيسأل عنها بالاسم ليها `ref` ثابت (`guarantee`).
 
@@ -242,6 +242,25 @@ psql -h 127.0.0.1 -p 5433 -U postgres -d nasbot --single-transaction -f WORK_MIG
     واتجرّبوا بـ**تسع فخاخ متعمّدة** (باب كتابة على الجدول · الرابط مفتوح
     للمجهول · العنوان من غير حارس · «وصلت» من غير ملكية · التوكن بيتغيّر كل
     مرة · `fn_safety_my` من غير حارس · السن مكتوب في الكود × ٢ · الصفحة فاضية).
+
+- 🟡 **الوصول وأول ربع ساعة — مكتوبين ومتفحوصين، لسه ما اتلزقوش.**
+  `WORK_MIGRATION_26.sql` (`0106` + `0107`):
+  - **«جايين منين»** — `fn_who_booked` بقى فيها `same_area` («منهم ٣ من
+    ناحيتك» قبل الدفع)، و`fn_group_members` بقى فيها `area_code`/`area_label`/
+    `same_area` (بعد الكشف). «غير كده» بترجّع **null** مش رقم، وnull و0 مش
+    نفس الحاجة. المقارنة في القاعدة مش في الواجهة.
+  - **«أول ربع ساعة»** — عمود `sbotat.sign_ar` (العلامة) + `fn_sbota_arrival`
+    (العلامة + أقدم حجز في **نفس المجموعة** هو اللي بيستقبل) + تلات أسئلة
+    في `copy_strings`. الكرت بيفتح مع الكشف بنفس الحارس بالظبط.
+  - `fn_guard_sbota_text` مشي ورا العمود الجديد — من غير كده الكلمات
+    الممنوعة كانت هتعدّي من خانة العلامة.
+  - و`fn_my_hosted_sbotat` كانت بتعرض **اسم القالب** بدل العنوان اللي العضو
+    كتبه (كل خروجات الأعضاء على قالب عام واحد) — بقت `coalesce` زي
+    `sbotat_public`.
+  - `test_ride_areas()` (٩) و`test_arrival()` (١١) — كلهم نجح، واتجرّبوا
+    بـ**تمن فخاخ**: العدّ اللي بيعدّني أنا · «غير كده» بتتعدّ · حارس الكشف
+    مشيل · الحارس نسي العمود الجديد · العلامة من غير ملكية · الكرت من غير
+    كشف · الكرت من غير حجز · «خروجاتي» راجعة لاسم القالب.
 
 - 🔴 **مراجعة شاملة عاملة `REVIEW.md`** (+ 4 ملفات تفصيلية) لقت 150 نتيجة، 34 حمرا. اقرأها قبل ما تكمّل أي حاجة.
 - 🟢 **الدفعة الأولى اتلزقت على القاعدة** (`WORK_MIGRATION_5.sql`) — أحمر الأمان والفلوس والقاعدة كله واقع.
@@ -436,7 +455,7 @@ union all select 'WM9 (content_pages)',       to_regclass('content_pages')      
 رجع `false`، الزقها حتى لو ٨ و٩ اتلزقوا.
 
 ### ملفات التوثيق
-`CONTENT_BRIEF.md` (المحتوى الناقص — بريف جاهز يتبعت لكاتب) · `CHECK_DB.sql` (فاحص القاعدة الشامل) · `README.md` · `DB_PLAN.md` · `ADMIN_PLAN.md` · `WORK_PLAN.md` · `DESIGN_TOKENS.md` · `COPY.md` · `ADMIN_GUIDE.md` · `RUNBOOK.md` · `DEPLOY_CHECKLIST.md` · **`REVIEW*.md`** (المراجعة) · ملفات `WORK_MIGRATION_*.sql` (لحد `_25`) و`WORK_CRON.sql` (تتلزق في SQL Editor).
+`CONTENT_BRIEF.md` (المحتوى الناقص — بريف جاهز يتبعت لكاتب) · `CHECK_DB.sql` (فاحص القاعدة الشامل) · `README.md` · `DB_PLAN.md` · `ADMIN_PLAN.md` · `WORK_PLAN.md` · `DESIGN_TOKENS.md` · `COPY.md` · `ADMIN_GUIDE.md` · `RUNBOOK.md` · `DEPLOY_CHECKLIST.md` · **`REVIEW*.md`** (المراجعة) · ملفات `WORK_MIGRATION_*.sql` (لحد `_26`) و`WORK_CRON.sql` (تتلزق في SQL Editor).
 
 ---
 

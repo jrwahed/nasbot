@@ -1210,7 +1210,8 @@ export async function getMyHostedSbotat(): Promise<HostedSbota[]> {
   if (error || !data) return []
   return (data as {
     id: string; slug: string; name_ar: string; starts_at: string
-    capacity: number; booked: number; status: string; note_ar: string | null
+    capacity: number; booked: number; status: string
+    note_ar: string | null; sign_ar: string | null
   }[]).map((r) => ({
     id: r.id,
     slug: r.slug,
@@ -1221,6 +1222,7 @@ export async function getMyHostedSbotat(): Promise<HostedSbota[]> {
     booked: r.booked,
     status: r.status,
     note: r.note_ar ?? '',
+    sign: r.sign_ar ?? '',
   }))
 }
 
@@ -1229,6 +1231,39 @@ export async function updateMySbotaNote(id: string, note: string) {
   if (!DB) return mock.updateMySbotaNote(id, note)
   const { error } = await supabase().rpc('fn_update_own_sbota', { p_id: id, p_note: note })
   return error ? { ok: false as const, error: error.message } : { ok: true as const }
+}
+
+/**
+ * العلامة اللي المجموعة تعرف صاحب الخروجة بيها — «الترابيزة اللي عليها
+ * ورقة برتقالي».
+ *
+ * ⚠ دالة لوحدها مش parameter زيادة في `fn_update_own_sbota`: إضافة
+ *   parameter بـ`default` بتعمل دالة **تانية** والنداء بيبقى ambiguous.
+ */
+export async function setMySbotaSign(id: string, sign: string) {
+  if (!DB) return { ok: false as const, error: '' }
+  const { error } = await supabase().rpc('fn_set_sbota_sign', { p_id: id, p_sign: sign })
+  return error ? { ok: false as const, error: error.message } : { ok: true as const }
+}
+
+/** «أول ربع ساعة» — العلامة ومين بيستقبل. بتفتح مع الكشف بس. */
+export interface Arrival {
+  sign: string
+  greeterName: string
+  greeterIsMe: boolean
+}
+
+export async function getArrival(bookingId: string): Promise<Arrival | null> {
+  if (!DB) return null
+  const { data, error } = await supabase().rpc('fn_sbota_arrival', { p_booking_id: bookingId })
+  if (error) return null
+  const r = (Array.isArray(data) ? data[0] : data) as Record<string, unknown> | undefined
+  if (!r) return null
+  return {
+    sign: String(r.sign_ar ?? ''),
+    greeterName: String(r.greeter_name ?? ''),
+    greeterIsMe: Boolean(r.greeter_is_me),
+  }
 }
 
 /** إلغاء خروجتي — بيترفض من القاعدة لو في حد دافع (الاسترداد شغل اللوحة). */

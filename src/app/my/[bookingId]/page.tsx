@@ -10,6 +10,7 @@ import { Countdown, CountdownText } from '@/components/Countdown'
 import { PlaceMap } from '@/components/MiniMap'
 import { EmergencyCall } from '@/components/EmergencyBlock'
 import { SafetyCard } from '@/components/SafetyCard'
+import { ArrivalCard } from '@/components/ArrivalCard'
 import { areaFromDb } from '@/lib/map-db'
 import { groupRuleStickers } from '@/data/lists'
 import { getGroup, requestGirlsOnly, type Group } from '@/lib/api'
@@ -156,6 +157,9 @@ export default function GroupPage() {
             <CountdownText to={booking.revealAt} />{t('group.text.8')}</div>
         </div>
       )}
+
+      {/* ===== أول ربع ساعة ===== */}
+      <ArrivalCard bookingId={booking.id} />
 
       {/* ===== جايين منين =====
           أكتر سبب إلغاء في القاهرة هو الطريق. الأسامي اتكشفت أصلًا —

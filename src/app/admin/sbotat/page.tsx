@@ -64,6 +64,7 @@ interface Sbota {
   host_id: string | null
   host_name_ar: string | null
   host_note_ar: string | null
+  sign_ar: string | null
   title_ar: string | null
   details_ar: string | null
   venue_name_ar: string | null
@@ -995,6 +996,7 @@ function NewSbota({
   const [templateId, setTemplateId] = useState('')
   const [venueNameAr, setVenueNameAr] = useState('')
   const [addressAr, setAddressAr] = useState('')
+  const [signAr, setSignAr] = useState('')
   const [areaLabelAr, setAreaLabelAr] = useState('')
   // كود المنطقة بيتحط بس لما تدوس على كبسولة — الكتابة الحرة بتسيبه فاضي
   // والكود بيطابق بالاسم.
@@ -1048,6 +1050,7 @@ function NewSbota({
         venue_id: null,
         venue_name_ar: venueNameAr.trim() || null,
         address_ar: addressAr.trim() || null,
+        sign_ar: signAr.trim() || null,
         area_label_ar: areaLabelAr.trim() || null,
         area: areaKey,
         captain_id: captainId || null,
@@ -1105,6 +1108,13 @@ function NewSbota({
           onChange={setVenueNameAr}
           className="w-full md:w-[300px]"
           hint="زي ما الناس بتقوله — «كافيه البوسطة»."
+        />
+        <Inp
+          label="العلامة (هيعرفوا بعض إزاي)"
+          value={signAr}
+          onChange={setSignAr}
+          className="w-full md:w-[360px]"
+          hint="«الترابيزة اللي عليها ورقة برتقالي». بتوصل للحاجزين مع كشف المجموعة بس — مش معروضة على الموقع."
         />
         <div className="w-full">
           <Inp
@@ -1240,6 +1250,7 @@ function EditPanel({
   const [detailsAr, setDetailsAr] = useState(row.details_ar ?? '')
   const [venueNameAr, setVenueNameAr] = useState(row.venue_name_ar ?? '')
   const [addressAr, setAddressAr] = useState(row.address_ar ?? '')
+  const [signAr, setSignAr] = useState(row.sign_ar ?? '')
   const [busy, setBusy] = useState(false)
 
   const tpl = templates.find((t) => t.id === templateId)
@@ -1286,6 +1297,7 @@ function EditPanel({
       venue_id: null,
       venue_name_ar: venueNameAr.trim() || null,
       address_ar: addressAr.trim() || null,
+      sign_ar: signAr.trim() || null,
       captain_id: captainId || null,
       price: Math.round(Number(price) || 0) * 100,
       org_fee: Math.round(Number(orgFee) || 0) * 100,
@@ -1380,6 +1392,13 @@ function EditPanel({
           onChange={setVenueNameAr}
           className="w-full md:w-[300px]"
           hint="زي ما الناس بتقوله — «كافيه البوسطة»."
+        />
+        <Inp
+          label="العلامة (هيعرفوا بعض إزاي)"
+          value={signAr}
+          onChange={setSignAr}
+          className="w-full md:w-[360px]"
+          hint="«الترابيزة اللي عليها ورقة برتقالي». بتوصل للحاجزين مع كشف المجموعة بس — مش معروضة على الموقع."
         />
         <div className="w-full">
           <Inp
