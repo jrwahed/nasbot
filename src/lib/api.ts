@@ -73,6 +73,7 @@ import { setSession, clearSession } from '@/lib/session'
 import { personas } from '@/data/personas'
 import { gameFallback } from '@/data/game'
 import { resultFor, type GameConfig, type GameKind } from '@/lib/game-config'
+import { REVIEW_FIELDS, REBOOK_MIN } from '@/lib/review-fields'
 import { WORK_WINDOW_DAYS, workSettingsDefaults, workScheduleDefaults } from '@/data/lists'
 
 /** بيتحدد مرة واحدة عند التحميل */
@@ -1473,18 +1474,21 @@ export async function submitReview(payload: ReviewPayload) {
     .maybeSingle()
   if (!b) return { ok: false as const, error: 'الحجز مش موجود' }
 
+  // ⚠ الدرجات بتتقرا بـ**مفتاح ثابت** مش بالنص العربي. الصيغة القديمة
+  //    (`r['السبوطة']`) كانت بتتحوّل لـnull بالكامل أول ما حد يغيّر كلمة في
+  //    السؤال — والتقييم بيتبعت وشكله اتسجّل.
   const r = payload.ratings
-  await supabase().from('reviews').insert({
+  const row: Record<string, unknown> = {
     booking_id: payload.bookingId,
     profile_id: uid,
     sbota_id: (b as { sbota_id: string }).sbota_id,
-    score_sbota: r['السبوطة'] ?? null,
-    score_captain: r['الكابتن'] ?? null,
-    score_venue: r['المكان'] ?? null,
-    score_group: r['المجموعة'] ?? null,
-    will_rebook: (r['هتحجز تاني خلال شهر؟'] ?? 0) >= 4,
+    will_rebook: (r.again ?? 0) >= REBOOK_MIN,
     photo_consent: payload.allowPhoto,
-  })
+  }
+  for (const f of REVIEW_FIELDS) {
+    if (f.col) row[f.col] = r[f.key] ?? null
+  }
+  await supabase().from('reviews').insert(row)
 
   // «عايز تشوف مين تاني» — بيتكتب في pair_affinity، والطرف التاني ما يعرفش
   let ids = payload.seeAgainIds ?? []

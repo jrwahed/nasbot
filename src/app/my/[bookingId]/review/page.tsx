@@ -9,7 +9,7 @@ import { Checkbox } from '@/components/Field'
 import { PrimaryButton } from '@/components/Buttons'
 import { StickyCTA } from '@/components/StickyCTA'
 import { Sticker } from '@/components/Sticker'
-import { reviewQuestions } from '@/data/bookings'
+import { REVIEW_FIELDS } from '@/lib/review-fields'
 import { people } from '@/data/people'
 import { submitReview } from '@/lib/api'
 import { getBookingCollab, pairWant, workWant, type Mate } from '@/lib/collab'
@@ -173,12 +173,18 @@ export default function ReviewPage() {
       </div>
 
       <div className="mt-8 flex flex-col gap-6">
-        {reviewQuestions.map((q) => (
+        {/*
+          ⚠ الدرجة بتتخزّن بـ**المفتاح الثابت** (`f.key`) مش بنص السؤال.
+            الصيغة القديمة كانت `ratings['السبوطة']`، والحفظ في القاعدة كان
+            بيقرا بنفس النص — فأول ما حد يغيّر كلمة، كل الدرجات تتحفظ `null`
+            والتقييم يتبعت وشكله اتسجّل.
+        */}
+        {REVIEW_FIELDS.map((f) => (
           <RatingFaces
-            key={q}
-            question={q}
-            value={ratings[q]}
-            onChange={(v) => setRatings((s) => ({ ...s, [q]: v }))}
+            key={f.key}
+            question={t(f.copy)}
+            value={ratings[f.key]}
+            onChange={(v) => setRatings((s) => ({ ...s, [f.key]: v }))}
           />
         ))}
       </div>
