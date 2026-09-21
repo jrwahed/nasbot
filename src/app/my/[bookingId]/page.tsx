@@ -16,7 +16,7 @@ import { groupRuleStickers } from '@/data/lists'
 import { getGroup, requestGirlsOnly, type Group } from '@/lib/api'
 import { getSession } from '@/lib/session'
 import { useT } from '@/components/CopyProvider'
-import { RevealLine } from '@/components/RevealLine'
+import { BookingStageCard, stageOf } from '@/components/BookingStage'
 
 /** منطقة العضو زي ما هتتعرض — كلامه هو لو كاتبها بإيده، وإلا من القايمة */
 const areaLabelOf = (p: { areaLabel?: string; areaCode?: string }) =>
@@ -64,23 +64,35 @@ export default function GroupPage() {
 
   const { booking, sbota, captain, people, why, revealed } = group
   const nearby = people.filter((p) => p.sameArea)
+  /**
+   * ⚠ الصفحة دي كانت بتعرف حالتين بس (`revealed` ولا لأ)، فاللي مستني
+   *   اعتماد التحويل واللي في الانتظار واللي حجزه **اتلغى** كانوا بيشوفوا
+   *   نفس العدّاد التنازلي. الحالة دلوقتي بتتقرا من القاعدة.
+   */
+  const stage = stageOf(booking, revealed)
+  const live = stage !== 'cancelled'
 
   return (
     <main className="mx-auto w-full max-w-page px-5 pb-6">
       <InnerHeader back={t('group.label.3')} href="/me" padded={false} />
 
+      {/* ⚠ العنوان كان «مجموعتك يوم الخميس» في كل الحالات — حتى لو الحجز
+          اتلغى. مفيش مجموعة قبل الكشف، والعدّاد التنازلي لحجز ملغي كدب. */}
       <h1 className="mb-0 mt-[10px] font-display text-32 font-black leading-[1.15]">
-        {t('group.yourGroupOn', { day: booking.when.split(' ')[0] })}
+        {stage === 'revealed'
+          ? t('group.yourGroupOn', { day: booking.when.split(' ')[0] })
+          : booking.sbotaName}
       </h1>
 
       <div className="mt-2 flex flex-wrap items-center gap-[10px]">
-        <Countdown to={booking.startsAt} />
+        {live && <Countdown to={booking.startsAt} />}
         <span style={{ color: 'var(--muted)' }}>
-          {booking.sbotaName} · {booking.area}
+          {stage === 'revealed' ? `${booking.sbotaName} · ${booking.area}` : booking.area}
         </span>
       </div>
 
       {/* ===== الكابتن ===== */}
+      {live && (
       <div
         className="mt-[22px] flex items-center gap-[14px] rounded-20 p-4"
         style={{ background: '#EFE3CF', color: '#14161A' }}
@@ -91,9 +103,10 @@ export default function GroupPage() {
           <div className="font-body text-14">{captain.gateLine}</div>
         </div>
       </div>
+      )}
 
       {/* ===== اللي رايحين معاك ===== */}
-      {revealed ? (
+      {stage === 'revealed' ? (
         <>
           <div className="mt-[22px] font-display text-20 font-black">
             {t('group.whoIsGoing', { n: people.length })}
@@ -147,25 +160,16 @@ export default function GroupPage() {
           </div>
         </>
       ) : (
-        <div
-          className="mt-[22px] rounded-20 p-[18px]"
-          style={{ background: 'var(--surface)' }}
-        >
-          <div className="font-display text-20 font-black">
-            <RevealLine short />
-          </div>
-          <div className="mt-1" style={{ color: 'var(--muted)' }}>
-            <CountdownText to={booking.revealAt} />{t('group.text.8')}</div>
-        </div>
+        <BookingStageCard booking={booking} stage={stage} />
       )}
 
       {/* ===== أول ربع ساعة ===== */}
-      <ArrivalCard bookingId={booking.id} />
+      {live && <ArrivalCard bookingId={booking.id} />}
 
       {/* ===== جايين منين =====
           أكتر سبب إلغاء في القاهرة هو الطريق. الأسامي اتكشفت أصلًا —
           إحنا بنقول المنطقة بس، واللي من ناحية بعض يتفقوا هما. */}
-      {revealed && (
+      {stage === 'revealed' && (
         <section className="mt-4 rounded-20 p-4" style={{ background: 'var(--surface)' }}>
           <div className="font-display text-18 font-black">{t('group.ride.title')}</div>
           {nearby.length > 0 ? (
@@ -189,7 +193,11 @@ export default function GroupPage() {
         </section>
       )}
 
-      {/* ===== المكان ===== */}
+      {/* ===== المكان =====
+          ⚠ على حجز ملغي الخريطة كانت بتفضل مكانها وتحتها «العنوان الكامل
+             بيظهر مع الكشف» — وعد لحجز مش موجود. */}
+      {live && (
+      <>
       <div className="mt-[22px] font-display text-20 font-black">{t('group.text.7')}</div>
       <div
         className="mt-2 overflow-hidden rounded-20"
@@ -198,10 +206,10 @@ export default function GroupPage() {
         <PlaceMap />
         <div className="flex items-center justify-between gap-3 px-4 py-[14px]">
           <div className="font-body text-14" style={{ color: '#FBF7EF' }}>
-            <b>{revealed ? sbota.venueName || sbota.area : sbota.area}</b>
+            <b>{stage === 'revealed' ? sbota.venueName || sbota.area : sbota.area}</b>
             <br />
             <span style={{ color: '#C9C4B8' }}>
-              {revealed ? sbota.address : t('group.label.1')}
+              {stage === 'revealed' ? sbota.address : t('group.label.1')}
             </span>
           </div>
           <a
@@ -213,9 +221,11 @@ export default function GroupPage() {
           >{t('group.text.6')}</a>
         </div>
       </div>
+      </>
+      )}
 
       {/* ===== معايا حد يعرف ===== */}
-      <SafetyCard bookingId={booking.id} sbotaName={booking.sbotaName} />
+      {live && <SafetyCard bookingId={booking.id} sbotaName={booking.sbotaName} />}
 
       {/* ===== القواعد في سطرين ===== */}
       <div className="mt-[22px] flex flex-wrap gap-2">
@@ -226,7 +236,11 @@ export default function GroupPage() {
         ))}
       </div>
 
-      {/* ===== الشات ===== */}
+      {/* ===== الشات =====
+          ⚠ الشات بيفتح مع الكشف، ومش بيفتح لحجز لسه مش مدفوع. الزرار كان
+             ظاهر للكل فالعضو يدوس ويلاقي شاشة مقفولة من غير ما يفهم ليه. */}
+      {booking.paid && (
+      <>
       <Link
         href={`/my/${booking.id}/chat`}
         className="mt-6 grid w-full place-items-center rounded-16 font-display text-20 font-black"
@@ -236,6 +250,8 @@ export default function GroupPage() {
         className="mt-[6px] text-center font-body text-13"
         style={{ color: 'var(--muted)' }}
       >{t('group.text.4')}</div>
+      </>
+      )}
 
       {/* ===== الأزرار اللاصقة ===== */}
       <div
@@ -250,7 +266,9 @@ export default function GroupPage() {
           className="text-16"
           style={{ background: '#3A3D44', minHeight: 50, borderRadius: 14 }}
         />
-        {isGirl &&
+        {/* ⚠ «انقلني لمجموعة بنات بس» طلب على حجز قايم — مالوش معنى على
+             حجز اتلغى. */}
+        {isGirl && live &&
           (moved ? (
             <div
               role="status"

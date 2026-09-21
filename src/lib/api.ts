@@ -912,6 +912,20 @@ export async function getBookingStatus(bookingId: string) {
   return { status: ((data as { status: string } | null)?.status ?? 'pending_payment') as string }
 }
 
+/**
+ * أعمدة الحجز — **مصدر واحد** لـ`getBookings` و`getBooking`.
+ *
+ * ⚠ كانوا نصين متطابقين مكتوبين بالإيد. أول ما زوّدنا `title_ar` لواحد
+ *   كان سهل ننسى التاني، فصفحة «حجوزاتي» تقول اسم القالب وصفحة الحجز
+ *   تقول العنوان — نفس شكل الدرس الخمستاشر بالظبط.
+ */
+const BOOKING_COLS = [
+  'id',
+  'status',
+  'sbotat(id, starts_at, reveal_at, chat_closes_at, area, area_label_ar, title_ar,' +
+    ' sbota_templates(slug, name_ar))',
+].join(',')
+
 export async function getBookings(): Promise<Booking[]> {
   if (!DB) return mock.getBookings()
   // حجوزاتي أنا بس. RLS بتسمح كمان بقراءة حجوزات باقي المجموعة بعد الكشف،
@@ -922,7 +936,7 @@ export async function getBookings(): Promise<Booking[]> {
   const { data } = await supabase()
     .from('bookings')
     .select(
-      'id, status, sbotat(id, starts_at, reveal_at, chat_closes_at, area, area_label_ar, sbota_templates(slug, name_ar))'
+      BOOKING_COLS
     )
     .eq('profile_id', uid)
     .order('created_at', { ascending: false })
@@ -934,7 +948,7 @@ export async function getBooking(id: string): Promise<Booking | null> {
   const { data } = await supabase()
     .from('bookings')
     .select(
-      'id, status, sbotat(id, starts_at, reveal_at, chat_closes_at, area, area_label_ar, sbota_templates(slug, name_ar))'
+      BOOKING_COLS
     )
     .eq('id', id)
     .maybeSingle()

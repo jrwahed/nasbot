@@ -155,12 +155,31 @@ export interface Person {
   sameArea?: boolean
 }
 
+/**
+ * حالة الحجز زي ما هي في القاعدة — مش «قبل/بعد» بس.
+ *
+ * ⚠ صفحة `/my/[id]` كانت بتعرف حالتين: «اتكشف» و«لسه». فاللي لسه مستني
+ *   اعتماد التحويل، واللي في قايمة الانتظار، واللي حجزه **اتلغى** كانوا
+ *   بيشوفوا نفس الشاشة: عدّاد تنازلي وسطر «هتعرف مجموعتك…». الحالة لازم
+ *   تتقال زي ما هي.
+ */
+export type BookingState =
+  | 'pending_payment'
+  | 'paid'
+  | 'waitlist'
+  | 'cancelled'
+  | 'attended'
+  | 'no_show'
+  | 'refunded'
+
 export interface Booking {
   id: string
   slug: string
   sbotaName: string
   when: string
   area: string
+  /** حالة الحجز في القاعدة */
+  state: BookingState
   /** وقت السبوطة نفسها */
   startsAt: string
   /** الكشف بيحصل قبلها بيوم الساعة 8 */
