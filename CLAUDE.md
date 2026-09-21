@@ -644,8 +644,23 @@ union all select 'WM9 (content_pages)',       to_regclass('content_pages')      
 ٦ مش متلزقة الدالة **بتتعمل عادي وبتقع وقت الاستعمال**. فلو السطر بتاع WM6
 رجع `false`، الزقها حتى لو ٨ و٩ اتلزقوا.
 
+### بعد كل خروجة
+
+**`AFTER_SBOTA.md`** — دورة بتلف بعد كل خروجة، مش قايمة مهام مكتوبة مرة.
+المالك بيبعت سطر واحد («حصلت خروجة. شغّل AFTER_SBOTA.md») والإيجنت بيقيس
+الحالة من القاعدة، ويسأل ٥ أسئلة، ويقترح **تلاتة بس**، والمالك يختار واحدة.
+وبعد ما تتبني، **الإيجنت بيحدّث الملف نفسه** — سجل الدورات وقايمة المؤجل
+والحقايق. من غير الخطوة دي الملف بيرجع برومبت ميت.
+
+الإجابات بتتكتب في **`SBOTAT_LOG.md`** — دي الذاكرة. اللي مش مكتوب فيه
+بينسى ويتبني تاني بالغلط.
+
+⚠ البرومبتات اللي بتيجي بقايمة مهام جاهزة (M7…M11) اتحوّلت لـ«المؤجل» في
+`AFTER_SBOTA.md` — **مشروطة، ومرتّبة، وقابلة إنها تتشال** لو الخروجة قالت
+حاجة تانية. البند المكتوب قبل أول خروجة تخمين مهما كان مقنع.
+
 ### ملفات التوثيق
-`CONTENT_BRIEF.md` (المحتوى الناقص — بريف جاهز يتبعت لكاتب) · `CHECK_DB.sql` (فاحص القاعدة الشامل) · `README.md` · `DB_PLAN.md` · `ADMIN_PLAN.md` · `WORK_PLAN.md` · `DESIGN_TOKENS.md` · `COPY.md` · `ADMIN_GUIDE.md` · `RUNBOOK.md` · `DEPLOY_CHECKLIST.md` · **`REVIEW*.md`** (المراجعة) · ملفات `WORK_MIGRATION_*.sql` (لحد `_31`) و`WORK_CRON.sql` (تتلزق في SQL Editor).
+**`AFTER_SBOTA.md`** + **`SBOTAT_LOG.md`** (دورة ما بعد الخروجة) · `CONTENT_BRIEF.md` (المحتوى الناقص) · `CHECK_DB.sql` (فاحص القاعدة الشامل) · `README.md` · `DB_PLAN.md` · `ADMIN_PLAN.md` · `WORK_PLAN.md` · `DESIGN_TOKENS.md` · `COPY.md` · `ADMIN_GUIDE.md` · `RUNBOOK.md` · `DEPLOY_CHECKLIST.md` · **`REVIEW*.md`** (المراجعة) · ملفات `WORK_MIGRATION_*.sql` (لحد `_31`) و`WORK_CRON.sql` (تتلزق في SQL Editor).
 
 ---
 
