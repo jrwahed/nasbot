@@ -27,6 +27,7 @@ const SECTIONS: { href: string; label: string; perm: string | null }[] = [
   { href: '/admin/people', label: 'الناس', perm: 'people.view' },
   { href: '/admin/captains', label: 'الكباتن', perm: 'captains.edit' },
   { href: '/admin/payments', label: 'الفلوس', perm: 'payments.view' },
+  { href: '/admin/photos', label: 'الصور', perm: 'sbotat.view' },
   { href: '/admin/reports', label: 'البلاغات', perm: 'reports.view' },
   { href: '/admin/notifications', label: 'الرسائل', perm: 'notifications.view' },
   { href: '/admin/map', label: 'الخريطة', perm: 'map.edit' },
