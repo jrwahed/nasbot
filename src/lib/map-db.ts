@@ -281,7 +281,8 @@ export function sbotaFromDb(
       //   السطر يختفي بدل ما يكذب.
       sameArea: who?.same_area ?? null,
       line: whoLine(who),
-      revealLine: 'هتعرف مجموعتك قبلها بيوم الساعة 8 بالليل.',
+      // ⚠ سطر الكشف كان هنا بالحرف وفيه «8 بالليل» ثابتة — بقى
+      //   `<RevealLine />`: نصه من `copy_strings` وساعته من `settings`.
     },
   }
 }

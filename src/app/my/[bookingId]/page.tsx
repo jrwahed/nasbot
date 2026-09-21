@@ -16,6 +16,7 @@ import { groupRuleStickers } from '@/data/lists'
 import { getGroup, requestGirlsOnly, type Group } from '@/lib/api'
 import { getSession } from '@/lib/session'
 import { useT } from '@/components/CopyProvider'
+import { RevealLine } from '@/components/RevealLine'
 
 /** منطقة العضو زي ما هتتعرض — كلامه هو لو كاتبها بإيده، وإلا من القايمة */
 const areaLabelOf = (p: { areaLabel?: string; areaCode?: string }) =>
@@ -151,7 +152,7 @@ export default function GroupPage() {
           style={{ background: 'var(--surface)' }}
         >
           <div className="font-display text-20 font-black">
-            {sbota.whoBooked.revealLine.replace(t('group.label.2'), '')}
+            <RevealLine short />
           </div>
           <div className="mt-1" style={{ color: 'var(--muted)' }}>
             <CountdownText to={booking.revealAt} />{t('group.text.8')}</div>

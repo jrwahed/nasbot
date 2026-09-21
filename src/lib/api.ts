@@ -2038,6 +2038,34 @@ export async function getEmergencyPhone(): Promise<string | null> {
   )
 }
 
+/**
+ * ساعة كشف المجموعة من `settings.reveal_hour_cairo` (0109).
+ *
+ * ⚠ نفس نمط `getEmergencyPhone` بالظبط: رقم المالك بيغيّره من اللوحة، وكان
+ *   مكتوب في الكود في مكانين — في جملة «هتعرف مجموعتك … الساعة 8 بالليل»
+ *   وفي `fn_sbota_timings` نفسها. الاتنين اتوصّلوا.
+ *
+ * بترجّع 20 لو القراية وقعت — **نفس الافتراضي في القاعدة**، فالجملة تفضل
+ * صح بدل ما تختفي.
+ */
+export async function getRevealHour(): Promise<number> {
+  if (!DB) return 20
+  return safeWork(
+    'getRevealHour',
+    async () => {
+      const { data, error } = await supabase()
+        .from('settings')
+        .select('reveal_hour_cairo')
+        .limit(1)
+        .maybeSingle()
+      if (error || !data) return 20
+      const h = Number((data as { reveal_hour_cairo?: number | null }).reveal_hour_cairo)
+      return Number.isFinite(h) && h >= 0 && h <= 23 ? h : 20
+    },
+    20
+  )
+}
+
 /** أماكن الشغل من work_venues_public — مفتاحها venue_id */
 async function workVenuesMap(venueIds: string[]): Promise<Map<string, WorkVenue>> {
   const out = new Map<string, WorkVenue>()

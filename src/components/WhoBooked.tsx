@@ -2,6 +2,7 @@ import Link from 'next/link'
 import type { WhoBooked as WhoBookedData } from '@/types'
 import { ShieldIcon } from '@/components/Icons'
 import { useT } from '@/components/CopyProvider'
+import { RevealLine } from '@/components/RevealLine'
 
 /**
  * «مين حاجز لحد دلوقتي» — بدون أسماء.
@@ -39,7 +40,7 @@ export function WhoBooked({ data }: { data: WhoBookedData }) {
         className="mt-[10px] pt-[10px] font-body text-14"
         style={{ color: '#55575C', borderTop: '1px solid #D9CBAF' }}
       >
-        {data.revealLine}
+        <RevealLine />
       </div>
     </div>
   )

@@ -3,6 +3,7 @@
 import type { GroupProfession } from '@/types'
 import { Sticker } from '@/components/Sticker'
 import { useT } from '@/components/CopyProvider'
+import { RevealLine } from '@/components/RevealLine'
 
 /**
  * «مين حاجز لحد دلوقتي» — بالمجال، من غير أسامي ولا أعمار.
@@ -12,12 +13,10 @@ export function ProfessionChips({
   booked,
   total,
   professions,
-  revealLine,
 }: {
   booked: number
   total: number
   professions: GroupProfession[]
-  revealLine: string
 }) {
   const t = useT()
   const known = professions.reduce((n, p) => n + Math.max(1, p.count), 0)
@@ -46,7 +45,7 @@ export function ProfessionChips({
         className="mt-[10px] pt-[10px] font-body text-14"
         style={{ color: '#55575C', borderTop: '1px solid #D9CBAF' }}
       >
-        {t('shoghl.who.mix')} {revealLine}
+        {t('shoghl.who.mix')} <RevealLine />
       </div>
     </div>
   )

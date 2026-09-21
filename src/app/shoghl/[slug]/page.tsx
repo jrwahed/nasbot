@@ -204,7 +204,6 @@ export default function WorkSbotaPage() {
           booked={sbota.whoBooked.booked}
           total={sbota.whoBooked.total}
           professions={professions}
-          revealLine={sbota.whoBooked.revealLine}
         />
       </div>
 

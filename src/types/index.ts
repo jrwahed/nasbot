@@ -105,9 +105,13 @@ export interface WhoBooked {
   sameArea?: number | null
   /** «3 بنات و2 شباب · الأعمار 25–31 · اتنين أول مرة · تلاتة رايحين معانا قبل كده.» */
   line: string
-  /** «هتعرف مجموعتك الأربع الساعة 8 بالليل.» */
-  revealLine: string
 }
+
+/**
+ * ⚠ `revealLine` اتشال من هنا في `0109`. كان نص عربي **مكتوب في الكود**
+ *   وفيه ساعة ثابتة (8 بالليل) والمالك بيغيّرها من اللوحة ومحدش بيسمعه.
+ *   بقى `<RevealLine />` — نصه من `copy_strings` ورقمه من `settings`.
+ */
 
 export interface Captain {
   id: string

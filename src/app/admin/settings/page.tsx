@@ -360,7 +360,6 @@ const GROUPS: Group[] = [
     nums: [
       {
         col: 'reveal_hour_cairo',
-        unwired: true,
         label: 'ساعة كشف المجموعة',
         suffix: 'بتوقيت القاهرة',
         hint: 'الساعة اللي بنكشف فيها تفاصيل المجموعة للأعضاء.',
@@ -369,15 +368,13 @@ const GROUPS: Group[] = [
       },
       {
         col: 'chat_open_hours',
-        unwired: true,
         label: 'الشات بيفتح قبل السبوطة بـ',
         suffix: 'ساعة',
-        hint: 'قبل كده مفيش شات — المجموعة لسه مقفولة.',
+        hint: 'قبل كده مفيش شات — المجموعة لسه مقفولة. والشات عمره ما يفتح قبل الكشف مهما كان الرقم.',
         min: 0,
       },
       {
         col: 'chat_close_hours',
-        unwired: true,
         label: 'الشات بيقفل بعد السبوطة بـ',
         suffix: 'ساعة',
         hint: 'بعد المدة دي الأوضة بتتقفل ومحدش يقدر يكتب فيها.',

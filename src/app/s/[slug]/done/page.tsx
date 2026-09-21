@@ -11,6 +11,7 @@ import { getSession } from '@/lib/session'
 import { buildIcs, downloadIcs } from '@/lib/ics'
 import type { Sbota } from '@/types'
 import { useT } from '@/components/CopyProvider'
+import { RevealLine } from '@/components/RevealLine'
 
 /**
  * تأكيد الحجز — شاشة سودا كاملة، علامة الاستفهام بتنط،
@@ -119,7 +120,7 @@ function DoneView() {
 
         {!pending && (
           <div className="mt-4 text-center font-body text-16">
-            {sbota.whoBooked.revealLine}
+            <RevealLine />
           </div>
         )}
 
