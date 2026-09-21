@@ -19,6 +19,7 @@ import { EmergencyCall } from '@/components/EmergencyBlock'
 import { captainReportFields } from '@/data/bookings'
 import { isLoggedIn } from '@/lib/session'
 import { useT } from '@/components/CopyProvider'
+import { useFlag } from '@/components/FlagsProvider'
 
 /**
  * لوحة اللي ماسك المجموعة — صاحب الخروجة (عضو فتحها) أو كابتن نسبوط.
@@ -31,6 +32,8 @@ import { useT } from '@/components/CopyProvider'
  */
 export default function CaptainBoardPage() {
   const t = useT()
+  // ⚠ الرابط ده بيودّي لـ`/captains` وهي ورا مفتاح `captains` (0108).
+  const captainsOn = useFlag('captains')
   const params = useParams<{ sbotaId: string }>()
   const [board, setBoard] = useState<CaptainBoard | null>(null)
   const [arrived, setArrived] = useState<Record<string, boolean>>({})
@@ -56,11 +59,13 @@ export default function CaptainBoardPage() {
         <div className="pt-10">
           <h1 className="m-0 font-display text-30 font-black">{t('captainboard.text.9')}</h1>
           <p className="mt-2 font-body text-16" style={{ color: 'var(--muted)' }}>{t('captainboard.text.8')}</p>
+          {captainsOn.on && (
           <Link
             href="/captains"
             className="mt-4 inline-block font-body text-16 font-semibold underline"
             style={{ color: 'var(--accent-text)' }}
           >{t('captainboard.text.7')}</Link>
+          )}
         </div>
       </main>
     )

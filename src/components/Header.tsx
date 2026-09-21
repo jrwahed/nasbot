@@ -7,29 +7,46 @@ import { ThemeToggle } from '@/components/ThemeToggle'
 import { isLoggedIn } from '@/lib/session'
 import { useTheme } from '@/lib/use-theme'
 import { useT } from '@/components/CopyProvider'
-import { useFlag } from '@/components/FlagsProvider'
+import { useFlags } from '@/components/FlagsProvider'
+import type { FlagKey } from '@/data/flags-fallback'
 
 /**
  * رأس الرئيسية — من design/نسبوط.dc.html:
  * الشعار 34 يمين، «دخول» شمال، حشو 18px 20px 8px.
- * على الكمبيوتر بتظهر الروابط: الجدول · الخريطة · القواعد · الكباتن · اللعبة.
  *
  * ⚠ **الـnav دي `lg:flex` يعني كمبيوتر بس.** فضلت كده شهور، ونتيجتها إن
  *   اللي على الموبايل ما كانش يقدر يوصل للخريطة ولا القواعد ولا الكباتن
- *   ولا اللعبة — مفيش ولا رابط. دلوقتي فيه زرار قايمة بيفتح **نفس** الروابط
- *   بالظبط، فأي رابط يتضاف فوق لازم يتضاف في `MOBILE_LINKS` كمان.
+ *   ولا اللعبة — مفيش ولا رابط. دلوقتي فيه زرار قايمة بيفتح **نفس**
+ *   الروابط.
+ *
+ * ⚠ **والروابط دي مصدر واحد (`NAV`) للنسختين.** قبل كده كانت مكتوبة
+ *   مرتين — مرة في الـnav ومرة في `MOBILE_LINKS` — وكل مفتاح ميزة متعلّم
+ *   بفلتر يدوي منفصل. يعني أي رابط جديد لازم يتضاف في مكانين وأي قفل
+ *   يتكتب مرتين، وأول واحدة تتنسى بتسيب رابط شغّال لصفحة مقفولة.
  */
+
 /**
- * روابط قايمة الموبايل — **نفس اللي في الـnav فوق بالظبط**.
- * لو زوّدت رابط هناك زوّده هنا، والعكس.
+ * روابط الهيدر — **المصدر الوحيد**، والنسختين بيلفّوا عليه.
+ *
+ * `flag` = مفتاح الميزة اللي الصفحة وراه. لو المفتاح مقفول **الرابط
+ * ما بيتعرضش أصلًا** — مش بيودّي على شاشة «مقفول». والحارس
+ * `scripts/check-nav-flags.mjs` بيفشل البناء لو صفحة ورا `FeatureGate`
+ * وراها رابط هنا من غير نفس المفتاح.
  */
-const MOBILE_LINKS: ReadonlyArray<{ href: string; key: string }> = [
+const NAV: ReadonlyArray<{
+  href: string
+  key: string
+  flag?: FlagKey
+  /** رابط الشغل نهاري بس — الشغل منتج الصبح */
+  dayOnly?: boolean
+  accent?: boolean
+}> = [
   { href: '/', key: 'shared.text.18' },
-  { href: '/shoghl', key: 'shoghl.nav' },
-  { href: '/map', key: 'shared.text.17' },
+  { href: '/shoghl', key: 'shoghl.nav', flag: 'work_sbota', dayOnly: true, accent: true },
+  { href: '/map', key: 'shared.text.17', flag: 'map' },
   { href: '/rules', key: 'shared.text.16' },
-  { href: '/captains', key: 'shared.text.15' },
-  { href: '/game', key: 'game.nav' },
+  { href: '/captains', key: 'shared.text.15', flag: 'captains' },
+  { href: '/game', key: 'game.nav', flag: 'game' },
 ]
 
 export function Header({
@@ -43,10 +60,17 @@ export function Header({
   const [loggedIn, setLoggedIn] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   useEffect(() => setLoggedIn(isLoggedIn()), [])
-  // اللعبة ورا مفتاحها — لو مقفولة، الرابط يختفي بدل ما يودّي على «مقفول»
-  const game = useFlag('game')
-  // رابط «الشغل» نهاري بس — الشغل منتج الصبح
-  const showWork = theme === 'day'
+  const flags = useFlags()
+
+  /**
+   * الروابط اللي هتتعرض فعلًا — نفس القايمة للنسختين.
+   * مفتاح مقفول = الرابط يختفي خالص، مش يودّي على شاشة «مقفول».
+   */
+  const links = NAV.filter(
+    (l) =>
+      (!l.flag || (flags[l.flag]?.on ?? true)) &&
+      (!l.dayOnly || theme === 'day')
+  )
 
   return (
     <header className="relative flex items-center justify-between gap-4 px-5 pb-2 pt-[18px]">
@@ -55,16 +79,15 @@ export function Header({
       </Link>
 
       <nav className="hidden items-center gap-5 font-body text-16 font-semibold lg:flex">
-        <Link href="/">{t('shared.text.18')}</Link>
-        {showWork && (
-          <Link href="/shoghl" style={{ color: 'var(--accent-text)' }}>
-            {t('shoghl.nav')}
+        {links.map((l) => (
+          <Link
+            key={l.href}
+            href={l.href}
+            style={l.accent ? { color: 'var(--accent-text)' } : undefined}
+          >
+            {t(l.key)}
           </Link>
-        )}
-        <Link href="/map">{t('shared.text.17')}</Link>
-        <Link href="/rules">{t('shared.text.16')}</Link>
-        <Link href="/captains">{t('shared.text.15')}</Link>
-        {game.on && <Link href="/game">{t('game.nav')}</Link>}
+        ))}
       </nav>
 
       <div className="flex items-center gap-1">
@@ -100,19 +123,17 @@ export function Header({
           style={{ background: 'var(--bg)', borderBottom: '2px solid var(--line)' }}
           aria-label={t('shared.menu')}
         >
-          {MOBILE_LINKS.filter((l) => (l.href === '/shoghl' ? showWork : true))
-            .filter((l) => (l.href === '/game' ? game.on : true))
-            .map((l) => (
-              <Link
-                key={l.href}
-                href={l.href}
-                onClick={() => setMenuOpen(false)}
-                className="flex min-h-[48px] items-center font-body text-18 font-semibold"
-                style={{ color: l.href === '/shoghl' ? 'var(--accent-text)' : 'var(--fg)' }}
-              >
-                {t(l.key)}
-              </Link>
-            ))}
+          {links.map((l) => (
+            <Link
+              key={l.href}
+              href={l.href}
+              onClick={() => setMenuOpen(false)}
+              className="flex min-h-[48px] items-center font-body text-18 font-semibold"
+              style={{ color: l.accent ? 'var(--accent-text)' : 'var(--fg)' }}
+            >
+              {t(l.key)}
+            </Link>
+          ))}
         </nav>
       )}
     </header>

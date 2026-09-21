@@ -18,6 +18,12 @@
  *   referral    → كرت كود الدعوة في /me
  *   work_sbota  → /shoghl/* كله
  *   member_sbota → /new (العضو بيفتح خروجته) و/me/sbotati
+ *   captains    → /captains (0108)
+ *
+ * ⚠ القفل بيخفي **الصفحة والرابط اللي بيوديها** مع بعض. الرابط المقفول
+ *   ما بيتعرضش أصلًا — مش بيودّي على شاشة «مقفول». الحارس
+ *   `scripts/check-nav-flags.mjs` بيفشل البناء لو رابط في القايمة أو
+ *   الذيل بيودّي لصفحة ورا مفتاح وهو نفسه مش ورا نفس المفتاح.
  */
 
 export interface FeatureFlag {
@@ -36,6 +42,7 @@ export type FlagKey =
   | 'referral'
   | 'work_sbota'
   | 'member_sbota'
+  | 'captains'
 
 export type FlagMap = Record<string, FeatureFlag>
 
@@ -48,4 +55,5 @@ export const flagsFallback: FlagMap = {
   referral: { on: true, off: 'دعوة أصحابك موقوفة دلوقتي — هترجع قريب.' },
   work_sbota: { on: true, off: 'سبوطات الشغل مقفولة دلوقتي — راجعة قريب.' },
   member_sbota: { on: true, off: 'فتح الخروجات مقفول دلوقتي — هيفتح تاني قريب.' },
+  captains: { on: true, off: 'صفحة الكباتن مقفولة دلوقتي. الخروجات بيفتحها الأعضاء بنفسهم — جرّب «افتح خروجة».' },
 }

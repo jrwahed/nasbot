@@ -8,6 +8,7 @@ import {
   miniMapMystery,
 } from '@/data/areas'
 import { useT } from '@/components/CopyProvider'
+import { useFlag } from '@/components/FlagsProvider'
 
 /**
  * الخريطة المصغرة في الرئيسية — منقولة بالإحداثيات بالظبط من
@@ -17,6 +18,11 @@ import { useT } from '@/components/CopyProvider'
  */
 export function MiniMap({ height = 260 }: { height?: number }) {
   const t = useT()
+  // ⚠ دبوس الشغل بيودّي لـ`/shoghl` — لو المفتاح مقفول الدبوس يختفي،
+  //   مش يفضل واقف على الخريطة ويودّي على شاشة «مقفول».
+  const work = useFlag('work_sbota')
+  // ونفس الحكاية لزرار «افتح الخريطة» تحت — بيودّي لـ`/map`.
+  const map = useFlag('map')
   return (
     <div
       className="relative w-full overflow-hidden rounded-20"
@@ -76,6 +82,7 @@ export function MiniMap({ height = 260 }: { height?: number }) {
       ))}
 
       {/* لابتوب — مكان شغل في التجمع (نفس موضع نقطة work-cafe-tagamo3 على الخريطة الكبيرة) */}
+      {work.on && (
       <Link
         href="/shoghl"
         aria-label={t('shoghl.map.workPin')}
@@ -95,6 +102,7 @@ export function MiniMap({ height = 260 }: { height?: number }) {
           <path d="M2 19h20" />
         </svg>
       </Link>
+      )}
 
       <span
         className="absolute grid place-items-center font-display text-18 font-black"
@@ -110,11 +118,13 @@ export function MiniMap({ height = 260 }: { height?: number }) {
         }}
       >{t('shared.text.22')}</span>
 
+      {map.on && (
       <Link
         href="/map"
         className="absolute bottom-[14px] grid min-h-[44px] place-items-center rounded-pill px-[18px] font-display text-15 font-black"
         style={{ insetInlineStart: 14, background: '#FBF7EF', color: '#14161A' }}
       >{t('shared.text.21')}</Link>
+      )}
     </div>
   )
 }

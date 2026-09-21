@@ -11,7 +11,8 @@ import {
   type MapBlock,
 } from "@/lib/fields";
 import { Sticker } from "@/components/Sticker";
-import { useT } from "@/components/CopyProvider";
+import { useT } from "@/components/CopyProvider"
+import { useFlag } from "@/components/FlagsProvider";
 
 /**
  * خريطة القاهرة.
@@ -53,6 +54,9 @@ export function CairoMap({
   className?: string;
 }) {
   const t = useT();
+  // ⚠ كرت «الغامضة» بيودّي لـ`/s/mystery` وهي ورا مفتاح `mystery`.
+  //   لو المفتاح مقفول الكرت يختفي — مش يفضل ويودّي على شاشة «مقفول».
+  const mystery = useFlag("mystery");
   const [open, setOpen] = useState<string | null>(null);
   // فلتر «شغل» — أماكن الشغل (cafe_work / coworking)
   const [workOnly, setWorkOnly] = useState(false);
@@ -403,7 +407,7 @@ export function CairoMap({
           </div>
         )}
 
-        {open === "mystery" && !picked && (
+        {open === "mystery" && !picked && mystery.on && (
           <div
             className="absolute inset-x-3 bottom-3 rounded-16 p-4"
             style={{ background: "#2B4CFF", color: "#FBF7EF" }}

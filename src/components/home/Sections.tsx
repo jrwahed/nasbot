@@ -17,10 +17,16 @@ import { useFlag } from '@/components/FlagsProvider'
 /**
  * شريط «الشغل» في الرئيسية — نهاري بس. سطر واحد وزر «خد يومك» → /shoghl.
  * رملي بزوايا 16 زي صندوق الضمان، والزر برتقالي بنفس مقاس زر البطاقة.
+ *
+ * ⚠ ورا مفتاح `work_sbota` زي `GameStrip` بالظبط. المفتاح المقفول بيخفي
+ *   **الصفحة والرابط اللي بيوديها** — والقايمة والذيل مش المداخل الوحيدة،
+ *   الشريط ده والدبوس في الخريطة الصغيرة كمان.
  */
 export function WorkStrip({ className = '' }: { className?: string }) {
   const t = useT()
   const [theme] = useTheme()
+  const work = useFlag('work_sbota')
+  if (!work.on) return null
   if (theme !== 'day') return null
   return (
     <section
@@ -140,9 +146,16 @@ export function LastFriday() {
   )
 }
 
-/** الكباتن — شبكة عمودين، من الملف */
+/**
+ * الكباتن — شبكة عمودين، من الملف.
+ *
+ * ⚠ ورا مفتاح `captains` (0108). القسم ده بيودّي على `/captains`، فلو
+ *   المالك قفلها لازم يختفي من الرئيسية كمان — مش من القايمة بس.
+ */
 export function Captains() {
   const t = useT()
+  const captainsOn = useFlag('captains')
+  if (!captainsOn.on) return null
   return (
     <section className="px-5 pt-9">
       <h2 className="m-0 font-display text-26 font-black leading-[1.15]">{t('home.text.12')}</h2>
