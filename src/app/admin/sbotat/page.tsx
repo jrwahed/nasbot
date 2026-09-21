@@ -922,6 +922,12 @@ function SbotaRow({
         <div className="font-display text-15 font-black">{name}</div>
         <div className="flex flex-wrap gap-1 pt-1">
           {row.origin === 'member' && <Tag color="#EFE3CF">من عضو</Tag>}
+          {/* العلامة هي الرد على «هعرفهم إزاي؟» — بتظهر في كرت «أول ربع
+              ساعة» بعد الكشف وفي تذكير الـ3 ساعات. سبوطة شغّالة من غير
+              علامة يعني الحاجزين هيوصلوا ويدوّروا. */}
+          {row.status !== 'cancelled' && !(row.sign_ar ?? '').trim() && (
+            <Tag color="#F4632A">مفيش علامة</Tag>
+          )}
           {row.girls_only && <Tag color="#F4B4C8">بنات بس</Tag>}
           {row.is_mystery && <Tag color="#C9B6F2">غامضة</Tag>}
           {row.is_day && <Tag>نهاري</Tag>}

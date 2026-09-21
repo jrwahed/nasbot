@@ -173,11 +173,28 @@ interface RowCtx {
   whenTime: string
   /** «الأربع ٢٠ سبتمبر، ٨:٠٠ م» — ميعاد الكشف الحقيقي للسبوطة دي */
   revealWhen: string
+  /**
+   * علامة السبوطة — «ترابيزة فيها كتاب برتقالي».
+   *
+   * ⚠ **اختيارية**: مش كل سبوطة ليها علامة، وساعتها السطر اللي فيها
+   *   بيتشال من الرسالة كلها (شوف `render`) بدل ما يوصل «تعرفهم من: ».
+   */
+  sign: string
   venue: string
   captain: string
   link: string
   /** سبب رفض البوابة — من payload */
   note: string
+}
+
+/**
+ * متغيّرات **مسموح** تبقى فاضية — مش كل حاجة إجبارية.
+ *
+ * علامة السبوطة (`{{3}}` في تذكير الـ3 ساعات) اختيارية: لو المالك ما
+ * كتبش علامة، السطر بيتشال من الرسالة (`render`) والباقي بيوصل عادي.
+ */
+const OPTIONAL_VARS: Record<string, string[]> = {
+  reminder_3h: ['#3'],
 }
 
 /** موضوع الإيميل + مسار الرابط الافتراضي + مواضع {{n}} لكل قالب أساسي */
@@ -203,7 +220,7 @@ const CORE: Record<
   reminder_3h: {
     subject: 'فاضل ٣ ساعات',
     path: '/me',
-    args: (c) => [c.captain, c.venue],
+    args: (c) => [c.captain, c.venue, c.sign],
   },
   cancelled_by_us: {
     subject: 'اعتذار عن الإلغاء',
@@ -281,29 +298,54 @@ const WORK_SUBJECT: Record<string, string> = {
 const SKIP_TEMPLATES = new Set(['auth_code'])
 
 /** بيبدّل {{1}} من المصفوفة و{key} من السياق، وبينضّف الشرط الناقص */
+/**
+ * ⚠ **السطر اللي كل متغيّراته فضيت بيتشال كله.**
+ *
+ *   قبل كده كان بيتحوّل لسطر مكسور: «وصلنا تحويلك لـ .» أو «تعرفهم من: ».
+ *   والقاعدة هنا محدّدة عن قصد: السطر بيتشال **بس لو كل** المتغيّرات اللي
+ *   فيه فضيت — يعني السطر ما بقاش فيه أي معلومة. لو واحد موجود والتاني لأ
+ *   (زي «{{2}} — {{3}}.») السطر بيفضل، والتنضيف بتاع الشرطة بيمسك الباقي.
+ *
+ *   ودي اللي بتخلّي متغيّر **اختياري** (زي علامة السبوطة في تذكير الـ3
+ *   ساعات) ممكن يبقى فاضي من غير ما يكسر الرسالة.
+ */
 function render(
   body: string,
   positional: string[],
   named: Record<string, string>
 ): { text: string; missing: string[] } {
   const missing: string[] = []
-  let text = body.replace(/\{\{(\d+)\}\}/g, (_m, n) => {
-    const v = positional[Number(n) - 1]
-    if (v === undefined || v === '') {
-      missing.push(`#${n}`)
-      return ''
-    }
-    return v
-  })
-  text = text.replace(/\{([a-z_]+)\}/gi, (_m, k) => {
-    const v = named[k]
-    if (v === undefined || v === '') {
-      missing.push(k)
-      return ''
-    }
-    return v
-  })
-  text = text
+  const lines: string[] = []
+
+  for (const raw of body.split('\n')) {
+    let seen = 0
+    let filled = 0
+    let line = raw.replace(/\{\{(\d+)\}\}/g, (_m, n) => {
+      seen += 1
+      const v = positional[Number(n) - 1]
+      if (v === undefined || v === '') {
+        missing.push(`#${n}`)
+        return ''
+      }
+      filled += 1
+      return v
+    })
+    line = line.replace(/\{([a-z_]+)\}/gi, (_m, k) => {
+      seen += 1
+      const v = named[k]
+      if (v === undefined || v === '') {
+        missing.push(k)
+        return ''
+      }
+      filled += 1
+      return v
+    })
+    if (seen > 0 && filled === 0) continue
+    lines.push(line)
+  }
+
+  const text = lines
+    .join('\n')
     .replace(/\s*—\s*(?=[،.؟!])/g, '')
     .replace(/\s*—\s*$/g, '')
     .replace(/[ \t]{2,}/g, ' ')
@@ -407,7 +449,7 @@ export async function runNotify(limit = BATCH): Promise<NotifyResult> {
       ? db
           .from('sbotat')
           .select(
-            'id, starts_at, reveal_at, host_name_ar, title_ar, venue_name_ar,' +
+            'id, starts_at, reveal_at, sign_ar, host_name_ar, title_ar, venue_name_ar,' +
               ' venues(name), captains(display_name), sbota_templates(name_ar, slug)'
           )
           .in('id', [...sbotaIds])
@@ -435,6 +477,7 @@ export async function runNotify(limit = BATCH): Promise<NotifyResult> {
     id: string
     starts_at: string
     reveal_at: string | null
+    sign_ar: string | null
     title_ar: string | null
     venue_name_ar: string | null
     venues: { name: string } | { name: string }[] | null
@@ -445,7 +488,15 @@ export async function runNotify(limit = BATCH): Promise<NotifyResult> {
   const one = <T>(v: T | T[] | null): T | null => (Array.isArray(v) ? (v[0] ?? null) : v)
   const sbMap = new Map<
     string,
-    { name: string; slug: string; startsAt: string; revealAt: string | null; venue: string; captain: string }
+    {
+      name: string
+      slug: string
+      startsAt: string
+      revealAt: string | null
+      sign: string
+      venue: string
+      captain: string
+    }
   >()
   for (const s of (sbs.data ?? []) as SbRow[]) {
     const tpl = one(s.sbota_templates)
@@ -462,6 +513,7 @@ export async function runNotify(limit = BATCH): Promise<NotifyResult> {
       //   بالليل» بالحرف. الرقم بييجي من `reveal_at` بتاع السبوطة نفسها —
       //   يعني حتى لو المالك غيّر الساعة، الإيميل بيقول الصح.
       revealAt: s.reveal_at,
+      sign: (s.sign_ar ?? '').trim(),
       // ⚠ و`venues` بقى فاضي لسبوطات نسبوط (المالك بيكتب المكان بإيده بعد
       //   ما اتشالت القايمة من اللوحة) — فتذكير الـ24 ساعة كان بيوصل
       //   «المكان: .» من غير مكان.
@@ -560,6 +612,7 @@ export async function runNotify(limit = BATCH): Promise<NotifyResult> {
       whenDay: sb ? formatDate(sb.startsAt) : '',
       whenTime: sb ? formatTime(sb.startsAt) : '',
       revealWhen: sb?.revealAt ? formatWhen(sb.revealAt) : '',
+      sign: sb?.sign ?? '',
       venue: sb?.venue ?? '',
       captain: sb?.captain ?? '',
       link: '',
@@ -602,7 +655,11 @@ export async function runNotify(limit = BATCH): Promise<NotifyResult> {
     // ===== الرندر =====
     const positional = CORE[key] ? CORE[key].args(ctx) : []
     const { text, missing } = render(tpl.body, positional, named)
-    if (missing.length) out.errors.push(`${row.id}: نقص (${missing.join('، ')})`)
+    // ⚠ المتغيّرات الاختيارية ما بتتحسبش «نقص» — وإلا كل تذكير لسبوطة
+    //   من غير علامة بيتسجّل غلط، والغلط اللي بيتكرر بيتجاهل.
+    const optional = OPTIONAL_VARS[key] ?? []
+    const real = missing.filter((m) => !optional.includes(m))
+    if (real.length) out.errors.push(`${row.id}: نقص (${real.join('، ')})`)
 
     const subject = CORE[key]?.subject ?? WORK_SUBJECT[key] ?? 'نسبوط'
     const res = await sendEmail(smtp, email, subject, text, htmlShell(text, link))
