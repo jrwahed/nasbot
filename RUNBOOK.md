@@ -477,10 +477,10 @@ where status = 'failed' and template_key like 'work\_%' order by created_at desc
 -- مرة واحدة: خزّن السر
 select vault.create_secret('<CRON_SECRET نفسه اللي في Vercel>', 'nasbot_cron_secret');
 
--- المهمة: كل ساعة عند الدقيقة 5
+-- المهمة: كل ٥ دقايق (كانت كل ساعة — كانت بتأخّر «مكانك محجوز» و«مجموعتك ظهرت»)
 select cron.schedule(
   'nasbot-work-notify',
-  '5 * * * *',
+  '*/5 * * * *',
   $$
   select net.http_post(
     url     := 'https://nasbot.vercel.app/api/cron/work-notify',
