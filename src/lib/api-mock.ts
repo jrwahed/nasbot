@@ -473,3 +473,40 @@ export async function getAlbum(sbotaId: string) {
     },
   ]
 }
+
+/** الفيد — بيانات عرض (نفس شكل `fn_feed`: خروجتي بصورها، وغيرها كرت أصم) */
+export async function getFeed(limit = 30) {
+  await delay(200)
+  return [
+    {
+      sbotaId: 'demo-1',
+      mine: true,
+      title: 'فطار على النيل',
+      when: 'الجمعة 7 الصبح',
+      people: 6,
+      photos: 4,
+      photoSrc: null,
+      bookingId: 'b2',
+    },
+    {
+      sbotaId: 'demo-2',
+      mine: false,
+      title: 'ورشة فخار',
+      when: 'السبت 6 بالليل',
+      people: 5,
+      photos: 0,
+      photoSrc: null,
+      bookingId: null,
+    },
+    {
+      sbotaId: 'demo-3',
+      mine: false,
+      title: 'كاياك الصبح',
+      when: 'الجمعة 7 الصبح',
+      people: 8,
+      photos: 0,
+      photoSrc: null,
+      bookingId: null,
+    },
+  ].slice(0, limit)
+}

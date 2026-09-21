@@ -19,6 +19,7 @@
  *   work_sbota  → /shoghl/* كله
  *   member_sbota → /new (العضو بيفتح خروجته) و/me/sbotati
  *   captains    → /captains (0108)
+ *   feed        → /feed «اللي بيحصل» (0114)
  *
  * ⚠ القفل بيخفي **الصفحة والرابط اللي بيوديها** مع بعض. الرابط المقفول
  *   ما بيتعرضش أصلًا — مش بيودّي على شاشة «مقفول». الحارس
@@ -43,6 +44,7 @@ export type FlagKey =
   | 'work_sbota'
   | 'member_sbota'
   | 'captains'
+  | 'feed'
 
 export type FlagMap = Record<string, FeatureFlag>
 
@@ -56,4 +58,5 @@ export const flagsFallback: FlagMap = {
   work_sbota: { on: true, off: 'سبوطات الشغل مقفولة دلوقتي — راجعة قريب.' },
   member_sbota: { on: true, off: 'فتح الخروجات مقفول دلوقتي — هيفتح تاني قريب.' },
   captains: { on: true, off: 'صفحة الكباتن مقفولة دلوقتي. الخروجات بيفتحها الأعضاء بنفسهم — جرّب «افتح خروجة».' },
+  feed: { on: true, off: 'الفيد مقفول دلوقتي — هيرجع قريب.' },
 }

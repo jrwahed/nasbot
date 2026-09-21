@@ -1282,6 +1282,62 @@ export async function getArrival(bookingId: string): Promise<Arrival | null> {
   }
 }
 
+/* ================================================================= الفيد
+
+   «اللي بيحصل» — مقفول على اللي خرج معانا مرة على الأقل.
+
+   🔴 القاعدة بترجّع **طبقتين**: خروجاتك بصورها، وباقي الخروجات كرت من
+      غير صور ولا أسامي. الواجهة مش بتفلتر — الدالة نفسها مش بترجّع
+      الصور للي مكانش فيها.
+*/
+
+export interface FeedItem {
+  sbotaId: string
+  mine: boolean
+  title: string
+  when: string
+  people: number
+  photos: number
+  /** رابط موقّع لآخر صورة — بس لو كنت في الخروجة دي */
+  photoSrc: string | null
+  bookingId: string | null
+}
+
+export async function getFeed(limit = 30): Promise<FeedItem[]> {
+  if (!DB) return mock.getFeed(limit)
+  return safeWork(
+    'getFeed',
+    async () => {
+      const { data, error } = await supabase().rpc('fn_feed', { p_limit: limit })
+      if (error || !data) return []
+      const rows = data as Record<string, unknown>[]
+      return Promise.all(
+        rows.map(async (r) => {
+          const path = r.photo_path ? String(r.photo_path) : ''
+          let src: string | null = null
+          if (path) {
+            const { data: signed } = await supabase()
+              .storage.from('sbota-photos')
+              .createSignedUrl(path, ALBUM_URL_SECONDS)
+            src = signed?.signedUrl ?? null
+          }
+          return {
+            sbotaId: String(r.sbota_id),
+            mine: r.kind === 'mine',
+            title: String(r.title_ar ?? ''),
+            when: whenLabel(String(r.starts_at ?? '')),
+            people: Number(r.people ?? 0),
+            photos: Number(r.photos ?? 0),
+            photoSrc: src,
+            bookingId: r.booking_id ? String(r.booking_id) : null,
+          }
+        })
+      )
+    },
+    [] as FeedItem[]
+  )
+}
+
 /* ======================================================= ألبوم الخروجة
 
    صور الخروجة **لأهلها بس** — حارس واحد في القاعدة (`fn_was_in_sbota`)

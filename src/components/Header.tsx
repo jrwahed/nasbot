@@ -43,6 +43,7 @@ const NAV: ReadonlyArray<{
 }> = [
   { href: '/', key: 'shared.text.18' },
   { href: '/shoghl', key: 'shoghl.nav', flag: 'work_sbota', dayOnly: true, accent: true },
+  { href: '/feed', key: 'feed.nav', flag: 'feed' },
   { href: '/map', key: 'shared.text.17', flag: 'map' },
   { href: '/rules', key: 'shared.text.16' },
   { href: '/captains', key: 'shared.text.15', flag: 'captains' },
