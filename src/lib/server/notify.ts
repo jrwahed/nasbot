@@ -171,6 +171,8 @@ interface RowCtx {
   when: string
   whenDay: string
   whenTime: string
+  /** «الأربع ٢٠ سبتمبر، ٨:٠٠ م» — ميعاد الكشف الحقيقي للسبوطة دي */
+  revealWhen: string
   venue: string
   captain: string
   link: string
@@ -186,7 +188,7 @@ const CORE: Record<
   booking_confirmed: {
     subject: 'مكانك محجوز',
     path: '/me',
-    args: (c) => [c.name, c.sbotaName, c.when, c.link],
+    args: (c) => [c.name, c.sbotaName, c.when, c.link, c.revealWhen],
   },
   group_reveal: {
     subject: 'مجموعتك جاهزة',
@@ -405,7 +407,8 @@ export async function runNotify(limit = BATCH): Promise<NotifyResult> {
       ? db
           .from('sbotat')
           .select(
-            'id, starts_at, host_name_ar, title_ar, venue_name_ar, venues(name), captains(display_name), sbota_templates(name_ar, slug)'
+            'id, starts_at, reveal_at, host_name_ar, title_ar, venue_name_ar,' +
+              ' venues(name), captains(display_name), sbota_templates(name_ar, slug)'
           )
           .in('id', [...sbotaIds])
       : Promise.resolve({ data: [] as unknown[] }),
@@ -431,6 +434,7 @@ export async function runNotify(limit = BATCH): Promise<NotifyResult> {
   type SbRow = {
     id: string
     starts_at: string
+    reveal_at: string | null
     title_ar: string | null
     venue_name_ar: string | null
     venues: { name: string } | { name: string }[] | null
@@ -439,7 +443,10 @@ export async function runNotify(limit = BATCH): Promise<NotifyResult> {
     host_name_ar: string | null
   }
   const one = <T>(v: T | T[] | null): T | null => (Array.isArray(v) ? (v[0] ?? null) : v)
-  const sbMap = new Map<string, { name: string; slug: string; startsAt: string; venue: string; captain: string }>()
+  const sbMap = new Map<
+    string,
+    { name: string; slug: string; startsAt: string; revealAt: string | null; venue: string; captain: string }
+  >()
   for (const s of (sbs.data ?? []) as SbRow[]) {
     const tpl = one(s.sbota_templates)
     const ven = one(s.venues)
@@ -451,6 +458,10 @@ export async function runNotify(limit = BATCH): Promise<NotifyResult> {
       name: (s.title_ar ?? '').trim() || tpl?.name_ar || '',
       slug: tpl?.slug ?? '',
       startsAt: s.starts_at,
+      // ⚠ ساعة الكشف بقت من `settings` (0109)، والقالب كان كاتب «الساعة 8
+      //   بالليل» بالحرف. الرقم بييجي من `reveal_at` بتاع السبوطة نفسها —
+      //   يعني حتى لو المالك غيّر الساعة، الإيميل بيقول الصح.
+      revealAt: s.reveal_at,
       // ⚠ و`venues` بقى فاضي لسبوطات نسبوط (المالك بيكتب المكان بإيده بعد
       //   ما اتشالت القايمة من اللوحة) — فتذكير الـ24 ساعة كان بيوصل
       //   «المكان: .» من غير مكان.
@@ -548,6 +559,7 @@ export async function runNotify(limit = BATCH): Promise<NotifyResult> {
       when: sb ? formatWhen(sb.startsAt) : '',
       whenDay: sb ? formatDate(sb.startsAt) : '',
       whenTime: sb ? formatTime(sb.startsAt) : '',
+      revealWhen: sb?.revealAt ? formatWhen(sb.revealAt) : '',
       venue: sb?.venue ?? '',
       captain: sb?.captain ?? '',
       link: '',
@@ -572,7 +584,13 @@ export async function runNotify(limit = BATCH): Promise<NotifyResult> {
     // ⚠ كان `/sbota/<slug>` — **مسار مش موجود**. المسارات الحقيقية `/s/<slug>`
     //   لصفحة السبوطة و`/my/<رقم الحجز>` لحجزي. يعني زرار «افتح نسبوط» في
     //   إيميل التأكيد كان بيوقّع الحاجز على 404 وهو لسه دافع.
-    if (path === '/me' && key === 'booking_confirmed' && typeof payload.booking_id === 'string') {
+    // ⚠ و`group_reveal` كمان: رسالة «مجموعتك ظهرت» كانت بتودّي `/me` —
+    //   قايمة الحجوزات — بدل صفحة الحجز اللي فيها المجموعة والعلامة.
+    if (
+      path === '/me' &&
+      (key === 'booking_confirmed' || key === 'group_reveal') &&
+      typeof payload.booking_id === 'string'
+    ) {
       path = `/my/${payload.booking_id}`
     } else if (path === '/me' && key === 'waitlist_promoted' && sb?.slug) {
       path = `/s/${sb.slug}`

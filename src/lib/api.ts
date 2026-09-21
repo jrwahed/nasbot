@@ -1268,7 +1268,9 @@ export interface Arrival {
 }
 
 export async function getArrival(bookingId: string): Promise<Arrival | null> {
-  if (!DB) return null
+  // ⚠ من غير قاعدة كان بيرجّع `null`، فكرت «أول ربع ساعة» **عمره ما ظهر**
+  //   في التطوير — مبني ومترجم ومحدش شايفه. نفس نمط `getGroupProfessions`.
+  if (!DB) return { sign: 'ترابيزة فيها كتاب برتقالي', greeterName: 'مريم', greeterIsMe: false }
   const { data, error } = await supabase().rpc('fn_sbota_arrival', { p_booking_id: bookingId })
   if (error) return null
   const r = (Array.isArray(data) ? data[0] : data) as Record<string, unknown> | undefined
