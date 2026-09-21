@@ -3,7 +3,8 @@
 import Link from 'next/link'
 import { footerLine } from '@/data/lists'
 import { useFooterLinks } from '@/components/FooterLinksProvider'
-import { useFlag } from '@/components/FlagsProvider'
+import { useFlags } from '@/components/FlagsProvider'
+import type { FlagKey } from '@/data/flags-fallback'
 import { useT } from '@/components/CopyProvider'
 
 /**
@@ -20,10 +21,21 @@ import { useT } from '@/components/CopyProvider'
  * تاني. (كان «بقى كابتن» — المنتج ما بقاش قايم على الكابتن فمفيش وظيفة
  * تتقدّم ليها، أي حد يفتح خروجة بنفسه.)
  */
+
+/**
+ * روابط الذيل اللي مش صفحات محتوى — كل واحد شايل مفتاحه.
+ * نفس نمط `NAV` في الهيدر، ونفس الحارس بيفحص الاتنين.
+ */
+const EXTRA: ReadonlyArray<{ href: string; key: string; flag?: FlagKey }> = [
+  { href: '/new', key: 'host.me.new', flag: 'member_sbota' },
+]
 export function Footer() {
   const links = useFooterLinks()
-  const hosting = useFlag('member_sbota')
+  const flags = useFlags()
   const t = useT()
+
+  // مفتاح مقفول = الرابط يختفي خالص
+  const extra = EXTRA.filter((l) => !l.flag || (flags[l.flag]?.on ?? true))
 
   return (
     <footer
@@ -39,7 +51,11 @@ export function Footer() {
             {l.label}
           </Link>
         ))}
-        {hosting.on && <Link href="/new">{t('host.me.new')}</Link>}
+        {extra.map((l) => (
+          <Link key={l.href} href={l.href}>
+            {t(l.key)}
+          </Link>
+        ))}
       </div>
       <div className="mt-4">{footerLine}</div>
     </footer>

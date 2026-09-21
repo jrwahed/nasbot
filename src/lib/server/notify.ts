@@ -171,11 +171,30 @@ interface RowCtx {
   when: string
   whenDay: string
   whenTime: string
+  /** «الأربع ٢٠ سبتمبر، ٨:٠٠ م» — ميعاد الكشف الحقيقي للسبوطة دي */
+  revealWhen: string
+  /**
+   * علامة السبوطة — «ترابيزة فيها كتاب برتقالي».
+   *
+   * ⚠ **اختيارية**: مش كل سبوطة ليها علامة، وساعتها السطر اللي فيها
+   *   بيتشال من الرسالة كلها (شوف `render`) بدل ما يوصل «تعرفهم من: ».
+   */
+  sign: string
   venue: string
   captain: string
   link: string
   /** سبب رفض البوابة — من payload */
   note: string
+}
+
+/**
+ * متغيّرات **مسموح** تبقى فاضية — مش كل حاجة إجبارية.
+ *
+ * علامة السبوطة (`{{3}}` في تذكير الـ3 ساعات) اختيارية: لو المالك ما
+ * كتبش علامة، السطر بيتشال من الرسالة (`render`) والباقي بيوصل عادي.
+ */
+const OPTIONAL_VARS: Record<string, string[]> = {
+  reminder_3h: ['#3'],
 }
 
 /** موضوع الإيميل + مسار الرابط الافتراضي + مواضع {{n}} لكل قالب أساسي */
@@ -186,7 +205,7 @@ const CORE: Record<
   booking_confirmed: {
     subject: 'مكانك محجوز',
     path: '/me',
-    args: (c) => [c.name, c.sbotaName, c.when, c.link],
+    args: (c) => [c.name, c.sbotaName, c.when, c.link, c.revealWhen],
   },
   group_reveal: {
     subject: 'مجموعتك جاهزة',
@@ -201,7 +220,7 @@ const CORE: Record<
   reminder_3h: {
     subject: 'فاضل ٣ ساعات',
     path: '/me',
-    args: (c) => [c.captain, c.venue],
+    args: (c) => [c.captain, c.venue, c.sign],
   },
   cancelled_by_us: {
     subject: 'اعتذار عن الإلغاء',
@@ -279,29 +298,54 @@ const WORK_SUBJECT: Record<string, string> = {
 const SKIP_TEMPLATES = new Set(['auth_code'])
 
 /** بيبدّل {{1}} من المصفوفة و{key} من السياق، وبينضّف الشرط الناقص */
+/**
+ * ⚠ **السطر اللي كل متغيّراته فضيت بيتشال كله.**
+ *
+ *   قبل كده كان بيتحوّل لسطر مكسور: «وصلنا تحويلك لـ .» أو «تعرفهم من: ».
+ *   والقاعدة هنا محدّدة عن قصد: السطر بيتشال **بس لو كل** المتغيّرات اللي
+ *   فيه فضيت — يعني السطر ما بقاش فيه أي معلومة. لو واحد موجود والتاني لأ
+ *   (زي «{{2}} — {{3}}.») السطر بيفضل، والتنضيف بتاع الشرطة بيمسك الباقي.
+ *
+ *   ودي اللي بتخلّي متغيّر **اختياري** (زي علامة السبوطة في تذكير الـ3
+ *   ساعات) ممكن يبقى فاضي من غير ما يكسر الرسالة.
+ */
 function render(
   body: string,
   positional: string[],
   named: Record<string, string>
 ): { text: string; missing: string[] } {
   const missing: string[] = []
-  let text = body.replace(/\{\{(\d+)\}\}/g, (_m, n) => {
-    const v = positional[Number(n) - 1]
-    if (v === undefined || v === '') {
-      missing.push(`#${n}`)
-      return ''
-    }
-    return v
-  })
-  text = text.replace(/\{([a-z_]+)\}/gi, (_m, k) => {
-    const v = named[k]
-    if (v === undefined || v === '') {
-      missing.push(k)
-      return ''
-    }
-    return v
-  })
-  text = text
+  const lines: string[] = []
+
+  for (const raw of body.split('\n')) {
+    let seen = 0
+    let filled = 0
+    let line = raw.replace(/\{\{(\d+)\}\}/g, (_m, n) => {
+      seen += 1
+      const v = positional[Number(n) - 1]
+      if (v === undefined || v === '') {
+        missing.push(`#${n}`)
+        return ''
+      }
+      filled += 1
+      return v
+    })
+    line = line.replace(/\{([a-z_]+)\}/gi, (_m, k) => {
+      seen += 1
+      const v = named[k]
+      if (v === undefined || v === '') {
+        missing.push(k)
+        return ''
+      }
+      filled += 1
+      return v
+    })
+    if (seen > 0 && filled === 0) continue
+    lines.push(line)
+  }
+
+  const text = lines
+    .join('\n')
     .replace(/\s*—\s*(?=[،.؟!])/g, '')
     .replace(/\s*—\s*$/g, '')
     .replace(/[ \t]{2,}/g, ' ')
@@ -405,7 +449,8 @@ export async function runNotify(limit = BATCH): Promise<NotifyResult> {
       ? db
           .from('sbotat')
           .select(
-            'id, starts_at, host_name_ar, title_ar, venue_name_ar, venues(name), captains(display_name), sbota_templates(name_ar, slug)'
+            'id, starts_at, reveal_at, sign_ar, host_name_ar, title_ar, venue_name_ar,' +
+              ' venues(name), captains(display_name), sbota_templates(name_ar, slug)'
           )
           .in('id', [...sbotaIds])
       : Promise.resolve({ data: [] as unknown[] }),
@@ -431,6 +476,8 @@ export async function runNotify(limit = BATCH): Promise<NotifyResult> {
   type SbRow = {
     id: string
     starts_at: string
+    reveal_at: string | null
+    sign_ar: string | null
     title_ar: string | null
     venue_name_ar: string | null
     venues: { name: string } | { name: string }[] | null
@@ -439,7 +486,18 @@ export async function runNotify(limit = BATCH): Promise<NotifyResult> {
     host_name_ar: string | null
   }
   const one = <T>(v: T | T[] | null): T | null => (Array.isArray(v) ? (v[0] ?? null) : v)
-  const sbMap = new Map<string, { name: string; slug: string; startsAt: string; venue: string; captain: string }>()
+  const sbMap = new Map<
+    string,
+    {
+      name: string
+      slug: string
+      startsAt: string
+      revealAt: string | null
+      sign: string
+      venue: string
+      captain: string
+    }
+  >()
   for (const s of (sbs.data ?? []) as SbRow[]) {
     const tpl = one(s.sbota_templates)
     const ven = one(s.venues)
@@ -451,6 +509,11 @@ export async function runNotify(limit = BATCH): Promise<NotifyResult> {
       name: (s.title_ar ?? '').trim() || tpl?.name_ar || '',
       slug: tpl?.slug ?? '',
       startsAt: s.starts_at,
+      // ⚠ ساعة الكشف بقت من `settings` (0109)، والقالب كان كاتب «الساعة 8
+      //   بالليل» بالحرف. الرقم بييجي من `reveal_at` بتاع السبوطة نفسها —
+      //   يعني حتى لو المالك غيّر الساعة، الإيميل بيقول الصح.
+      revealAt: s.reveal_at,
+      sign: (s.sign_ar ?? '').trim(),
       // ⚠ و`venues` بقى فاضي لسبوطات نسبوط (المالك بيكتب المكان بإيده بعد
       //   ما اتشالت القايمة من اللوحة) — فتذكير الـ24 ساعة كان بيوصل
       //   «المكان: .» من غير مكان.
@@ -548,6 +611,8 @@ export async function runNotify(limit = BATCH): Promise<NotifyResult> {
       when: sb ? formatWhen(sb.startsAt) : '',
       whenDay: sb ? formatDate(sb.startsAt) : '',
       whenTime: sb ? formatTime(sb.startsAt) : '',
+      revealWhen: sb?.revealAt ? formatWhen(sb.revealAt) : '',
+      sign: sb?.sign ?? '',
       venue: sb?.venue ?? '',
       captain: sb?.captain ?? '',
       link: '',
@@ -572,7 +637,13 @@ export async function runNotify(limit = BATCH): Promise<NotifyResult> {
     // ⚠ كان `/sbota/<slug>` — **مسار مش موجود**. المسارات الحقيقية `/s/<slug>`
     //   لصفحة السبوطة و`/my/<رقم الحجز>` لحجزي. يعني زرار «افتح نسبوط» في
     //   إيميل التأكيد كان بيوقّع الحاجز على 404 وهو لسه دافع.
-    if (path === '/me' && key === 'booking_confirmed' && typeof payload.booking_id === 'string') {
+    // ⚠ و`group_reveal` كمان: رسالة «مجموعتك ظهرت» كانت بتودّي `/me` —
+    //   قايمة الحجوزات — بدل صفحة الحجز اللي فيها المجموعة والعلامة.
+    if (
+      path === '/me' &&
+      (key === 'booking_confirmed' || key === 'group_reveal') &&
+      typeof payload.booking_id === 'string'
+    ) {
       path = `/my/${payload.booking_id}`
     } else if (path === '/me' && key === 'waitlist_promoted' && sb?.slug) {
       path = `/s/${sb.slug}`
@@ -584,7 +655,11 @@ export async function runNotify(limit = BATCH): Promise<NotifyResult> {
     // ===== الرندر =====
     const positional = CORE[key] ? CORE[key].args(ctx) : []
     const { text, missing } = render(tpl.body, positional, named)
-    if (missing.length) out.errors.push(`${row.id}: نقص (${missing.join('، ')})`)
+    // ⚠ المتغيّرات الاختيارية ما بتتحسبش «نقص» — وإلا كل تذكير لسبوطة
+    //   من غير علامة بيتسجّل غلط، والغلط اللي بيتكرر بيتجاهل.
+    const optional = OPTIONAL_VARS[key] ?? []
+    const real = missing.filter((m) => !optional.includes(m))
+    if (real.length) out.errors.push(`${row.id}: نقص (${real.join('، ')})`)
 
     const subject = CORE[key]?.subject ?? WORK_SUBJECT[key] ?? 'نسبوط'
     const res = await sendEmail(smtp, email, subject, text, htmlShell(text, link))

@@ -105,9 +105,13 @@ export interface WhoBooked {
   sameArea?: number | null
   /** «3 بنات و2 شباب · الأعمار 25–31 · اتنين أول مرة · تلاتة رايحين معانا قبل كده.» */
   line: string
-  /** «هتعرف مجموعتك الأربع الساعة 8 بالليل.» */
-  revealLine: string
 }
+
+/**
+ * ⚠ `revealLine` اتشال من هنا في `0109`. كان نص عربي **مكتوب في الكود**
+ *   وفيه ساعة ثابتة (8 بالليل) والمالك بيغيّرها من اللوحة ومحدش بيسمعه.
+ *   بقى `<RevealLine />` — نصه من `copy_strings` ورقمه من `settings`.
+ */
 
 export interface Captain {
   id: string
@@ -151,12 +155,31 @@ export interface Person {
   sameArea?: boolean
 }
 
+/**
+ * حالة الحجز زي ما هي في القاعدة — مش «قبل/بعد» بس.
+ *
+ * ⚠ صفحة `/my/[id]` كانت بتعرف حالتين: «اتكشف» و«لسه». فاللي لسه مستني
+ *   اعتماد التحويل، واللي في قايمة الانتظار، واللي حجزه **اتلغى** كانوا
+ *   بيشوفوا نفس الشاشة: عدّاد تنازلي وسطر «هتعرف مجموعتك…». الحالة لازم
+ *   تتقال زي ما هي.
+ */
+export type BookingState =
+  | 'pending_payment'
+  | 'paid'
+  | 'waitlist'
+  | 'cancelled'
+  | 'attended'
+  | 'no_show'
+  | 'refunded'
+
 export interface Booking {
   id: string
   slug: string
   sbotaName: string
   when: string
   area: string
+  /** حالة الحجز في القاعدة */
+  state: BookingState
   /** وقت السبوطة نفسها */
   startsAt: string
   /** الكشف بيحصل قبلها بيوم الساعة 8 */

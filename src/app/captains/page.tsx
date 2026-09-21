@@ -9,6 +9,7 @@ import { PrimaryButton } from '@/components/Buttons'
 import { captains } from '@/data/captains'
 import { applyAsCaptain } from '@/lib/api'
 import { useT } from '@/components/CopyProvider'
+import { FeatureGate } from '@/components/FlagsProvider'
 
 /** الكباتن + نموذج «بقى كابتن» */
 export default function CaptainsPage() {
@@ -36,70 +37,72 @@ export default function CaptainsPage() {
   }
 
   return (
-    <main className="mx-auto w-full max-w-page">
-      <div className="px-5">
-        <InnerHeader back={t('captains.label.5')} padded={false} />
+    <FeatureGate flag="captains">
+      <main className="mx-auto w-full max-w-page">
+        <div className="px-5">
+          <InnerHeader back={t('captains.label.5')} padded={false} />
 
-        <h1 className="mb-0 mt-[10px] font-display text-40 font-black leading-[1.1]">{t('captains.text.6')}</h1>
-        <p className="mb-0 mt-2 text-17">{t('captains.text.5')}</p>
+          <h1 className="mb-0 mt-[10px] font-display text-40 font-black leading-[1.1]">{t('captains.text.6')}</h1>
+          <p className="mb-0 mt-2 text-17">{t('captains.text.5')}</p>
 
-        <div className="mt-8 grid grid-cols-2 gap-6">
-          {captains.map((c) => (
-            <CaptainTile key={c.id} captain={c} />
-          ))}
+          <div className="mt-8 grid grid-cols-2 gap-6">
+            {captains.map((c) => (
+              <CaptainTile key={c.id} captain={c} />
+            ))}
+          </div>
+
+          {/* ===== بقى كابتن ===== */}
+          <h2 className="mt-10 font-display text-30 font-black leading-[1.15]">{t('captains.text.4')}</h2>
+          <p className="mb-0 mt-2 font-body text-16" style={{ color: 'var(--muted)' }}>{t('captains.text.3')}</p>
+
+          {sent ? (
+            <div
+              role="status"
+              className="mt-6 rounded-20 p-5 font-body text-16 font-semibold"
+              style={{ background: '#EFE3CF', color: '#14161A' }}
+            >{t('captains.text.2')}</div>
+          ) : (
+            <div className="mt-6 flex flex-col gap-3">
+              <Field
+                label={t('captains.label.4')}
+                value={form.name}
+                onChange={(e) => set('name')(e.target.value)}
+                error={errors.name}
+              />
+              <Field
+                label={t('captains.label.3')}
+                dir="ltr"
+                inputMode="tel"
+                placeholder="01x xxxx xxxx"
+                value={form.phone}
+                onChange={(e) => set('phone')(e.target.value)}
+                error={errors.phone}
+                className="text-end"
+              />
+              <Field
+                label={t('captains.label.2')}
+                value={form.job}
+                onChange={(e) => set('job')(e.target.value)}
+                error={errors.job}
+              />
+              <TextArea
+                label={t('captains.label.1')}
+                value={form.why}
+                onChange={(e) => set('why')(e.target.value)}
+                error={errors.why}
+              />
+              <PrimaryButton
+                size="lg"
+                className="mt-2 w-full"
+                onClick={submit}
+                loading={busy}
+              >{t('captains.text.1')}</PrimaryButton>
+            </div>
+          )}
         </div>
 
-        {/* ===== بقى كابتن ===== */}
-        <h2 className="mt-10 font-display text-30 font-black leading-[1.15]">{t('captains.text.4')}</h2>
-        <p className="mb-0 mt-2 font-body text-16" style={{ color: 'var(--muted)' }}>{t('captains.text.3')}</p>
-
-        {sent ? (
-          <div
-            role="status"
-            className="mt-6 rounded-20 p-5 font-body text-16 font-semibold"
-            style={{ background: '#EFE3CF', color: '#14161A' }}
-          >{t('captains.text.2')}</div>
-        ) : (
-          <div className="mt-6 flex flex-col gap-3">
-            <Field
-              label={t('captains.label.4')}
-              value={form.name}
-              onChange={(e) => set('name')(e.target.value)}
-              error={errors.name}
-            />
-            <Field
-              label={t('captains.label.3')}
-              dir="ltr"
-              inputMode="tel"
-              placeholder="01x xxxx xxxx"
-              value={form.phone}
-              onChange={(e) => set('phone')(e.target.value)}
-              error={errors.phone}
-              className="text-end"
-            />
-            <Field
-              label={t('captains.label.2')}
-              value={form.job}
-              onChange={(e) => set('job')(e.target.value)}
-              error={errors.job}
-            />
-            <TextArea
-              label={t('captains.label.1')}
-              value={form.why}
-              onChange={(e) => set('why')(e.target.value)}
-              error={errors.why}
-            />
-            <PrimaryButton
-              size="lg"
-              className="mt-2 w-full"
-              onClick={submit}
-              loading={busy}
-            >{t('captains.text.1')}</PrimaryButton>
-          </div>
-        )}
-      </div>
-
-      <Footer />
-    </main>
+        <Footer />
+      </main>
+    </FeatureGate>
   )
 }

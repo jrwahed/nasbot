@@ -22,6 +22,16 @@ export function FlagsProvider({ value, children }: { value: FlagMap; children: R
   return <FlagsContext.Provider value={value}>{children}</FlagsContext.Provider>
 }
 
+/**
+ * كل المفاتيح مرة واحدة — للقوايم اللي بتلف على روابط.
+ *
+ * ⚠ `useFlag` جوه `.map()` بيكسر قواعد الهوكس (عدد النداءات بيتغيّر مع
+ *   طول القايمة). فالقايمة بتاخد الخريطة كلها وبتفلتر بيها.
+ */
+export function useFlags(): FlagMap {
+  return useContext(FlagsContext)
+}
+
 /** `useFlag('booking').on` — استعملها لما عايز تخفي زرار جوه صفحة شغالة. */
 export function useFlag(key: string): FeatureFlag {
   const map = useContext(FlagsContext)

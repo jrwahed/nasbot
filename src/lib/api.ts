@@ -912,6 +912,20 @@ export async function getBookingStatus(bookingId: string) {
   return { status: ((data as { status: string } | null)?.status ?? 'pending_payment') as string }
 }
 
+/**
+ * أعمدة الحجز — **مصدر واحد** لـ`getBookings` و`getBooking`.
+ *
+ * ⚠ كانوا نصين متطابقين مكتوبين بالإيد. أول ما زوّدنا `title_ar` لواحد
+ *   كان سهل ننسى التاني، فصفحة «حجوزاتي» تقول اسم القالب وصفحة الحجز
+ *   تقول العنوان — نفس شكل الدرس الخمستاشر بالظبط.
+ */
+const BOOKING_COLS = [
+  'id',
+  'status',
+  'sbotat(id, starts_at, reveal_at, chat_closes_at, area, area_label_ar, title_ar,' +
+    ' sbota_templates(slug, name_ar))',
+].join(',')
+
 export async function getBookings(): Promise<Booking[]> {
   if (!DB) return mock.getBookings()
   // حجوزاتي أنا بس. RLS بتسمح كمان بقراءة حجوزات باقي المجموعة بعد الكشف،
@@ -922,7 +936,7 @@ export async function getBookings(): Promise<Booking[]> {
   const { data } = await supabase()
     .from('bookings')
     .select(
-      'id, status, sbotat(id, starts_at, reveal_at, chat_closes_at, area, area_label_ar, sbota_templates(slug, name_ar))'
+      BOOKING_COLS
     )
     .eq('profile_id', uid)
     .order('created_at', { ascending: false })
@@ -934,7 +948,7 @@ export async function getBooking(id: string): Promise<Booking | null> {
   const { data } = await supabase()
     .from('bookings')
     .select(
-      'id, status, sbotat(id, starts_at, reveal_at, chat_closes_at, area, area_label_ar, sbota_templates(slug, name_ar))'
+      BOOKING_COLS
     )
     .eq('id', id)
     .maybeSingle()
@@ -1254,7 +1268,9 @@ export interface Arrival {
 }
 
 export async function getArrival(bookingId: string): Promise<Arrival | null> {
-  if (!DB) return null
+  // ⚠ من غير قاعدة كان بيرجّع `null`، فكرت «أول ربع ساعة» **عمره ما ظهر**
+  //   في التطوير — مبني ومترجم ومحدش شايفه. نفس نمط `getGroupProfessions`.
+  if (!DB) return { sign: 'ترابيزة فيها كتاب برتقالي', greeterName: 'مريم', greeterIsMe: false }
   const { data, error } = await supabase().rpc('fn_sbota_arrival', { p_booking_id: bookingId })
   if (error) return null
   const r = (Array.isArray(data) ? data[0] : data) as Record<string, unknown> | undefined
@@ -2035,6 +2051,34 @@ export async function getEmergencyPhone(): Promise<string | null> {
       return raw
     },
     null as string | null
+  )
+}
+
+/**
+ * ساعة كشف المجموعة من `settings.reveal_hour_cairo` (0109).
+ *
+ * ⚠ نفس نمط `getEmergencyPhone` بالظبط: رقم المالك بيغيّره من اللوحة، وكان
+ *   مكتوب في الكود في مكانين — في جملة «هتعرف مجموعتك … الساعة 8 بالليل»
+ *   وفي `fn_sbota_timings` نفسها. الاتنين اتوصّلوا.
+ *
+ * بترجّع 20 لو القراية وقعت — **نفس الافتراضي في القاعدة**، فالجملة تفضل
+ * صح بدل ما تختفي.
+ */
+export async function getRevealHour(): Promise<number> {
+  if (!DB) return 20
+  return safeWork(
+    'getRevealHour',
+    async () => {
+      const { data, error } = await supabase()
+        .from('settings')
+        .select('reveal_hour_cairo')
+        .limit(1)
+        .maybeSingle()
+      if (error || !data) return 20
+      const h = Number((data as { reveal_hour_cairo?: number | null }).reveal_hour_cairo)
+      return Number.isFinite(h) && h >= 0 && h <= 23 ? h : 20
+    },
+    20
   )
 }
 

@@ -22,6 +22,8 @@ export default function MePage() {
   const referral = useFlag('referral')
   // «member_sbota» بيخفي كرت فتح الخروجة لو اللوحة قفلت الباب
   const hosting = useFlag('member_sbota')
+  // ⚠ كرت «شغلي» بيودّي لـ`/me/shoghl` وهي ورا نفس مفتاح طبقة الشغل.
+  const work = useFlag('work_sbota')
   const router = useRouter()
   const [theme, setTheme] = useTheme()
   const [me, setMe] = useState<Me | null>(null)
@@ -314,11 +316,13 @@ export default function MePage() {
             className="flex min-h-[52px] items-center rounded-16 px-4 font-body text-16 font-semibold"
             style={{ background: 'var(--surface)' }}
           >{t('me.text.3')}</Link>
+          {work.on && (
           <Link
             href="/me/shoghl"
             className="flex min-h-[52px] items-center rounded-16 px-4 font-body text-16 font-semibold"
             style={{ background: 'var(--surface)' }}
           >{t('shoghl.me.link')}</Link>
+          )}
           <button
             type="button"
             onClick={async () => {

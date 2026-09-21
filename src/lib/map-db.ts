@@ -11,6 +11,7 @@ import type {
   Person,
   Captain,
   Booking,
+  BookingState,
   Clue,
   PersonaId,
   DaySchedule,
@@ -281,7 +282,8 @@ export function sbotaFromDb(
       //   السطر يختفي بدل ما يكذب.
       sameArea: who?.same_area ?? null,
       line: whoLine(who),
-      revealLine: 'هتعرف مجموعتك قبلها بيوم الساعة 8 بالليل.',
+      // ⚠ سطر الكشف كان هنا بالحرف وفيه «8 بالليل» ثابتة — بقى
+      //   `<RevealLine />`: نصه من `copy_strings` وساعته من `settings`.
     },
   }
 }
@@ -368,16 +370,26 @@ export function bookingFromDb(row: Record<string, unknown>): Booking {
       id: string; starts_at: string; reveal_at: string; chat_closes_at: string
       area: string | null
       area_label_ar: string | null
+      title_ar: string | null
       sbota_templates: { slug: string; name_ar: string } | null
     } | null
   }
   const s = r.sbotat
   const past = ['attended', 'no_show', 'refunded'].includes(r.status)
     || (s ? new Date(s.starts_at).getTime() < Date.now() : false)
+  // `cancelled_by_user` و`cancelled_by_us` الاتنين إلغاء — الصفحة بتقول
+  // نفس الكلام، والسبب مش شغل العضو.
+  const state: BookingState = r.status.startsWith('cancelled')
+    ? 'cancelled'
+    : (r.status as BookingState)
   return {
     id: r.id,
     slug: s?.sbota_templates?.slug ?? '',
-    sbotaName: s?.sbota_templates?.name_ar ?? '',
+    // ⚠ عنوان العضو الأول والقالب احتياطي — نفس `coalesce` اللي في
+    //   `sbotat_public` و`fn_my_hosted_sbotat` بالظبط. من غيره خروجة
+    //   العضو بتظهر في «حجزي» باسم القالب العام (الدرس التلتاشر).
+    sbotaName: (s?.title_ar ?? '').trim() || s?.sbota_templates?.name_ar || '',
+    state,
     when: s ? whenLabel(s.starts_at) : '',
     area: s?.area_label_ar ?? areaFromDb(s?.area),
     startsAt: s?.starts_at ?? '',
