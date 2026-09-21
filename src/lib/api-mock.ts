@@ -442,3 +442,34 @@ export async function cancelMySbota(id: string, reason?: string) {
   await delay(200)
   return { ok: true as const, id, reason }
 }
+
+/**
+ * ألبوم الخروجة — بيانات عرض.
+ *
+ * ⚠ من غير قاعدة، `fn_sbota_album` مش موجودة. والدرس اللي اتعلمناه مع
+ *   كرت «أول ربع ساعة»: لو الموك بيرجّع فاضي، الميزة **عمرها ما تتشاف في
+ *   التطوير** — مبنية ومترجمة ومحدش شايفها.
+ */
+export async function getAlbum(sbotaId: string) {
+  await delay(200)
+  return [
+    {
+      id: 'demo-photo-1',
+      path: `${sbotaId}/demo-1.jpg`,
+      src: null,
+      caption: 'آخر نقطة قبل ما نرجع',
+      byName: 'مريم',
+      isMine: false,
+      at: new Date(Date.now() - 3600_000).toISOString(),
+    },
+    {
+      id: 'demo-photo-2',
+      path: `${sbotaId}/demo-2.jpg`,
+      src: null,
+      caption: '',
+      byName: 'انت',
+      isMine: true,
+      at: new Date(Date.now() - 7200_000).toISOString(),
+    },
+  ]
+}

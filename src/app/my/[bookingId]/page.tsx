@@ -11,6 +11,7 @@ import { PlaceMap } from '@/components/MiniMap'
 import { EmergencyCall } from '@/components/EmergencyBlock'
 import { SafetyCard } from '@/components/SafetyCard'
 import { ArrivalCard } from '@/components/ArrivalCard'
+import { GroupAlbum } from '@/components/GroupAlbum'
 import { areaFromDb } from '@/lib/map-db'
 import { groupRuleStickers } from '@/data/lists'
 import { getGroup, requestGirlsOnly, type Group } from '@/lib/api'
@@ -71,6 +72,14 @@ export default function GroupPage() {
    */
   const stage = stageOf(booking, revealed)
   const live = stage !== 'cancelled'
+  /**
+   * الخروجة خلصت → الألبوم بيفتح.
+   *
+   * ⚠ الشرط هنا **مش حارس** — الحارس في القاعدة (`fn_was_in_sbota`:
+   *   حجز مدفوع + الخروجة خلصت). ده بس بيقرر نعرض القسم ولا لأ بدل ما
+   *   نستنى القاعدة ترجّع فاضي وناخد إطار فاضي على الشاشة.
+   */
+  const ended = booking.status === 'past' && stage !== 'cancelled'
 
   return (
     <main className="mx-auto w-full max-w-page px-5 pb-6">
@@ -110,7 +119,10 @@ export default function GroupPage() {
              بيتوتر فيها: «هعرفهم إزاي؟ هقول إيه؟». فأول حاجة يشوفها تبقى
              الإجابة — العلامة ومين بيستقبل وتلات أسئلة — وبعدين الأسامي.
              الكرت نفسه بيقفل نفسه قبل الكشف (الحارس في القاعدة). */}
-      {live && <ArrivalCard bookingId={booking.id} />}
+      {live && !ended && <ArrivalCard bookingId={booking.id} />}
+
+      {/* ===== صور الخروجة — بعد ما تخلص ===== */}
+      {ended && <GroupAlbum sbotaId={sbota.id} canAdd={booking.paid} />}
 
       {/* ===== اللي رايحين معاك ===== */}
       {stage === 'revealed' ? (

@@ -1282,6 +1282,104 @@ export async function getArrival(bookingId: string): Promise<Arrival | null> {
   }
 }
 
+/* ======================================================= ألبوم الخروجة
+
+   صور الخروجة **لأهلها بس** — حارس واحد في القاعدة (`fn_was_in_sbota`)
+   بيحكم الجدول والتخزين والدالة مع بعض. الواجهة مش بتقرر حاجة هنا.
+
+   ⚠ الباكت `sbota-photos` **خاص**، فالعرض بيبقى برابط موقّع مؤقت. لو
+     حد نسخ الرابط، بينتهي لوحده.
+*/
+
+export interface AlbumPhoto {
+  id: string
+  path: string
+  /** رابط موقّع مؤقت — بيتبني وقت العرض */
+  src: string | null
+  caption: string
+  byName: string
+  isMine: boolean
+  at: string
+}
+
+const ALBUM_URL_SECONDS = 3600
+
+/** صور الخروجة — بترجّع فاضي لو انت مكنتش فيها (القاعدة هي اللي بترفض) */
+export async function getAlbum(sbotaId: string): Promise<AlbumPhoto[]> {
+  if (!DB) return mock.getAlbum(sbotaId)
+  return safeWork(
+    'getAlbum',
+    async () => {
+      const { data, error } = await supabase().rpc('fn_sbota_album', { p_sbota_id: sbotaId })
+      if (error || !data) return []
+      const rows = data as Record<string, unknown>[]
+      return Promise.all(
+        rows.map(async (r) => {
+          const path = String(r.path ?? '')
+          const { data: signed } = await supabase()
+            .storage.from('sbota-photos')
+            .createSignedUrl(path, ALBUM_URL_SECONDS)
+          return {
+            id: String(r.photo_id),
+            path,
+            src: signed?.signedUrl ?? null,
+            caption: String(r.caption_ar ?? ''),
+            byName: String(r.by_name ?? ''),
+            isMine: Boolean(r.is_mine),
+            at: String(r.created_at ?? ''),
+          }
+        })
+      )
+    },
+    [] as AlbumPhoto[]
+  )
+}
+
+/** ارفع صورة على الخروجة — القاعدة بترفض لو انت مكنتش فيها */
+export async function addAlbumPhoto(
+  sbotaId: string,
+  file: File,
+  caption?: string
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  if (!DB) return { ok: false, error: 'مفيش قاعدة' }
+  const { data: auth } = await supabase().auth.getUser()
+  const uid = auth.user?.id
+  if (!uid) return { ok: false, error: 'لازم تكون داخل بحسابك' }
+
+  // ⚠ المسار لازم يبدأ برقم السبوطة — سياسة التخزين بتقرا أول مجلد.
+  const safe = file.name.replace(/[^\w.-]/g, '_').slice(-40)
+  const path = `${sbotaId}/${Date.now()}-${safe}`
+  const up = await supabase().storage.from('sbota-photos').upload(path, file)
+  if (up.error) return { ok: false, error: up.error.message }
+
+  const { error } = await supabase().from('sbota_photos').insert({
+    sbota_id: sbotaId,
+    path,
+    uploaded_by: uid,
+    caption_ar: caption?.trim() || null,
+    published_to_members_at: new Date().toISOString(),
+  })
+  if (error) {
+    // الصف وقع → نشيل الملف علشان ما يفضلش يتيم في التخزين
+    await supabase().storage.from('sbota-photos').remove([path])
+    return { ok: false, error: error.message }
+  }
+  return { ok: true }
+}
+
+/** امسح صورتي أنا — القاعدة بترفض صور غيري */
+export async function removeAlbumPhoto(photoId: string, path: string): Promise<boolean> {
+  if (!DB) return false
+  const { data, error } = await supabase()
+    .from('sbota_photos')
+    .delete()
+    .eq('id', photoId)
+    .select('id')
+  if (error || !data?.length) return false
+  await supabase().storage.from('sbota-photos').remove([path])
+  return true
+}
+
 /** إلغاء خروجتي — بيترفض من القاعدة لو في حد دافع (الاسترداد شغل اللوحة). */
 export async function cancelMySbota(id: string, reason?: string) {
   if (!DB) return mock.cancelMySbota(id, reason)
