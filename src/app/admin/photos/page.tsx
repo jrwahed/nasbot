@@ -11,6 +11,7 @@ import {
   Loading,
   Pager,
   Stat,
+  Tabs,
   Tag,
   useFlash,
   when,
@@ -29,9 +30,16 @@ import { rejected } from '@/lib/admin'
  *
  * والمسح بيمسح الصف **والملف** — ومعدّي على `rejected()`، فلو القاعدة
  * رفضت الصفحة بتقول رفضت مش «اتمسحت ✓».
+ *
+ * 🔴 **والصورة ما بتنزلش غير لما حد من هنا يوافق** (`0116`). العضو بيرفع،
+ *    والصف بيوصل `published_to_members_at = null` — يعني **مستنية**.
+ *    المجموعة ما بتشوفهاش غير بعد «انشر». التبويب الافتراضي هو «المستنية»
+ *    علشان الطابور يبان أول ما تفتح، مش تدوّر عليه.
  */
 
 const SIGNED_SECONDS = 600
+
+type Tab = 'pending' | 'published'
 
 interface PhotoRow {
   id: string
@@ -39,6 +47,7 @@ interface PhotoRow {
   path: string
   caption_ar: string | null
   uploaded_by: string | null
+  published_to_members_at: string | null
   created_at: string
   sbotat: {
     title_ar: string | null
@@ -63,6 +72,8 @@ function Body({ canEdit }: { canEdit: boolean }) {
   const [names, setNames] = useState<Record<string, string>>({})
   const [urls, setUrls] = useState<Record<string, string>>({})
   const [total, setTotal] = useState<number | null>(null)
+  const [tab, setTab] = useState<Tab>('pending')
+  const [waiting, setWaiting] = useState<number | null>(null)
   const [page, setPage] = useState(0)
   const [busy, setBusy] = useState(false)
   const { flash, node: flashNode } = useFlash()
@@ -70,7 +81,7 @@ function Body({ canEdit }: { canEdit: boolean }) {
   const load = useCallback(async () => {
     setRows(null)
     const from = page * ADMIN_PAGE_SIZE
-    const { data, count } = await supabase()
+    const q = supabase()
       .from('sbota_photos')
       .select(
         [
@@ -79,6 +90,7 @@ function Body({ canEdit }: { canEdit: boolean }) {
           'path',
           'caption_ar',
           'uploaded_by',
+          'published_to_members_at',
           'created_at',
           'sbotat(title_ar, starts_at, sbota_templates(name_ar))',
         ].join(','),
@@ -86,6 +98,10 @@ function Body({ canEdit }: { canEdit: boolean }) {
       )
       .order('created_at', { ascending: false })
       .range(from, from + ADMIN_PAGE_SIZE - 1)
+
+    const { data, count } =
+      tab === 'pending' ? await q.is('published_to_members_at', null)
+                        : await q.not('published_to_members_at', 'is', null)
 
     const list = (data ?? []) as unknown as PhotoRow[]
     setRows(list)
@@ -113,11 +129,42 @@ function Body({ canEdit }: { canEdit: boolean }) {
       })
     )
     setUrls(signed)
-  }, [page])
+  }, [page, tab])
 
   useEffect(() => {
     void load()
   }, [load])
+
+  // عدّاد المستنية — بيفضل باين حتى وانت في تبويب «المنشورة»
+  useEffect(() => {
+    let alive = true
+    void supabase()
+      .from('sbota_photos')
+      .select('id', { count: 'exact', head: true })
+      .is('published_to_members_at', null)
+      .then((res: { count: number | null }) => {
+        if (alive) setWaiting(typeof res.count === 'number' ? res.count : null)
+      })
+    return () => {
+      alive = false
+    }
+  }, [rows])
+
+  /** انشرها للمجموعة — ده الفعل اللي بيخلّي الصورة تبان أصلًا */
+  async function publish(r: PhotoRow) {
+    setBusy(true)
+    const { data } = await supabase()
+      .from('sbota_photos')
+      .update({ published_to_members_at: new Date().toISOString() })
+      .eq('id', r.id)
+      .select('id')
+    if (rejected(data)) flash('القاعدة رفضت النشر — محتاج صلاحية «تعديل السبوطات»')
+    else {
+      flash('اتنشرت للمجموعة')
+      await load()
+    }
+    setBusy(false)
+  }
 
   async function remove(r: PhotoRow) {
     if (!confirm('تمسح الصورة دي؟ مش هترجع.')) return
@@ -140,11 +187,32 @@ function Body({ canEdit }: { canEdit: boolean }) {
       {flashNode}
 
       <div className="mb-4 flex flex-wrap gap-3">
-        <Stat label="صور مرفوعة" value={String(total ?? rows.length)} hint="من الأعضاء ومن اللوحة" />
+        <Stat
+          label="مستنية موافقتك"
+          value={String(waiting ?? '—')}
+          hint="المجموعة ما بتشوفهاش قبل ما تنشرها"
+        />
+        <Stat label="في التبويب ده" value={String(total ?? rows.length)} />
       </div>
 
+      <Tabs
+        value={tab}
+        onChange={(v) => {
+          setTab(v)
+          setPage(0)
+        }}
+        tabs={[
+          { id: 'pending' as Tab, label: `مستنية${waiting ? ` (${waiting})` : ''}` },
+          { id: 'published' as Tab, label: 'اتنشرت' },
+        ]}
+      />
+
       {rows.length === 0 ? (
-        <Empty>لسه مفيش صور اترفعت. الألبوم بيفتح بعد ما الخروجة تخلص.</Empty>
+        <Empty>
+          {tab === 'pending'
+            ? 'مفيش صور مستنية. تمام.'
+            : 'لسه مفيش صور اتنشرت.'}
+        </Empty>
       ) : (
         <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))' }}>
           {rows.map((r) => {
@@ -172,7 +240,12 @@ function Body({ canEdit }: { canEdit: boolean }) {
                 </div>
 
                 {canEdit && (
-                  <div className="mt-2">
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {!r.published_to_members_at && (
+                      <Btn onClick={() => publish(r)} disabled={busy} kind="primary">
+                        انشر
+                      </Btn>
+                    )}
                     <Btn onClick={() => remove(r)} disabled={busy} kind="danger">
                       امسح
                     </Btn>

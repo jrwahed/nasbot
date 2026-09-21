@@ -20,6 +20,10 @@ import { getAlbum, addAlbumPhoto, removeAlbumPhoto, type AlbumPhoto } from '@/li
  *    حد زوّد عمود.
  *
  * ⚠ والقسم كله **بيختفي** لو مفيش صور ومش قادر ترفع — مش إطار فاضي.
+ *
+ * 🔴 **وأي صورة بتستنى موافقة اللوحة قبل ما تنزل** (`0116`). صاحبها بيشوفها
+ *    بوسم «مستنية الموافقة» علشان يعرف إنها وصلت، وباقي المجموعة ما
+ *    بتشوفهاش. والقاعدة هي اللي بتنفّذ ده — الوسم ده عرض مش حارس.
  */
 export function GroupAlbum({ sbotaId, canAdd = true }: { sbotaId: string; canAdd?: boolean }) {
   const t = useT()
@@ -71,6 +75,11 @@ export function GroupAlbum({ sbotaId, canAdd = true }: { sbotaId: string; canAdd
     <section className="mt-[22px] rounded-20 p-5" style={{ background: '#EFE3CF', color: '#14161A' }}>
       <h2 className="m-0 font-display text-20 font-black">{t('album.title')}</h2>
       <div className="mt-1 font-body text-14" style={{ color: '#55575C' }}>{t('album.note')}</div>
+      {canAdd && (
+        <div className="mt-[2px] font-body text-13" style={{ color: '#55575C' }}>
+          {t('album.reviewNote')}
+        </div>
+      )}
 
       {photos.length === 0 ? (
         <div className="mt-3 font-body text-15">{t('album.empty')}</div>
@@ -95,6 +104,11 @@ export function GroupAlbum({ sbotaId, canAdd = true }: { sbotaId: string; canAdd
                 {p.caption && <div style={{ color: '#14161A' }}>{p.caption}</div>}
                 {/* الاسم الأول وبس — مفيش أي بيانات تانية */}
                 <div>{p.isMine ? t('album.mine') : t('album.by', { name: p.byName })}</div>
+                {p.pending && (
+                  <div className="mt-[2px] font-display text-12 font-black" style={{ color: '#F4632A' }}>
+                    {t('album.pending')}
+                  </div>
+                )}
                 {p.isMine && (
                   <button
                     type="button"

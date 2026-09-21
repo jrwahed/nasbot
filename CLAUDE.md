@@ -387,6 +387,18 @@ psql -h 127.0.0.1 -p 5433 -U postgres -d nasbot --single-transaction -f WORK_MIG
     بيقول أيوه دايمًا · الفيد مفتوح للكل · صور كل الخروجات للكل · وصف
     كان بيعدّ صفر لأن مفيش صور أصلًا (يعني مش فاحص حاجة).
   - ومفتاح ميزة `feed` — الصفحة والرابط بيتقفلوا مع بعض من اللوحة.
+  - 🔴 **والصورة ما بتنزلش غير بموافقة اللوحة** (`WORK_MIGRATION_35` /
+    `0116` — قرار المالك). العضو بيرفع → الصف بيوصل
+    `published_to_members_at = null` → يظهر في طابور «مستنية» →
+    اللوحة تدوس «انشر». **وهو لوحده** بيشوف صورته وهي مستنية بوسم،
+    والمجموعة لأ. والسياسة بترفض أي قيمة في العمود ده وقت الرفع — من
+    غير كده الموافقة ديكور.
+    - ⚠ ودي اتكلّفت **تحصين هجرتين قدام**: `0113` و`0114` كانوا بيعرّفوا
+      نفس الدوال والسياسة، فإعادة لزق أي واحد منهم كان بيرجّع النسخة
+      اللي من غير موافقة (الدرس التالت). الشرط اتكتب في التلاتة بنفس
+      الحرف، واتجرّب بخمس لزقات بترتيب مخلوط.
+    - و`create or replace` ما بتقدرش تغيّر عدد الأعمدة الراجعة —
+      `fn_sbota_album` محتاجة `drop` الأول (نفس مصيدة `fn_create_sbota`).
   - **والإشراف اتعمل في نفس اليوم** (`WORK_MIGRATION_34` / `0115`):
     قسم **«الصور»** في اللوحة — كل اللي اترفع بالأحدث، مين رفعه، ومسح.
     فتح باب رفع من غير مكان تشوف منه وتمسح = باب من غير باب.
@@ -709,7 +721,7 @@ union all select 'WM9 (content_pages)',       to_regclass('content_pages')      
 حاجة تانية. البند المكتوب قبل أول خروجة تخمين مهما كان مقنع.
 
 ### ملفات التوثيق
-**`AFTER_SBOTA.md`** + **`SBOTAT_LOG.md`** (دورة ما بعد الخروجة) · `CONTENT_BRIEF.md` (المحتوى الناقص) · `CHECK_DB.sql` (فاحص القاعدة الشامل) · `README.md` · `DB_PLAN.md` · `ADMIN_PLAN.md` · `WORK_PLAN.md` · `DESIGN_TOKENS.md` · `COPY.md` · `ADMIN_GUIDE.md` · `RUNBOOK.md` · `DEPLOY_CHECKLIST.md` · **`REVIEW*.md`** (المراجعة) · ملفات `WORK_MIGRATION_*.sql` (لحد `_34`) و`WORK_CRON.sql` (تتلزق في SQL Editor).
+**`AFTER_SBOTA.md`** + **`SBOTAT_LOG.md`** (دورة ما بعد الخروجة) · `CONTENT_BRIEF.md` (المحتوى الناقص) · `CHECK_DB.sql` (فاحص القاعدة الشامل) · `README.md` · `DB_PLAN.md` · `ADMIN_PLAN.md` · `WORK_PLAN.md` · `DESIGN_TOKENS.md` · `COPY.md` · `ADMIN_GUIDE.md` · `RUNBOOK.md` · `DEPLOY_CHECKLIST.md` · **`REVIEW*.md`** (المراجعة) · ملفات `WORK_MIGRATION_*.sql` (لحد `_35`) و`WORK_CRON.sql` (تتلزق في SQL Editor).
 
 ---
 

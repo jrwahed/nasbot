@@ -460,6 +460,7 @@ export async function getAlbum(sbotaId: string) {
       caption: 'آخر نقطة قبل ما نرجع',
       byName: 'مريم',
       isMine: false,
+      pending: false,
       at: new Date(Date.now() - 3600_000).toISOString(),
     },
     {
@@ -469,6 +470,8 @@ export async function getAlbum(sbotaId: string) {
       caption: '',
       byName: 'انت',
       isMine: true,
+      // ⚠ واحدة مستنية عن قصد — علشان الحالة دي تتشاف في التطوير
+      pending: true,
       at: new Date(Date.now() - 7200_000).toISOString(),
     },
   ]

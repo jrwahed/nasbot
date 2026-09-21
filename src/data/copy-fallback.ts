@@ -790,6 +790,8 @@ export const copyFallback: Record<string, string> = {
   "album.caption": "كلمتين عن الصورة (اختياري)",
   "album.by": "رفعها {{name}}",
   "album.mine": "صورتك",
+  "album.pending": "مستنية الموافقة",
+  "album.reviewNote": "أي صورة بتترفع بتتراجع من الإدارة قبل ما تبان للمجموعة.",
   "album.remove": "امسحها",
   "album.failed": "الصورة مرفعتش. جرّب تاني.",
   "group.reveal.line": "هتعرف مجموعتك قبلها بيوم الساعة {{hour}}.",

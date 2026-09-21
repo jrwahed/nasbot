@@ -82,12 +82,19 @@ as $$
          (select count(*)::int from bookings b
            where b.sbota_id = s.id and b.status in ('paid','attended')),
          -- الصور لأهل الخروجة بس
+         -- ⚠ **المنشور بس** — الشرط ده جاي من `0116` (الصورة ما تنزلش
+         --   غير بموافقة اللوحة)، **ومكتوب هنا كمان بنفس الحرف**. لو
+         --   سبناه في `0116` لوحده، أي إعادة لزق للملف ده كانت بترجّع
+         --   الفيد يعدّ الصور المستنية. الدرس التالت: القديمة تتحصّن.
          case when mine.booking_id is not null then
            (select ph.path from sbota_photos ph
-             where ph.sbota_id = s.id order by ph.created_at desc limit 1)
+             where ph.sbota_id = s.id
+               and ph.published_to_members_at is not null
+             order by ph.created_at desc limit 1)
          end,
          case when mine.booking_id is not null then
-           (select count(*)::int from sbota_photos ph where ph.sbota_id = s.id)
+           (select count(*)::int from sbota_photos ph
+             where ph.sbota_id = s.id and ph.published_to_members_at is not null)
          else 0 end,
          mine.booking_id
     from sbotat s
@@ -182,9 +189,13 @@ begin
          ('0114aaaa-0000-4000-8000-000000000005', v_b, v_out, 'paid', 0)
   on conflict (id) do nothing;
 
-  insert into sbota_photos (id, sbota_id, path, uploaded_by)
-  values ('0114aaaa-0000-4000-8000-000000000006', v_a, v_a::text || '/a.jpg', v_in),
-         ('0114aaaa-0000-4000-8000-000000000007', v_b, v_b::text || '/b.jpg', v_out)
+  -- ⚠ **منشورة** (`published_to_members_at`) — من `0116` الفيد بيعدّ
+  --   المنشور بس. البذرة من غيرها كانت بتخلّي الصف «خروجتي بصورها»
+  --   أحمر، والسبب البذرة مش الكود. (وحالة «مستنية ما تبانش» متغطية
+  --   في `test_photo_approval`.)
+  insert into sbota_photos (id, sbota_id, path, uploaded_by, published_to_members_at)
+  values ('0114aaaa-0000-4000-8000-000000000006', v_a, v_a::text || '/a.jpg', v_in,  now()),
+         ('0114aaaa-0000-4000-8000-000000000007', v_b, v_b::text || '/b.jpg', v_out, now())
   on conflict (id) do nothing;
 
   set local role authenticated;

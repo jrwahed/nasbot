@@ -1355,6 +1355,13 @@ export interface AlbumPhoto {
   caption: string
   byName: string
   isMine: boolean
+  /**
+   * لسه مستنية موافقة اللوحة.
+   *
+   * ⚠ الصورة المستنية بترجع **لصاحبها هو بس** (القاعدة — `0116`)، علشان
+   *   ما يفتكرش إن الرفع وقع ويرفعها خمس مرات.
+   */
+  pending: boolean
   at: string
 }
 
@@ -1382,6 +1389,7 @@ export async function getAlbum(sbotaId: string): Promise<AlbumPhoto[]> {
             caption: String(r.caption_ar ?? ''),
             byName: String(r.by_name ?? ''),
             isMine: Boolean(r.is_mine),
+            pending: Boolean(r.is_pending),
             at: String(r.created_at ?? ''),
           }
         })
@@ -1408,12 +1416,14 @@ export async function addAlbumPhoto(
   const up = await supabase().storage.from('sbota-photos').upload(path, file)
   if (up.error) return { ok: false, error: up.error.message }
 
+  // ⚠ **من غير `published_to_members_at`** — الصورة بتوصل مستنية، واللوحة
+  //   هي اللي بتنشرها (`0116`). والسياسة نفسها بترفض أي قيمة هنا، فحتى لو
+  //   حد غيّر السطر ده الصورة مش هتعدّي.
   const { error } = await supabase().from('sbota_photos').insert({
     sbota_id: sbotaId,
     path,
     uploaded_by: uid,
     caption_ar: caption?.trim() || null,
-    published_to_members_at: new Date().toISOString(),
   })
   if (error) {
     // الصف وقع → نشيل الملف علشان ما يفضلش يتيم في التخزين

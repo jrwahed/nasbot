@@ -152,10 +152,16 @@ create policy photos_read on sbota_photos
 --
 -- ⚠ `uploaded_by = auth.uid()` **شرط**، مش تزويق: من غيره العضو يرفع
 --   صورة وينسبها لحد تاني.
+-- ⚠ الشرط التالت (`published_to_members_at is null`) جاي من `0116`
+--   (الصورة ما تنزلش غير بموافقة اللوحة) — **ومتكتوب هنا كمان بنفس
+--   الحرف عن قصد**. لو سبناه في `0116` بس، أي إعادة لزق للملف ده كانت
+--   بترجّع السياسة المفتوحة والعضو يقدر ينشر لنفسه. الدرس التالت:
+--   الهجرة القديمة هي اللي تتحصّن.
 create policy photos_member_write on sbota_photos
   for insert with check (
     fn_was_in_sbota(sbota_id)
     and uploaded_by = auth.uid()
+    and published_to_members_at is null
   );
 
 -- المسح: اللي رفع بس (والأدمن من سياسته)
@@ -213,36 +219,51 @@ end $storage$;
 -- 🔴 **الاسم الأول وبس.** مفيش صورة بروفايل ولا منطقة ولا نوع شخصية ولا
 --    عدد خروجات. ده قرار المالك صريح، وهو كمان اللي بيمنع الصفحة دي
 --    إنها تتحوّل لبروفايلات.
-create or replace function fn_sbota_album(p_sbota_id uuid)
-returns table (
-  photo_id   uuid,
-  path       text,
-  caption_ar text,
-  by_name    text,
-  is_mine    boolean,
-  created_at timestamptz
-)
-language sql
-stable
-security definer
-set search_path = public
-as $$
-  select ph.id,
-         ph.path,
-         nullif(btrim(coalesce(ph.caption_ar, '')), ''),
-         p.first_name,
-         ph.uploaded_by = auth.uid(),
-         ph.created_at
-    from sbota_photos ph
-    left join profiles p on p.id = ph.uploaded_by
-   where ph.sbota_id = p_sbota_id
-     and fn_was_in_sbota(p_sbota_id)
-     and (p.id is null or p.deleted_at is null)
-   order by ph.created_at desc;
-$$;
+-- ⚠ **مشروط: بيتعمل بس لو مش موجود.**
+--    `0116` بيدي الدالة دي عمود زيادة (`is_pending` — موافقة اللوحة).
+--    ولو الملف ده اتلزق تاني بعده، `create or replace` بالتوقيع القديم
+--    كانت هتقع بـ«cannot change return type»، أو الأسوأ: ترجّع الدالة
+--    للنسخة اللي من غير موافقة. ده الدرس التالت بالحرف — الهجرة القديمة
+--    هي اللي بتتحصّن، مش الجديدة اللي بتكتب فوقها.
+do $wrap$
+begin
+  if to_regprocedure('fn_sbota_album(uuid)') is not null then
+    raise notice 'fn_sbota_album موجودة — اتخطّت (0116 بيغلب)';
+    return;
+  end if;
+  execute $create$
+    create function fn_sbota_album(p_sbota_id uuid)
+    returns table (
+      photo_id   uuid,
+      path       text,
+      caption_ar text,
+      by_name    text,
+      is_mine    boolean,
+      created_at timestamptz
+    )
+    language sql
+    stable
+    security definer
+    set search_path = public
+    as $inner$
+      select ph.id,
+             ph.path,
+             nullif(btrim(coalesce(ph.caption_ar, '')), ''),
+             p.first_name,
+             ph.uploaded_by = auth.uid(),
+             ph.created_at
+        from sbota_photos ph
+        left join profiles p on p.id = ph.uploaded_by
+       where ph.sbota_id = p_sbota_id
+         and fn_was_in_sbota(p_sbota_id)
+         and (p.id is null or p.deleted_at is null)
+       order by ph.created_at desc;
+    $inner$;
 
-comment on function fn_sbota_album(uuid) is
-  'صور الخروجة لأهلها بس — والاسم الأول وبس، مفيش أي بيانات تانية (0113).';
+    comment on function fn_sbota_album(uuid) is
+      'صور الخروجة لأهلها بس — والاسم الأول وبس، مفيش أي بيانات تانية (0113).';
+  $create$;
+end $wrap$;
 
 revoke execute on function fn_sbota_album(uuid) from public, anon;
 grant  execute on function fn_sbota_album(uuid) to authenticated;
@@ -322,7 +343,9 @@ begin
       on r.specific_name = pr.specific_name and r.specific_schema = pr.specific_schema
    where r.routine_schema = 'public' and r.routine_name = 'fn_sbota_album'
      and pr.parameter_mode = 'OUT';
-  if cols = 'photo_id,path,caption_ar,by_name,is_mine,created_at' then result := 'نجح';
+  -- ⚠ `is_pending` اتزوّد في `0116` (موافقة اللوحة). الحارس ده وقف الشغل
+  --   لحد ما اتسأل السؤال: العمود ده بيانات شخصية؟ لأ — فاتحدّث بقصد.
+  if cols = 'photo_id,path,caption_ar,by_name,is_mine,is_pending,created_at' then result := 'نجح';
   else result := 'فشل — الأعمدة اتغيّرت: ' || coalesce(cols, '(مش لاقيها)'); end if;
   return next;
 
@@ -345,9 +368,13 @@ begin
   -- ⚠ **صورتين**: واحدة على الخروجة اللي خلصت، وواحدة على اللي لسه جاية.
   --   من غير التانية، صف «خروجة لسه ما حصلتش» كان بيعدّ صفر **لأن مفيش
   --   صور أصلًا** — يعني بيقول «نجح» وهو مش فاحص حاجة. مسكناها بفخ.
-  insert into sbota_photos (id, sbota_id, path, uploaded_by, caption_ar)
-  values (v_ph, v_sb, v_sb::text || '/t.jpg', v_in, 'يوم حلو'),
-         ('0113aaaa-0000-4000-8000-000000000007', v_sb2, v_sb2::text || '/t.jpg', v_out, null)
+  -- ⚠ **منشورة** (`published_to_members_at`) من `0116`. من غيرها الصف
+  --   «اللي كان في الخروجة يشوف الألبوم» كان بيعدّي بالصدفة — لأن
+  --   صاحب الصورة بيشوف بتاعته حتى وهي مستنية، فالاختبار كان بيفحص
+  --   حاجة تانية غير اللي مكتوب فيه.
+  insert into sbota_photos (id, sbota_id, path, uploaded_by, caption_ar, published_to_members_at)
+  values (v_ph, v_sb, v_sb::text || '/t.jpg', v_in, 'يوم حلو', now()),
+         ('0113aaaa-0000-4000-8000-000000000007', v_sb2, v_sb2::text || '/t.jpg', v_out, null, now())
   on conflict (id) do nothing;
 
   -- ===== سلوكي =====
