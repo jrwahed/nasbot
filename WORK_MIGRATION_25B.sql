@@ -196,11 +196,16 @@ grant select on safety_links to authenticated;
 -- ===== 4) الدوال =====
 
 -- العضو بيعمل الرابط (أو بياخد اللي شغّال أصلًا)
+-- ⚠ `search_path` فيه **`extensions`** كمان: `gen_random_bytes` جاية من
+--    `pgcrypto`، وسوبابيس بيركّب الامتداد ده في اسكيما `extensions` مش
+--    `public`. من غيرها الدالة بتقع على الإنتاج بـ«function
+--    gen_random_bytes(integer) does not exist» — **وبتعدّي محليًا** لو
+--    الامتداد متركّب في `public`. (شوف الدرس التمنتاشر في CLAUDE.md.)
 create or replace function fn_safety_link(p_booking_id uuid)
 returns text
 language plpgsql
 security definer
-set search_path = public
+set search_path = public, extensions
 as $$
 declare
   v_uid   uuid := auth.uid();
@@ -240,7 +245,7 @@ begin
   return v_tok;
 end $$;
 
-comment on function fn_safety_link(uuid) is 'بترجّع توكن رابط الاطمئنان لحجز العضو نفسه — بتعمل واحد لو مفيش.';
+comment on function fn_safety_link(uuid) is 'بترجّع توكن رابط الاطمئنان لحجز العضو نفسه — بتعمل واحد لو مفيش. search_path فيه extensions علشان pgcrypto.';
 revoke execute on function fn_safety_link(uuid) from public, anon;
 grant execute on function fn_safety_link(uuid) to authenticated;
 

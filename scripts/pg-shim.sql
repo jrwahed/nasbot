@@ -13,6 +13,23 @@ alter default privileges in schema public grant all on tables to anon, authentic
 alter default privileges in schema public grant all on sequences to anon, authenticated, service_role;
 alter default privileges in schema public grant execute on functions to anon, authenticated, service_role;
 
+-- ⚠ **الامتدادات في اسكيما `extensions` زي سوبابيس بالظبط.**
+--
+--    سوبابيس بيركّب `pgcrypto` و`uuid-ossp` في اسكيما اسمها `extensions`،
+--    مش في `public`. والشيم كان سايب `0001` يعمل
+--    `create extension if not exists pgcrypto` فبتتركّب في `public` —
+--    فأي دالة `set search_path = public` بتلاقي `gen_random_bytes` عادي
+--    **محليًا** وبتقع **على الإنتاج** بـ«function does not exist».
+--
+--    ده حصل فعلًا في `fn_safety_link` (0105): الاختبار المحلي عدّى ١٤ من
+--    ١٤، وأول تشغيل على الإنتاج وقع. بنركّبها هنا في `extensions` الأول،
+--    فـ`create extension if not exists` في `0001` بتبقى no-op — بالظبط
+--    زي ما بيحصل على سوبابيس.
+create schema if not exists extensions;
+grant usage on schema extensions to anon, authenticated, service_role;
+create extension if not exists pgcrypto  with schema extensions;
+create extension if not exists "uuid-ossp" with schema extensions;
+
 create schema if not exists auth;
 grant usage on schema auth to anon, authenticated, service_role;
 create table if not exists auth.users (
