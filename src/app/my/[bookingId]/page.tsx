@@ -8,10 +8,18 @@ import { PhotoPlaceholder } from '@/components/PhotoPlaceholder'
 import { Sticker } from '@/components/Sticker'
 import { Countdown, CountdownText } from '@/components/Countdown'
 import { PlaceMap } from '@/components/MiniMap'
+import { EmergencyCall } from '@/components/EmergencyBlock'
+import { SafetyCard } from '@/components/SafetyCard'
+import { ArrivalCard } from '@/components/ArrivalCard'
+import { areaFromDb } from '@/lib/map-db'
 import { groupRuleStickers } from '@/data/lists'
 import { getGroup, requestGirlsOnly, type Group } from '@/lib/api'
 import { getSession } from '@/lib/session'
 import { useT } from '@/components/CopyProvider'
+
+/** منطقة العضو زي ما هتتعرض — كلامه هو لو كاتبها بإيده، وإلا من القايمة */
+const areaLabelOf = (p: { areaLabel?: string; areaCode?: string }) =>
+  p.areaLabel || areaFromDb(p.areaCode)
 
 /**
  * سبوطتك — كشف المجموعة.
@@ -54,6 +62,7 @@ export default function GroupPage() {
   }
 
   const { booking, sbota, captain, people, why, revealed } = group
+  const nearby = people.filter((p) => p.sameArea)
 
   return (
     <main className="mx-auto w-full max-w-page px-5 pb-6">
@@ -112,9 +121,16 @@ export default function GroupPage() {
                     >
                       {p.tag}
                     </Sticker>
+                    {/* ⚠ الوسم ده جاي من القاعدة (`same_area`) مش من مقارنة
+                        هنا — الصفحة مش عارفة منطقتي أصلًا. */}
+                    {p.sameArea && (
+                      <Sticker color="cobalt" rotate={i % 2 ? -2 : 2} size="xs">
+                        {t('group.ride.mine')}
+                      </Sticker>
+                    )}
                   </div>
                   <div className="font-body text-14" style={{ color: 'var(--muted)' }}>
-                    {p.line}
+                    {[p.line, areaLabelOf(p)].filter(Boolean).join(' · ')}
                   </div>
                 </div>
               </div>
@@ -142,6 +158,36 @@ export default function GroupPage() {
         </div>
       )}
 
+      {/* ===== أول ربع ساعة ===== */}
+      <ArrivalCard bookingId={booking.id} />
+
+      {/* ===== جايين منين =====
+          أكتر سبب إلغاء في القاهرة هو الطريق. الأسامي اتكشفت أصلًا —
+          إحنا بنقول المنطقة بس، واللي من ناحية بعض يتفقوا هما. */}
+      {revealed && (
+        <section className="mt-4 rounded-20 p-4" style={{ background: 'var(--surface)' }}>
+          <div className="font-display text-18 font-black">{t('group.ride.title')}</div>
+          {nearby.length > 0 ? (
+            <>
+              <div className="mt-1 font-body text-14" style={{ color: 'var(--muted)' }}>
+                {t('group.ride.note')}
+              </div>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {nearby.map((p, i) => (
+                  <Sticker key={p.id ?? p.name} color="cobalt" rotate={i % 2 ? 2 : -2} size="sm">
+                    {p.name}
+                  </Sticker>
+                ))}
+              </div>
+            </>
+          ) : (
+            <div className="mt-1 font-body text-14" style={{ color: 'var(--muted)' }}>
+              {t('group.ride.none')}
+            </div>
+          )}
+        </section>
+      )}
+
       {/* ===== المكان ===== */}
       <div className="mt-[22px] font-display text-20 font-black">{t('group.text.7')}</div>
       <div
@@ -166,6 +212,9 @@ export default function GroupPage() {
           >{t('group.text.6')}</a>
         </div>
       </div>
+
+      {/* ===== معايا حد يعرف ===== */}
+      <SafetyCard bookingId={booking.id} sbotaName={booking.sbotaName} />
 
       {/* ===== القواعد في سطرين ===== */}
       <div className="mt-[22px] flex flex-wrap gap-2">
@@ -192,11 +241,14 @@ export default function GroupPage() {
         className="nb-safe-bottom sticky bottom-0 z-30 -mx-5 mt-6 flex flex-col gap-2 px-5 pt-3"
         style={{ background: 'var(--bg)', borderTop: '2px solid var(--line)' }}
       >
-        <a
-          href="tel:+201000000000"
-          className="grid w-full place-items-center rounded-14 font-display text-16 font-black"
-          style={{ background: '#3A3D44', color: '#FBF7EF', minHeight: 50 }}
-        >{t('group.text.3')}</a>
+        {/* ⚠ كان `tel:+201000000000` مكتوب هنا بالحرف — نفس الرقم الوهمي
+            اللي `getEmergencyPhone` بترفضه في /rules. المكوّن بيقرا من
+            `settings` وبيخفي نفسه لو الرقم لسه مش متظبط. */}
+        <EmergencyCall
+          label={t('group.text.3')}
+          className="text-16"
+          style={{ background: '#3A3D44', minHeight: 50, borderRadius: 14 }}
+        />
         {isGirl &&
           (moved ? (
             <div

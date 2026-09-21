@@ -10,7 +10,7 @@ import { PrimaryButton, SecondaryButton, TextButton } from '@/components/Buttons
 import { FeatureGate } from '@/components/FlagsProvider'
 import { useT } from '@/components/CopyProvider'
 import { isLoggedIn } from '@/lib/session'
-import { getMyHostedSbotat, updateMySbotaNote, cancelMySbota } from '@/lib/api'
+import { getMyHostedSbotat, updateMySbotaNote, setMySbotaSign, cancelMySbota } from '@/lib/api'
 import type { HostedSbota } from '@/types'
 
 /**
@@ -45,6 +45,8 @@ function MyHostedList() {
   const [loading, setLoading] = useState(true)
   const [notes, setNotes] = useState<Record<string, string>>({})
   const [saved, setSaved] = useState<Record<string, boolean>>({})
+  const [signs, setSigns] = useState<Record<string, string>>({})
+  const [signSaved, setSignSaved] = useState<Record<string, boolean>>({})
   const [busy, setBusy] = useState<Record<string, boolean>>({})
   const [err, setErr] = useState('')
   const [confirming, setConfirming] = useState('')
@@ -53,6 +55,7 @@ function MyHostedList() {
     const list = await getMyHostedSbotat()
     setRows(list)
     setNotes(Object.fromEntries(list.map((r) => [r.id, r.note])))
+    setSigns(Object.fromEntries(list.map((r) => [r.id, r.sign ?? ''])))
     setLoading(false)
   }
 
@@ -75,6 +78,26 @@ function MyHostedList() {
     }
     setSaved((s) => ({ ...s, [id]: true }))
     setTimeout(() => setSaved((s) => ({ ...s, [id]: false })), 2500)
+  }
+
+  /**
+   * العلامة — «هتعرفهم إزاي».
+   *
+   * ⚠ الحفظ منفصل عن السطر عن قصد: التنتين بيروحوا لدالتين مختلفتين في
+   *   القاعدة، ولو لمّيناهم في زرار واحد ورفضت واحدة فيهم الصفحة هتقول
+   *   «اتحفظ ✓» على نص شغل.
+   */
+  async function saveSign(id: string) {
+    setErr('')
+    setBusy((b) => ({ ...b, [id]: true }))
+    const res = await setMySbotaSign(id, signs[id] ?? '')
+    setBusy((b) => ({ ...b, [id]: false }))
+    if (!res.ok) {
+      setErr(res.error || t('host.mine.saveErr'))
+      return
+    }
+    setSignSaved((s) => ({ ...s, [id]: true }))
+    setTimeout(() => setSignSaved((s) => ({ ...s, [id]: false })), 2500)
   }
 
   async function cancel(id: string) {
@@ -162,6 +185,23 @@ function MyHostedList() {
                       maxLength={140}
                       onChange={(e) => setNotes((n) => ({ ...n, [r.id]: e.target.value }))}
                     />
+                    {/* العلامة — اللي بتخلّي أول ربع ساعة مش رعب */}
+                    <TextArea
+                      label={t('host.mine.sign')}
+                      placeholder={t('host.mine.signPh')}
+                      value={signs[r.id] ?? ''}
+                      maxLength={200}
+                      onChange={(e) => setSigns((n) => ({ ...n, [r.id]: e.target.value }))}
+                    />
+                    <div className="-mt-2 font-body text-14" style={{ color: '#55575C' }}>
+                      {t('host.mine.signHint')}
+                    </div>
+                    <div>
+                      <SecondaryButton onClick={() => saveSign(r.id)} disabled={busy[r.id]}>
+                        {signSaved[r.id] ? t('host.mine.signSaved') : t('host.mine.signSave')}
+                      </SecondaryButton>
+                    </div>
+
                     <div className="flex flex-wrap items-center gap-3">
                       <PrimaryButton onClick={() => saveNote(r.id)} disabled={busy[r.id]}>
                         {saved[r.id] ? t('host.mine.saved') : t('host.mine.save')}

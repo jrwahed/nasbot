@@ -384,6 +384,13 @@ const GROUPS: Group[] = [
         min: 0,
       },
       {
+        col: 'safety_link_hours',
+        label: 'رابط الاطمئنان بيقفل بعد الخروجة بـ',
+        suffix: 'ساعة',
+        hint: 'الرابط اللي العضو بيبعته لحد يطمن عليه — بعد المدة دي بيموت لوحده ومحدش يقدر يفتحه.',
+        min: 0,
+      },
+      {
         col: 'day_mode_start_hour',
         unwired: true,
         label: 'وضع النهار بيبدأ الساعة',
@@ -463,18 +470,16 @@ const GROUPS: Group[] = [
     nums: [
       {
         col: 'min_age',
-        unwired: true,
         label: 'أقل سن للتسجيل',
         suffix: 'سنة',
-        hint: 'أصغر من كده مش هيقدر يكمّل تسجيل أصلًا.',
+        hint: 'الحجز بيترفض لو سنه أقل من كده — الرفض في القاعدة نفسها (fn_can_book).',
         min: 0,
       },
       {
         col: 'min_age_overnight',
-        unwired: true,
         label: 'أقل سن للسبوطة اللي فيها مبيت',
         suffix: 'سنة',
-        hint: 'الرحلات اللي بتبات بره بتطلب سن أكبر.',
+        hint: 'الرحلات اللي بتبات بره بتطلب سن أكبر — والرفض في القاعدة كمان.',
         min: 0,
       },
       {

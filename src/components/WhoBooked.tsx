@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import type { WhoBooked as WhoBookedData } from '@/types'
 import { ShieldIcon } from '@/components/Icons'
 import { useT } from '@/components/CopyProvider'
@@ -19,6 +20,21 @@ export function WhoBooked({ data }: { data: WhoBookedData }) {
         {t('shared.ofTotal', { n: data.booked, total: data.total })}
       </div>
       <div className="mt-[6px] font-body text-16">{data.line}</div>
+
+      {/*
+        ⚠ بيظهر بس لما يكون فيه فعلًا حد من ناحيته. `null` (زائر أو «غير
+          كده») و`0` (مفيش حد) الاتنين بيخفوه — بس لأسباب مختلفة، والقاعدة
+          هي اللي بتفرّق (شوف `same_area` في 0106).
+
+          والسطر ده بيرد على أكتر سبب إلغاء في القاهرة: «طب هوصل إزاي؟» —
+          قبل ما يقفل الصفحة مش بعد ما يحجز.
+      */}
+      {typeof data.sameArea === 'number' && data.sameArea > 0 && (
+        <div className="mt-[6px] font-body text-16 font-semibold" style={{ color: '#2B4CFF' }}>
+          {t('shared.sameArea', { n: data.sameArea })}
+        </div>
+      )}
+
       <div
         className="mt-[10px] pt-[10px] font-body text-14"
         style={{ color: '#55575C', borderTop: '1px solid #D9CBAF' }}
@@ -41,6 +57,28 @@ export function GuaranteeBox({ text }: { text: string }) {
     >
       <ShieldIcon />
       <div className="font-body text-15 font-semibold">{text}</div>
+    </div>
+  )
+}
+
+/**
+ * رابط صفحة الأمان — بيقعد تحت صندوق الضمان في صفحة السبوطة وصفحة الدفع.
+ *
+ * ليه هنا؟ لأن دي اللحظة اللي السؤال بيتسأل فيها بالظبط: «هدفع لحد ما
+ * أعرفوش وأروح مكان ما أعرفهوش». الصفحة نفسها في `content_blocks`
+ * والمالك بيعدّلها من اللوحة.
+ */
+export function SafetyLink({ className = '' }: { className?: string }) {
+  const t = useT()
+  return (
+    <div className={`text-center ${className}`}>
+      <Link
+        href="/aman"
+        className="font-body text-15 font-semibold underline"
+        style={{ color: 'var(--accent-text)' }}
+      >
+        {t('aman.link')}
+      </Link>
     </div>
   )
 }

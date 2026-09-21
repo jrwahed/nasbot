@@ -61,7 +61,8 @@ node scripts/check-migration-bundles.mjs # حزم WORK_MIGRATION = ملفات ا
 src/
   app/
     (عام)        /  /one  /map  /captains  /join  /login  /me  /game …
-    rules faq about terms   صفحات المحتوى — محتواها كله من `content_blocks`
+    rules faq about terms aman   صفحات المحتوى — محتواها كله من `content_blocks`
+    tamenny/[token] «معايا حد يعرف» — الصفحة الوحيدة اللي بتدّي معلومة لحد مش مسجّل
     new          «افتح خروجة» — العضو بيظبّط خروجته (ورا مفتاح member_sbota)
     game         «مين جاي؟» — مدخلها `GameStrip` في الرئيسية + رابط الهيدر
     me/sbotati   «خروجاتي» — اللي أنا فاتحها: الأعداد · السطر · الإلغاء
@@ -100,9 +101,9 @@ scripts/         check-copy · فاحصات · بذور النصوص
 
 ## ٥. القاعدة — أهم الجداول والدوال
 
-**الجداول:** `profiles` · `sbotat`(+`sbotat_public`) · `sbota_templates` · `venues` · `bookings` · `payments` · `wallet_ledger` · `coupons` · `pair_affinity` · `matching_runs` · `chat_rooms`/`chat_members` · `notifications`/`notification_templates` · `admin_users`/`admin_roles`/`role_permissions` · `settings`(صف واحد) · `copy_strings` · `audit_log`. **طبقة الشغل:** `professions` · `work_venues` · `work_passes` · `pass_redemptions` · `recurring_bookings` · `work_affinity` · `venue_reports` · `leads` · `work_metrics`.
+**الجداول:** `profiles` · `sbotat`(+`sbotat_public`) · `sbota_templates` · `venues` · `bookings` · `payments` · `wallet_ledger` · `coupons` · `pair_affinity` · `matching_runs` · `chat_rooms`/`chat_members` · `notifications`/`notification_templates` · `admin_users`/`admin_roles`/`role_permissions` · `settings`(صف واحد) · `copy_strings` · `safety_links` · `audit_log`. **طبقة الشغل:** `professions` · `work_venues` · `work_passes` · `pass_redemptions` · `recurring_bookings` · `work_affinity` · `venue_reports` · `leads` · `work_metrics`.
 
-**دوال مهمة:** `fn_can_book` · `fn_capacity_guard` (قفل السعة) · `fn_booking_paid` · `fn_cancel_booking` · `fn_approve_transfer` · `fn_redeem_pass`/`fn_revert_pass`/`fn_activate_pass` · `fn_build_matching`/`fn_build_work_matching` · `fn_reveal` · `fn_pair_want`/`fn_work_want` (الطريق الصح لكتابة التبادل) · `fn_is_admin`/`fn_has_permission`.
+**دوال مهمة:** `fn_can_book` · `fn_capacity_guard` (قفل السعة) · `fn_booking_paid` · `fn_cancel_booking` · `fn_approve_transfer` · `fn_redeem_pass`/`fn_revert_pass`/`fn_activate_pass` · `fn_build_matching`/`fn_build_work_matching` · `fn_reveal` · `fn_pair_want`/`fn_work_want` (الطريق الصح لكتابة التبادل) · `fn_is_admin`/`fn_has_permission` · `fn_can_see_place`/`fn_sbota_place` (الحارس والبيانات، كل واحد لوحده) · `fn_safety_link`/`fn_safety_my`/`fn_safety_view`/`fn_safety_mark`/`fn_safety_revoke` · `fn_sbota_arrival`/`fn_set_sbota_sign`.
 
 **صفحات المحتوى (0082):** `content_pages` · `content_blocks`. القواعد والأسئلة ومين إحنا والشروط — الفقرات بتتضاف وتتمسح وتترتّب من `/admin/content` ← «صفحات الموقع». الكتابة بـ`content.edit`. والفقرة اللي الكود بيسأل عنها بالاسم ليها `ref` ثابت (`guarantee`).
 
@@ -220,6 +221,47 @@ psql -h 127.0.0.1 -p 5433 -U postgres -d nasbot --single-transaction -f WORK_MIG
     و`check-notify-vars.mjs` بيقارن الاتنين ويفشل البناء لو اختلفوا.
   - الزرار في «الحجوزات» جنب كل حاجز، وفي «الفلوس ← التحويلات المستنية»
     جنب «أكّد التحويل» بالظبط. **مش بيبعت** — بيفتح المحادثة والمالك بيدوس.
+- 🟡 **الأمان بقى ليه صفحة، والاطمئنان بقى ليه رابط — مكتوب ومتفحوص، لسه ما اتلزقش.**
+  `WORK_MIGRATION_25A.sql` (`0104`) ثم `25B` (`0105`):
+  - **`/aman` «إزاي بنأمّنك»** — صفحة محتوى زي `/rules` بالظبط (في `content_pages`،
+    بتتعدّل من `/admin/content`). كل فقرة فيها بتوصف حارس **شغّال في القاعدة
+    من زمان ومحدش قايله**. رابطها بيبان في الذيل لوحده، وفيه رابط تاني تحت
+    صندوق الضمان في `/s/[slug]` و`/s/[slug]/pay` — اللحظة اللي السؤال بيتسأل فيها.
+  - **`/tamenny/[token]` «معايا حد يعرف»** — العضو بيعمل رابط من صفحة حجزه
+    ويبعته لأمه. اللي معاه الرابط بيشوف: الاسم الأول · الخروجة · الميعاد ·
+    المكان · ووصل ولا لسه. **وبس.** التوكن ١٦ بايت عشوائي، بينتهي لوحده بعد
+    الخروجة بساعات من `settings.safety_link_hours`، والعضو يقدر يقفله.
+    و**اللي معاه الرابط قارئ فقط** — «وصلت بالسلامة» بيتدوس من العضو بس.
+  - السن بقى بيتقرا من `settings` — كان مكتوب في جسم `fn_can_book` (18 و21)،
+    والمالك بيغيّره من اللوحة ومحدش بيسمعه. و`unwired` اتشال من الخانتين.
+  - رقم الطوارئ الوهمي كان لسه حي في **صفحتين**: `/my/[bookingId]` مكتوب
+    `tel:+201000000000` بالحرف، و`/captain/[sbotaId]` بياخده من
+    `src/data/lists.ts`. التصليح القديم (A15) لمس `/rules` بس. بقى مكوّن واحد
+    `EmergencyCall` بيقرا من `settings` وبيخفي نفسه لو الرقم وهمي.
+  - `test_safety_page()` (٦ صفوف) و`test_safety_link()` (١٤ صف) — كلهم نجح،
+    واتجرّبوا بـ**تسع فخاخ متعمّدة** (باب كتابة على الجدول · الرابط مفتوح
+    للمجهول · العنوان من غير حارس · «وصلت» من غير ملكية · التوكن بيتغيّر كل
+    مرة · `fn_safety_my` من غير حارس · السن مكتوب في الكود × ٢ · الصفحة فاضية).
+
+- 🟡 **الوصول وأول ربع ساعة — مكتوبين ومتفحوصين، لسه ما اتلزقوش.**
+  `WORK_MIGRATION_26A.sql` (`0106`) ثم `26B` (`0107`):
+  - **«جايين منين»** — `fn_who_booked` بقى فيها `same_area` («منهم ٣ من
+    ناحيتك» قبل الدفع)، و`fn_group_members` بقى فيها `area_code`/`area_label`/
+    `same_area` (بعد الكشف). «غير كده» بترجّع **null** مش رقم، وnull و0 مش
+    نفس الحاجة. المقارنة في القاعدة مش في الواجهة.
+  - **«أول ربع ساعة»** — عمود `sbotat.sign_ar` (العلامة) + `fn_sbota_arrival`
+    (العلامة + أقدم حجز في **نفس المجموعة** هو اللي بيستقبل) + تلات أسئلة
+    في `copy_strings`. الكرت بيفتح مع الكشف بنفس الحارس بالظبط.
+  - `fn_guard_sbota_text` مشي ورا العمود الجديد — من غير كده الكلمات
+    الممنوعة كانت هتعدّي من خانة العلامة.
+  - و`fn_my_hosted_sbotat` كانت بتعرض **اسم القالب** بدل العنوان اللي العضو
+    كتبه (كل خروجات الأعضاء على قالب عام واحد) — بقت `coalesce` زي
+    `sbotat_public`.
+  - `test_ride_areas()` (٩) و`test_arrival()` (١١) — كلهم نجح، واتجرّبوا
+    بـ**تمن فخاخ**: العدّ اللي بيعدّني أنا · «غير كده» بتتعدّ · حارس الكشف
+    مشيل · الحارس نسي العمود الجديد · العلامة من غير ملكية · الكرت من غير
+    كشف · الكرت من غير حجز · «خروجاتي» راجعة لاسم القالب.
+
 - 🔴 **مراجعة شاملة عاملة `REVIEW.md`** (+ 4 ملفات تفصيلية) لقت 150 نتيجة، 34 حمرا. اقرأها قبل ما تكمّل أي حاجة.
 - 🟢 **الدفعة الأولى اتلزقت على القاعدة** (`WORK_MIGRATION_5.sql`) — أحمر الأمان والفلوس والقاعدة كله واقع.
 - 🟢 **الدفعة التانية اتلزقت**: `WORK_MIGRATION_6.sql` (`0065` قوايم التسجيل · `0066` كتل الخريطة · `0067` اختبارها · `0070` تخمين رمز الدخول S7 · `0071` حجم الصفحة ومجاميع الفلوس · `0072` الصيانة بتوقف الحجز · `0073` صلاحيات رفع الصور · `0074` افتراضات التسعير).
@@ -329,6 +371,43 @@ psql -h 127.0.0.1 -p 5433 -U postgres -d nasbot --single-transaction -f WORK_MIG
 منه — `grep` على اسم العمود القديم في القاعدة والكود — مش على الصفحة اللي
 انت فيها بس. الحارس: `test_address_back()`.
 
+⚠ **درس ستاشر — الحارس والبيانات في دالة واحدة = نسخة تانية من الحارس.**
+`fn_sbota_address` كانت بتعمل حاجتين: تتأكد إن اللي بيسأل من حقه، وتجيب
+العنوان. ماشي — لحد ما احتجنا **نفس العنوان** من مكان تاني (رابط الاطمئنان،
+واللي بيقرا بالتوكن مش بالجلسة). ساعتها مفيش اختيار غير إننا نكتب المنطق
+تاني، ودي بالظبط اللي بتولّد الدرس التلتاشر: نسختين من نفس الحارس، واحدة
+منهم بتتنسى أول ما حاجة تتغيّر.
+
+اتقسمت لتلاتة في `0105`: **`fn_sbota_place`** (البيانات، من غير أي حارس،
+ومقفولة على الكل) · **`fn_can_see_place`** (الحارس لوحده) · و`fn_sbota_address`
+بقت غلاف رفيع بينادي التنتين. `fn_safety_view` بتنادي **نفس** الحارس، فمستحيل
+الاتنين يفترقوا. و`test_address_back()` القديمة لسه بتعدّي بالخمسة — ده الدليل
+إن الحارس ما اتغيّرش.
+
+**القاعدة:** أول ما تلاقي نفسك بتنسخ حارس علشان تخدم سياق تاني — اوقف،
+واطلع الحارس في دالة لوحده.
+
+⚠ **درس سبعتاشر — الحزمة الكبيرة بتوصل مقصوصة، والخطأ بيشاور على حتة تانية.**
+حصلت **مرتين**. المالك لزق `WORK_MIGRATION_25.sql` (١٠٢١ سطر · ٥٣ كيلو) فوصل
+منها **١٠٠ سطر بس** (٧ كيلو)، والمحرر قال:
+`unterminated dollar-quoted string ... LINE 67: do $$`.
+
+والرسالة دي **مضللة**: هي بتشاور على `do $$` في سطر ٦٧ كأن فيه غلطة في
+الصياغة هناك، والحقيقة إن الملف اتقطع قبل ما الـ`$$` تتقفل. أول مرة قعدنا
+ندوّر على غلطة صياغة مش موجودة.
+
+**إزاي تعرف الفرق بسرعة:** شوف آخر سطر في المحرر. لو الملف منتهي في نص
+جملة — ده قص، مش باج. وقارن عدد السطور: `wc -l` على الملف ضد آخر رقم سطر
+في المحرر.
+
+**القاعدتين:**
+1. **ملف واحد = هجرة واحدة.** الحزم اللي فيها أكتر من هجرة بتكبر وبتتقص.
+   لو لازم تتقسم، سمّيها `NA`/`NB` وخلّي كل واحدة تشتغل لوحدها بالترتيب
+   (زي `14A`/`14B`).
+2. **متقولش للمالك «انسخ من الشات».** ابعته **رابط الملف على جيتهب** وقوله
+   يستعمل زرار «Copy raw file» — ده بينسخ الملف كامل، والمعاينة في الشات
+   بتعرض أول شوية سطور بس.
+
 ⚠ **درس أربعتاشر — الرابط اللي في الإيميل محدش بيدوس عليه غيره هو.**
 زرار «افتح نسبوط» في إيميل تأكيد الحجز كان رايح `/sbota/<slug>` — **مسار
 مش موجود في الموقع من أصله** (المسارات `/s/<slug>` و`/my/<رقم>`). وصفحة
@@ -397,7 +476,7 @@ union all select 'WM9 (content_pages)',       to_regclass('content_pages')      
 رجع `false`، الزقها حتى لو ٨ و٩ اتلزقوا.
 
 ### ملفات التوثيق
-`CONTENT_BRIEF.md` (المحتوى الناقص — بريف جاهز يتبعت لكاتب) · `CHECK_DB.sql` (فاحص القاعدة الشامل) · `README.md` · `DB_PLAN.md` · `ADMIN_PLAN.md` · `WORK_PLAN.md` · `DESIGN_TOKENS.md` · `COPY.md` · `ADMIN_GUIDE.md` · `RUNBOOK.md` · `DEPLOY_CHECKLIST.md` · **`REVIEW*.md`** (المراجعة) · ملفات `WORK_MIGRATION_*.sql` (لحد `_19`) و`WORK_CRON.sql` (تتلزق في SQL Editor).
+`CONTENT_BRIEF.md` (المحتوى الناقص — بريف جاهز يتبعت لكاتب) · `CHECK_DB.sql` (فاحص القاعدة الشامل) · `README.md` · `DB_PLAN.md` · `ADMIN_PLAN.md` · `WORK_PLAN.md` · `DESIGN_TOKENS.md` · `COPY.md` · `ADMIN_GUIDE.md` · `RUNBOOK.md` · `DEPLOY_CHECKLIST.md` · **`REVIEW*.md`** (المراجعة) · ملفات `WORK_MIGRATION_*.sql` (لحد `_26B`) و`WORK_CRON.sql` (تتلزق في SQL Editor).
 
 ---
 
