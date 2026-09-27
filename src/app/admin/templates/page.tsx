@@ -64,6 +64,9 @@ interface Row {
   girls_only: boolean
   overnight: boolean
   hero_photos: string[]
+  /** كارت «قريب» في الرئيسية (0117) */
+  coming_soon: boolean
+  coming_soon_order: number
   created_at: string
   updated_at: string
 }
@@ -158,6 +161,9 @@ function TemplatesEditor() {
   const [kind, setKind] = useState('الكل')
   const [openId, setOpenId] = useState<string | null>(null)
   const [adding, setAdding] = useState(false)
+  const [soonOnly, setSoonOnly] = useState(false)
+  /** كام واحد داس «قولّي لما تفتح» ولسه ما اتبلّغش — لكل قالب في الصفحة */
+  const [waiting, setWaiting] = useState<Record<string, number>>({})
   const { flash, node: flashNode } = useFlash()
 
   useEffect(() => {
@@ -175,6 +181,7 @@ function TemplatesEditor() {
       .select('*', { count: 'exact' })
       .order('name_ar')
     if (kind !== 'الكل') query = query.eq('kind', kind)
+    if (soonOnly) query = query.eq('coming_soon', true)
     if (needle) {
       query = query.or(
         `name_ar.ilike.*${needle}*,slug.ilike.*${needle}*,story_ar.ilike.*${needle}*`
@@ -192,10 +199,26 @@ function TemplatesEditor() {
       setTotal(0)
       return
     }
-    setRows((data ?? []) as Row[])
+    const list = (data ?? []) as Row[]
+    setRows(list)
     setTotal(count ?? null)
+
+    // العدّ من `template_interest` — القراية للإدارة بس (RLS)
+    const ids = list.map((r) => r.id)
+    const counts: Record<string, number> = {}
+    if (ids.length) {
+      const { data: wants } = await supabase()
+        .from('template_interest')
+        .select('template_id')
+        .in('template_id', ids)
+        .is('notified_at', null)
+      for (const w of (wants ?? []) as { template_id: string }[]) {
+        counts[w.template_id] = (counts[w.template_id] ?? 0) + 1
+      }
+    }
+    setWaiting(counts)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [kind, needle, page])
+  }, [kind, needle, page, soonOnly])
 
   /** العدد الكلي من غير فلتر — عدّ من القاعدة مش من صفوف محمّلة */
   const loadAll = useCallback(async () => {
@@ -291,6 +314,15 @@ function TemplatesEditor() {
           options={[{ value: 'الكل', label: 'كل الأنواع' }, ...KINDS]}
         />
 
+        <Toggle
+          label="«قريب» بس"
+          value={soonOnly}
+          onChange={(v) => {
+            setPage(0)
+            setSoonOnly(v)
+          }}
+        />
+
         <div className="font-body text-14" style={{ color: 'var(--muted)' }}>
           {total === null ? '…' : total} بالفلتر ده من {all === null ? '…' : all}
         </div>
@@ -304,7 +336,7 @@ function TemplatesEditor() {
 
       <p className="mt-2 font-body text-13" style={{ color: 'var(--muted)' }}>
         القالب مالوش «شغّال/مقفول» — اللي بيتحكم في ظهور السبوطة للناس هو حالة الموعد نفسه في
-        المواعيد.
+        المواعيد. والاستثناء الوحيد «قريب»: بيبان كارت في الرئيسية من غير موعد.
       </p>
 
       {flashNode}
@@ -350,6 +382,10 @@ function TemplatesEditor() {
                 {r.girls_only && <Tag color="#F4B4C8">بنات بس</Tag>}
                 {r.is_day && <Tag>نهاري</Tag>}
                 {r.overnight && <Tag>بمبيت</Tag>}
+                {r.coming_soon && <Tag color="#F4632A">قريب</Tag>}
+                {(waiting[r.id] ?? 0) > 0 && (
+                  <Tag color="#2B4CFF">{waiting[r.id]} مستني يفتح</Tag>
+                )}
                 <span className="font-body text-14" style={{ color: 'var(--muted)' }}>
                   {money(r.default_price)} · {r.duration_min} دقيقة · {r.min_group}–{r.max_group} شخص
                 </span>
@@ -491,6 +527,40 @@ function TemplatesEditor() {
                     folder={`templates/${r.id}`}
                     onSave={(next) => patch(r.id, { hero_photos: next })}
                   />
+
+                  {/* كارت «قريب» (0117) — صورة واسم وزرار «قولّي لما تفتح» في الرئيسية */}
+                  <div
+                    className="flex flex-col gap-2 rounded-14 p-3"
+                    style={{ border: '2px dashed var(--line)' }}
+                  >
+                    <div className="flex flex-wrap items-end gap-4">
+                      <Toggle
+                        label="«قريب» — يبان في الرئيسية"
+                        value={r.coming_soon}
+                        onChange={(v) => patch(r.id, { coming_soon: v })}
+                      />
+                      <NumberField
+                        label="ترتيبه"
+                        value={r.coming_soon_order}
+                        min={0}
+                        hint="الأصغر الأول."
+                        onSave={(v) => patch(r.id, { coming_soon_order: Math.round(v) })}
+                      />
+                      <span className="font-body text-14" style={{ color: 'var(--fg)' }}>
+                        {waiting[r.id] ?? 0} مستني يفتح
+                      </span>
+                    </div>
+                    <div className="font-body text-13" style={{ color: 'var(--muted)' }}>
+                      الكارت بيبان تحت السبوطات المفتوحة: الصورة الأولى والاسم والجو — من غير
+                      ميعاد ولا سعر. أول ما تفتح سبوطة من القالب ده، كل اللي داسوا «قولّي لما
+                      تفتح» بيوصلهم إيميل مرة واحدة، والكارت بيختفي طول ما هي مفتوحة.
+                    </div>
+                    {r.coming_soon && (r.hero_photos ?? []).length === 0 && (
+                      <div className="font-body text-13" style={{ color: '#F4632A' }}>
+                        القالب ده مفيهوش صورة — الكارت هيبان فاضي. ارفع صورة تحت.
+                      </div>
+                    )}
+                  </div>
 
                   <div className="flex flex-wrap gap-6">
                     <Toggle

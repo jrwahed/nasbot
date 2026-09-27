@@ -9,6 +9,7 @@ import { SbotaCard } from '@/components/SbotaCard'
 import { MiniMap } from '@/components/MiniMap'
 import { CairoMap } from '@/components/CairoMap'
 import { OneButton } from '@/components/home/OneButton'
+import { ComingSoon } from '@/components/home/ComingSoon'
 import {
   Captains,
   GameStrip,
@@ -98,6 +99,9 @@ export default function Home() {
               ))}
             </div>
           )}
+
+          {/* «جاية قريب» — قوالب المالك علّمها «قريب» (0117). بيختفي لو فاضي. */}
+          <ComingSoon className="px-5 pt-9 lg:px-0" />
         </div>
 
         {/* ===== العمود اليمين على الكمبيوتر: الخريطة الثابتة ===== */}

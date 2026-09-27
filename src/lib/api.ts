@@ -34,7 +34,7 @@ import type {
   HostLimits,
   NewSbotaInput,
 } from '@/types'
-import { supabase, hasSupabase } from '@/lib/supabase'
+import { supabase, hasSupabase, publicMediaUrl } from '@/lib/supabase'
 import * as mock from '@/lib/api-mock'
 import {
   sbotaFromDb,
@@ -1290,6 +1290,56 @@ export async function getArrival(bookingId: string): Promise<Arrival | null> {
       غير صور ولا أسامي. الواجهة مش بتفلتر — الدالة نفسها مش بترجّع
       الصور للي مكانش فيها.
 */
+
+/* ======================================================= كروت «قريب» (0117)
+
+   قوالب المالك علّمها «قريب» من اللوحة: صورة واسم وزرار «قولّي لما تفتح».
+   مفيش ميعاد ولا سعر — لسه ما اتحددوش. والقالب اللي عنده سبوطة مفتوحة
+   الدالة نفسها بتشيله، علشان الخروجة ما تبانش مرتين.
+*/
+
+export interface SoonItem {
+  templateId: string
+  slug: string
+  name: string
+  mood: string
+  imgSrc: string | null
+  photoAlt: string | null
+  /** العضو ده داس «قولّي» ولسه ما اتبلّغش */
+  iWant: boolean
+}
+
+export async function getComingSoon(): Promise<SoonItem[]> {
+  if (!DB) return mock.getComingSoon()
+  return safeWork(
+    'getComingSoon',
+    async () => {
+      const { data, error } = await supabase().rpc('fn_coming_soon')
+      if (error || !data) return []
+      return (data as Record<string, unknown>[]).map((r) => ({
+        templateId: String(r.template_id),
+        slug: String(r.slug ?? ''),
+        name: String(r.name_ar ?? ''),
+        mood: String(r.mood_ar ?? ''),
+        imgSrc: publicMediaUrl(r.photo ? String(r.photo) : null),
+        photoAlt: r.photo_alt_ar ? String(r.photo_alt_ar) : null,
+        iWant: r.i_want === true,
+      }))
+    },
+    [] as SoonItem[]
+  )
+}
+
+/** «قولّي لما تفتح» — بترجّع الحالة الجديدة، أو null لو فشلت */
+export async function wantSoon(templateId: string, on: boolean): Promise<boolean | null> {
+  if (!DB) return mock.wantSoon(templateId, on)
+  const { data, error } = await supabase().rpc('fn_want_soon', {
+    p_template: templateId,
+    p_on: on,
+  })
+  if (error) return null
+  return data === true
+}
 
 export interface FeedItem {
   sbotaId: string

@@ -294,6 +294,7 @@ export type TrackEvent =
   | 'view_schedule'
   | 'open_card'
   | 'click_ana_gai'
+  | 'soon_want'
   | 'start_game'
   | 'finish_game'
   | 'reach_payment'
