@@ -477,6 +477,22 @@ export async function getAlbum(sbotaId: string) {
   ]
 }
 
+/** كروت «قريب» — بيانات عرض (نفس شكل `fn_coming_soon`) */
+const soonWanted = new Set<string>()
+export async function getComingSoon() {
+  await delay(160)
+  return [
+    { templateId: 'soon-1', slug: 'kayak', name: 'كاياك في النيل', mood: 'هادي ومبلول', imgSrc: null, photoAlt: null },
+    { templateId: 'soon-2', slug: 'fakhar', name: 'ورشة فخار', mood: 'إيدك في الطين', imgSrc: null, photoAlt: null },
+  ].map((x) => ({ ...x, iWant: soonWanted.has(x.templateId) }))
+}
+export async function wantSoon(templateId: string, on: boolean) {
+  await delay(160)
+  if (on) soonWanted.add(templateId)
+  else soonWanted.delete(templateId)
+  return on
+}
+
 /** الفيد — بيانات عرض (نفس شكل `fn_feed`: خروجتي بصورها، وغيرها كرت أصم) */
 export async function getFeed(limit = 30) {
   await delay(200)

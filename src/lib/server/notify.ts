@@ -267,6 +267,12 @@ const CORE: Record<
     path: '/',
     args: (c) => [c.name, c.link],
   },
+  // كروت «قريب» (0117) — اللي داس «قولّي لما تفتح» والسبوطة اتفتحت
+  soon_opened: {
+    subject: 'الخروجة اللي كنت مستنيها اتفتحت',
+    path: '/',
+    args: (c) => [c.name, c.sbotaName, c.when, c.link],
+  },
   gate_rejected: {
     subject: 'بخصوص طلبك',
     path: '/',
@@ -650,6 +656,8 @@ export async function runNotify(limit = BATCH): Promise<NotifyResult> {
     ) {
       path = `/my/${payload.booking_id}`
     } else if (path === '/me' && key === 'waitlist_promoted' && sb?.slug) {
+      path = `/s/${sb.slug}`
+    } else if (key === 'soon_opened' && sb?.slug) {
       path = `/s/${sb.slug}`
     }
     const link = typeof payload.link === 'string' && payload.link ? payload.link : `${SITE}${path}`
