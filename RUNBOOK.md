@@ -507,6 +507,33 @@ from net._http_response r order by r.created desc limit 10;
 
 للإلغاء: `select cron.unschedule('nasbot-work-notify');`
 
+### تغيير `CRON_SECRET` (اتعمل ٢٠٢٦-٠٩-٢٧ ونجح)
+
+السر موجود في **مكانين** ولازم يبقوا نفس القيمة بالحرف — لو اختلفوا، المسار
+بيرد `401` والإشعارات بتستنى (مش بتضيع، بتتبعت أول ما يتطابقوا).
+
+1. ولّد قيمة: `openssl rand -hex 32`
+2. سوبابيس ← SQL Editor:
+   ```sql
+   select vault.update_secret(
+     (select id from vault.secrets where name = 'nasbot_cron_secret'),
+     '<القيمة الجديدة>'
+   );
+   -- للتأكد (مش بيطلّع السر): updated_at لازم يبقى دلوقتي
+   select name, updated_at from vault.secrets where name = 'nasbot_cron_secret';
+   ```
+3. ڤيرسل ← Environment Variables ← `CRON_SECRET` ← نفس القيمة ← **Redeploy**.
+4. بعد ٥ دقايق:
+   ```sql
+   select status_code, created from net._http_response order by created desc limit 5;
+   ```
+   `200` = تمام · `401` = القيمتين مختلفين أو النشرة لسه ما خلصتش.
+   `401` واحدة بين الخطوة ٢ و٣ متوقّعة.
+
+⚠ طول ما `ADMIN_AUTH_PEPPER` مش متحط، السر ده هو اللي بيهاش جلسات اللوحة
+ورموز الدخول — فبعد التغيير **اللوحة بتطلب دخول تاني**، ورمز دخول اتبعت قبلها
+بيبطل. ده متوقّع.
+
 ### البديل — Vercel Cron
 
 `DEPLOY_CHECKLIST §2` بتقول «متضيفش crons في vercel.json»، والسبب إن Hobby
