@@ -465,7 +465,7 @@ where status = 'failed' and template_key like 'work\_%' order by created_at desc
 
 ### الجدولة — pg_cron + `net.http_post` (المسار المعتمد)
 
-> **الأسرع:** الزق `WORK_CRON.sql` (في جذر المستودع) في SQL Editor بعد ما تبدّل
+> **الأسرع:** الزق `db-bundles/WORK_CRON.sql` في SQL Editor بعد ما تبدّل
 > `<CRON_SECRET>` بقيمته من Vercel. بيعمل كل اللي تحت، وبينده المسار مرة فورًا
 > للتجربة، وآمن يتكرر. اللي تحت هو نفس الخطوات مشروحة.
 

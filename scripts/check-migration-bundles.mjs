@@ -31,7 +31,13 @@ const MIG = 'supabase/migrations'
  */
 const LEGACY = new Set(['WORK_MIGRATION_1.sql', 'WORK_MIGRATION_4.sql'])
 
-const bundles = readdirSync('.')
+/**
+ * ⚠ الحزم اتنقلت من جذر المشروع لـ`db-bundles/` (٢٠٢٦-٠٩-٢٧) — الجذر كان
+ *   فيه ٣٨ ملف SQL وبقى مش مقروء. المسار هنا هو المصدر الوحيد للمكان.
+ */
+const BUNDLES_DIR = 'db-bundles'
+
+const bundles = readdirSync(BUNDLES_DIR)
   .filter((f) => /^WORK_MIGRATION_\d+[A-Z]?\.sql$/.test(f))
   .sort((a, b) => a.length - b.length || a.localeCompare(b))
 
@@ -40,7 +46,7 @@ let sections = 0
 let legacy = 0
 
 for (const b of bundles) {
-  const s = readFileSync(b, 'utf8')
+  const s = readFileSync(`${BUNDLES_DIR}/${b}`, 'utf8')
   const ms = [...s.matchAll(HDR)]
   if (ms.length === 0 && LEGACY.has(b)) {
     legacy++
