@@ -14,7 +14,6 @@ import {
   Captains,
   GameStrip,
   RulesStrip,
-  ScheduleBox,
   WorkStrip,
 } from '@/components/home/Sections'
 import { filters, marqueeText } from '@/data/lists'
@@ -125,7 +124,8 @@ export default function Home() {
             لما يبقى فيه صور حقيقية من ألبوم الخروجات. */}
         <Captains />
         <RulesStrip />
-        <ScheduleBox />
+        {/* «ابعتلي الجدول على واتساب» اتشال (٢٠٢٦-٠٩-٢٧): كان بيوعد بجدول على
+            واتساب والواتساب مش متفعّل، وبيقول «تمام» حتى لو الحفظ فشل. */}
         <Footer />
       </div>
     </main>

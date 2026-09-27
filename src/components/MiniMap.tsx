@@ -3,7 +3,6 @@
 import Link from 'next/link'
 import {
   miniMapBlocks,
-  miniMapDots,
   miniMapLabels,
   miniMapMystery,
 } from '@/data/areas'
@@ -63,23 +62,8 @@ export function MiniMap({ height = 260 }: { height?: number }) {
         </span>
       ))}
 
-      {miniMapDots.map((d, i) => (
-        <span
-          key={i}
-          className="nb-pulse-dot absolute"
-          style={{
-            insetInlineEnd: d.right,
-            insetInlineStart: d.left,
-            top: d.top,
-            bottom: d.bottom,
-            width: 14,
-            height: 14,
-            borderRadius: '50%',
-            background: '#F4632A',
-            animation: `nb-pulse 1.6s ${d.delay}s ease-out infinite`,
-          }}
-        />
-      ))}
+      {/* النقط اللي بتنبض اتشالت (٢٠٢٦-٠٩-٢٧): كانت في أماكن ثابتة (التجمع ·
+          المعادي · زايد · وادي دجلة) كأن فيه خروجات هناك — والحقيقة لأ. */}
 
       {/* لابتوب — مكان شغل في التجمع (نفس موضع نقطة work-cafe-tagamo3 على الخريطة الكبيرة) */}
       {work.on && (

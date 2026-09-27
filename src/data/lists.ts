@@ -86,7 +86,7 @@ export const girlsOnlyOptions = ['دايمًا', 'أحيانًا', 'مش مهم'
 export const homeRuleStickers = [
   // «كابتن في كل سبوطة» اتشال — بقى فيه خروجات من غير كابتن بعد 0078
   { label: 'افتح خروجتك بنفسك', color: 'cream' as const, rotate: -2 },
-  { label: 'بنات بس كل تلات', color: 'cobalt' as const, rotate: 3 },
+  // «بنات بس كل تلات» اتشال (٢٠٢٦-٠٩-٢٧) — مفيش خروجة ثابتة كده
   { label: 'فلوسك بترجع لو إحنا لغينا', color: 'orange' as const, rotate: -3 },
   { label: 'اللي يضايق حد بيمشي', color: 'cream' as const, rotate: 2 },
 ]
