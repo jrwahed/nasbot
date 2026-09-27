@@ -13,7 +13,6 @@ import { ComingSoon } from '@/components/home/ComingSoon'
 import {
   Captains,
   GameStrip,
-  LastFriday,
   RulesStrip,
   ScheduleBox,
   WorkStrip,
@@ -121,7 +120,9 @@ export default function Home() {
       {/* الأقسام دي بتتوسّط على الكمبيوتر بدل ما تتمدد على 1440 كلها */}
       <div className="mx-auto w-full lg:max-w-[1100px]">
         <GameStrip className="mx-5 mt-9 lg:mx-0" />
-        <LastFriday />
+        {/* «اللي حصل الجمعة اللي فاتت» اتشال (٢٠٢٦-٠٩-٢٧، طلب المالك): كان صور
+            وأسامي كباتن وهمية من `src/data/lists.ts` عن خروجات ما حصلتش. يرجع
+            لما يبقى فيه صور حقيقية من ألبوم الخروجات. */}
         <Captains />
         <RulesStrip />
         <ScheduleBox />
