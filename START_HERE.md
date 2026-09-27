@@ -24,7 +24,7 @@
 
 | | |
 |---|---|
-| منشور على | Vercel — `https://nasbot.vercel.app` |
+| منشور على | Vercel — **`https://www.nasbot.net`** (من ٢٠٢٦-٠٩-٢٧) · و`nasbot.vercel.app` لسه شغّال |
 | القاعدة | Supabase · مشروع **`nasbot-prod`** = `nutmgtulrqrfaysrigfi` |
 | ⚠ متلمسهوش | في نفس المؤسسة مشروع تاني فاضي `vohmnfaidwgvuusezktc` |
 | الفروع | التطوير `claude/beautiful-euler-es0a2h` · النشر من `main` |

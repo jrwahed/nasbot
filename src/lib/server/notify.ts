@@ -1,6 +1,7 @@
 import 'server-only'
 import nodemailer from 'nodemailer'
 import { admin } from '@/lib/server/supabase-admin'
+import { siteUrl } from '@/app/sitemap'
 
 /**
  * مصرف الإشعارات — بيسحب صفوف `notifications` اللي حالتها `queued` وبيبعتها بالإيميل.
@@ -114,7 +115,10 @@ function htmlShell(body: string, link?: string): string {
  *  إعدادات الرندر لكل قالب
  * ========================================================================== */
 
-const SITE = (clean(process.env.NEXT_PUBLIC_SITE_URL) ?? 'https://nasbot.app').replace(/\/+$/, '')
+// نفس ترتيب sitemap: المتغيّر الصريح ← دومين الإنتاج من ڤيرسل.
+// الاحتياطي كان 'https://nasbot.app' — دومين مش بتاعنا، فكل رابط في الإيميلات
+// كان بيقع لما NEXT_PUBLIC_SITE_URL مش متحط (وهو ما كانش متحط على الإنتاج).
+const SITE = siteUrl()
 
 const DAYS_AR = ['الحد', 'الاتنين', 'التلات', 'الأربع', 'الخميس', 'الجمعة', 'السبت']
 

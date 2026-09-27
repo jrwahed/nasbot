@@ -23,7 +23,7 @@
 الخروجة» (`sbotat.host_id`) هو اللي بيمسك المجموعة، وهو عضو زي أي حد
 مش موظف مدفوع.
 
-- **منشور على:** Vercel — `https://nasbot.vercel.app`
+- **منشور على:** Vercel — **`https://www.nasbot.net`** (الدومين اتشرى من ڤيرسل ٢٠٢٦-٠٩-٢٧، و`nasbot.net` بيحوّل لـ`www`). `nasbot.vercel.app` لسه شغّال، ومهمة الإشعارات في pg_cron لسه بتنادي عليه — ده سليم.
 - **القاعدة:** Supabase (مؤسسة `jpqjqyuecrabvsgcidfs` ← مشروع **`nasbot-prod`** = `nutmgtulrqrfaysrigfi`، منطقة `eu-central-1`). ⚠ في نفس المؤسسة مشروع تاني فاضي (`vohmnfaidwgvuusezktc`) — **متلمسهوش**.
 - **الفرع:** التطوير على `claude/beautiful-euler-es0a2h`، والنشر من `main`
 
