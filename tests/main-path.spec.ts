@@ -21,7 +21,7 @@ test('المسار الأساسي من الرئيسية للتقييم', async (
   // ===== الرئيسية =====
   await page.goto('/')
   await expect(page.getByRole('heading', { name: 'سبوطات الأسبوع ده' })).toBeVisible()
-  await expect(page.getByText('8 بس. لما تكمل تكمل.')).toBeVisible()
+  await expect(page.getByText('المجموعة صغيرة. لما تكمل تكمل.')).toBeVisible()
 
   // ===== فلتر «بنات بس» =====
   await page.getByRole('button', { name: 'بنات بس', exact: true }).click()

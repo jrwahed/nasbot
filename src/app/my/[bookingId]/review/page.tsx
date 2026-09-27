@@ -10,7 +10,6 @@ import { PrimaryButton } from '@/components/Buttons'
 import { StickyCTA } from '@/components/StickyCTA'
 import { Sticker } from '@/components/Sticker'
 import { REVIEW_FIELDS } from '@/lib/review-fields'
-import { people } from '@/data/people'
 import { submitReview } from '@/lib/api'
 import { getBookingCollab, pairWant, workWant, type Mate } from '@/lib/collab'
 import { useT } from '@/components/CopyProvider'
@@ -98,9 +97,13 @@ export default function ReviewPage() {
     }
   }, [params.bookingId])
 
-  /** لو مفيش زمايل حقيقيين (مفيش قاعدة أو لسه ما اتكشفتش) بنعرض الأسامي الوهمية زي الأول */
+  /**
+   * ⚠ كانت بتعرض أسامي وهمية (`src/data/people`) لو مفيش زمايل حقيقيين —
+   *   يعني عضو حقيقي يشوف «مريم» و«نور» كأنهم كانوا معاه، ولو اختارهم
+   *   الاسم الوهمي كان بيتبعت كـid. دلوقتي: مفيش زمايل = مفيش سؤال.
+   */
   const hasIds = mates.length > 0
-  const list: Mate[] = hasIds ? mates : people.map((p) => ({ id: p.name, firstName: p.name }))
+  const list: Mate[] = mates
 
   const toggle = (setter: typeof setSeeAgain) => (id: string) =>
     setter((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]))
@@ -190,13 +193,15 @@ export default function ReviewPage() {
       </div>
 
       {/* ===== عايز تشوف مين تاني؟ ===== */}
-      <PickPeople
-        title={t('review.text.4')}
-        note={t('review.text.3')}
-        people={list}
-        picked={seeAgain}
-        onToggle={toggle(setSeeAgain)}
-      />
+      {hasIds && (
+        <PickPeople
+          title={t('review.text.4')}
+          note={t('review.text.3')}
+          people={list}
+          picked={seeAgain}
+          onToggle={toggle(setSeeAgain)}
+        />
+      )}
 
       {/* ===== عايز تشتغل مع مين؟ — لسبوطات الشغل بس ===== */}
       {isWork && hasIds && (
