@@ -109,6 +109,11 @@ export function GameStrip({ className = '' }: { className?: string }) {
  * العنوان بهامش 20 والشريط بيمرّر من الحرف للحرف،
  * كل صورة 240 مربعة بزوايا 18، والتوقيع مايل -6 تحت الشمال.
  */
+/**
+ * ⚠ مش متركّب في الرئيسية من ٢٠٢٦-٠٩-٢٧ — بياناته وهمية (`lastFriday`/`quote`
+ * في `src/data/lists.ts`) وبتحكي عن خروجات ما حصلتش. لو رجع، يرجع بصور
+ * حقيقية من ألبوم الخروجات، مش من الملف ده.
+ */
 export function LastFriday() {
   const t = useT()
   return (
