@@ -406,10 +406,13 @@ export async function loadSessionFromProfile(): Promise<boolean> {
   if (!uid) return false
   const { data } = await supabase()
     .from('profiles')
-    .select('phone, first_name, gender, role')
+    .select('phone, first_name, gender, role, deleted_at')
     .eq('id', uid)
     .maybeSingle()
-  if (!data) return false
+  // ⚠ الحساب اللي اتمسح من «امسح حسابي» بيعامل زي اللي مالوش ملف: يروح
+  //   `/join` يكمّل بياناته (المسح شالها)، و`/api/account/ensure` بيرجّعه هناك.
+  //   قبل كده كان بيدخل عادي وكل حجز يقول «الحساب مش موجود».
+  if (!data || (data as { deleted_at: string | null }).deleted_at) return false
   const r = data as { phone: string; first_name: string | null; gender: string | null; role: string }
   setSession({
     // القاعدة بتخزّن +2010… والموقع بيستخدم الشكل المحلي 010…

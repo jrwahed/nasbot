@@ -40,13 +40,30 @@ export async function POST(req: Request) {
 
   const { data: mine } = await db
     .from('profiles')
-    .select('id, phone, email')
+    .select('id, phone, email, deleted_at')
     .eq('id', user.id)
     .maybeSingle()
 
   if (mine) {
+    const cur = mine as { email: string | null; deleted_at: string | null }
+
+    // ⚠ حساب اتمسح من «امسح حسابي» ورجع صاحبه يسجّل بنفس الإيميل: سوبابيس
+    //   بيدخّله على نفس الحساب القديم، و`/join` بيملا بياناته من تاني — بس
+    //   `deleted_at` كان بيفضل متعلّم، فكل حجز يقول «الحساب مش موجود» من
+    //   غير ما حد يفهم ليه (حصل للمالك نفسه ٢٠٢٦-٠٩-٣٠). رجوعه = رجّعه.
+    //   الحظر (`banned_at`) عمود تاني وما بيتلمسش هنا.
+    if (cur.deleted_at) {
+      await db
+        .from('profiles')
+        .update({ deleted_at: null, ...(email && !cur.email ? { email } : {}) })
+        .eq('id', user.id)
+      await db.from('audit_log').insert({
+        actor_id: user.id, action: 'restore_profile', entity: 'profiles', entity_id: user.id,
+      })
+      return NextResponse.json({ ok: true, created: false, restored: true })
+    }
+
     // موجود — نكمّل الإيميل لو ناقص، ومفيش تغيير للرقم من هنا
-    const cur = mine as { email: string | null }
     if (email && !cur.email) await db.from('profiles').update({ email }).eq('id', user.id)
     return NextResponse.json({ ok: true, created: false })
   }
