@@ -320,6 +320,11 @@ function JoinForm() {
         document.querySelector('[data-err="1"]')?.scrollIntoView({ block: 'center', behavior: 'smooth' })
         return
       }
+    } else {
+      // ⚠ وضع التعديل كمان: الحساب اللي اتمسح من «امسح حسابي» ورجع صاحبه
+      //   بيفتح هنا على إنه «تعديل» (الملف لسه موجود ومتعلّم ممسوح). الخادم
+      //   بيرجّعه — ولو الحساب عادي النداء ما بيعملش حاجة.
+      await ensureAccount(digits)
     }
 
     await createAccount({

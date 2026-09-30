@@ -13,7 +13,7 @@ import { StickyCTA } from '@/components/StickyCTA'
 import { BottomSheet } from '@/components/BottomSheet'
 import { PrimaryButton, SecondaryButton } from '@/components/Buttons'
 import { ClockIcon, ArrowIcon, PinIcon, LevelIcon } from '@/components/Icons'
-import { getSbota, getCaptain, bookFree } from '@/lib/api'
+import { getSbota, getCaptain, bookFree, getMyWaitlist, joinWaitlist, leaveWaitlist, type MyWaitlist } from '@/lib/api'
 import { useContentRef, useNumberedRules } from '@/components/FooterLinksProvider'
 import { track } from '@/lib/track'
 import { isLoggedIn } from '@/lib/session'
@@ -46,6 +46,9 @@ export default function SbotaPage() {
   const [freeBusy, setFreeBusy] = useState(false)
   const [freeErr, setFreeErr] = useState('')
   const [loading, setLoading] = useState(true)
+  /** قايمة الانتظار (0120) — `null` للزائر */
+  const [wait, setWait] = useState<MyWaitlist | null>(null)
+  const [waitBusy, setWaitBusy] = useState(false)
   const waiting = search.get('wait') === '1'
 
   useEffect(() => {
@@ -57,6 +60,7 @@ export default function SbotaPage() {
         return
       }
       setSbota(s)
+      getMyWaitlist(s.id).then((w) => alive && setWait(w))
       // ⚠ خروجة العضو مالهاش كابتن. من غير الشرط ده `getCaptain('')` بترجّع
       //   كابتن **وهمي** من الاحتياطي — يعني الصفحة تعرض حد مالوش وجود.
       setCaptain(s.captainId ? await getCaptain(s.captainId) : null)
@@ -90,6 +94,32 @@ export default function SbotaPage() {
     router.push(`/my/${res.bookingId}`)
   }
 
+  /**
+   * قايمة الانتظار — لما مفيش مكان ليّا. الزائر بيروح يسجّل دخول ويرجع هنا.
+   * ⚠ القاعدة هي اللي بتقرر (`fn_join_waitlist`)، والزرار ده بس بيسأل.
+   */
+  const onJoinWait = async () => {
+    if (!sbota || waitBusy) return
+    if (!isLoggedIn()) {
+      router.push(`/login?next=/s/${sbota.slug}`)
+      return
+    }
+    setFreeErr('')
+    setWaitBusy(true)
+    const res = await joinWaitlist(sbota.id)
+    if (res.ok) setWait(await getMyWaitlist(sbota.id))
+    else setFreeErr(res.error || t('sbota.wait.err'))
+    setWaitBusy(false)
+  }
+
+  const onLeaveWait = async () => {
+    if (!sbota || waitBusy) return
+    setWaitBusy(true)
+    await leaveWaitlist(sbota.id)
+    setWait(await getMyWaitlist(sbota.id))
+    setWaitBusy(false)
+  }
+
   const onBook = () => {
     if (!sbota) return
     track('click_ana_gai', { slug: sbota.slug })
@@ -108,6 +138,8 @@ export default function SbotaPage() {
   }
 
   const isWork = sbota.kind === 'work'
+  // مفيش مكان ليّا: السبوطة كاملة، أو القاعدة قالت لأ (نصيب النوع — من غير ما نقول)
+  const noSeat = sbota.full || (wait !== null && !wait.canBook)
 
   return (
     <main className="mx-auto w-full max-w-page pb-6">
@@ -270,9 +302,25 @@ export default function SbotaPage() {
             <PrimaryButton size="lg" className="w-full" disabled>
               {t('flags.off.note')}
             </PrimaryButton>
-          ) : sbota.full ? (
+          ) : wait?.onList ? (
+            <>
+              <SecondaryButton className="w-full" disabled>
+                {t('sbota.wait.in', { n: wait.rank ?? 1 })}
+              </SecondaryButton>
+              <button
+                type="button"
+                onClick={onLeaveWait}
+                disabled={waitBusy}
+                className="mt-2 w-full font-body text-14 font-semibold underline"
+                style={{ color: 'var(--muted)' }}
+              >
+                {t('sbota.wait.leave')}
+              </button>
+            </>
+          ) : noSeat ? (
             <SecondaryButton
-              onClick={onBook}
+              onClick={onJoinWait}
+              disabled={waitBusy}
               className="w-full"
               aria-label={t('sbota.text.1')}
             >{t('sbota.text.1')}</SecondaryButton>
@@ -307,7 +355,7 @@ export default function SbotaPage() {
             {/* رسالة القفل من feature_flags.off_message_ar */}
             {!booking.on
               ? booking.off || t('flags.closed.body')
-              : waiting
+              : waiting || noSeat || wait?.onList
                 ? t('sbota.waitlistNote')
                 : t('sbota.label.2')}
           </div>
