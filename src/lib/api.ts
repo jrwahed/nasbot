@@ -821,7 +821,9 @@ export async function startBooking(input: {
   return {
     ok: true,
     bookingId: json.bookingId,
-    amount: json.amount,
+    // ⚠ الخادم بيرجّع المبلغ بالقروش (زي القاعدة) — والواجهة بالجنيه.
+    // من غير التحويل ده صفحة الدفع كانت بتقول «حوّل 15000 جنيه» على سبوطة بـ150.
+    amount: typeof json.amount === 'number' ? toPounds(json.amount) : undefined,
     payTo: json.payTo,
     reviewHours: json.reviewHours,
     paid: json.paid ?? false,
