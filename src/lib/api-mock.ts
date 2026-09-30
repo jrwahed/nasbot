@@ -423,6 +423,21 @@ export async function createSbota(input: NewSbotaInput) {
   return { ok: true as const, id: `demo-${Date.now()}`, title: input.title }
 }
 
+/** قايمة الانتظار — وضع العرض: مفيش حد فيها، والسبوطة الكاملة بس هي اللي بتقفل */
+const mockWaiting = new Set<string>()
+export async function getMyWaitlist(sbotaId: string) {
+  const on = mockWaiting.has(sbotaId)
+  return { onList: on, rank: on ? 1 : null, canBook: true }
+}
+export async function joinWaitlist(sbotaId: string) {
+  mockWaiting.add(sbotaId)
+  return { ok: true as const, rank: 1 }
+}
+export async function leaveWaitlist(sbotaId: string) {
+  mockWaiting.delete(sbotaId)
+  return { ok: true as const }
+}
+
 export async function bookFree(sbotaId: string) {
   await delay(300)
   return { ok: true as const, bookingId: `demo-booking-${sbotaId}` }

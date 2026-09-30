@@ -1219,6 +1219,51 @@ export async function bookFree(sbotaId: string) {
   return { ok: true as const, bookingId: data as string }
 }
 
+/* ============================================================ قايمة الانتظار (0120) */
+
+export interface MyWaitlist {
+  onList: boolean
+  /** ترتيبي في القايمة — `null` لو مش فيها */
+  rank: number | null
+  /**
+   * فيه مكان ليّا دلوقتي؟ `false` مش بتقول ليه (كاملة ولا نصيب النوع كمل) —
+   * القفل ساكت بقرار المالك.
+   */
+  canBook: boolean
+}
+
+/** حالتي في قايمة انتظار السبوطة — `null` للزائر أو لو الدالة لسه مش متلزقة */
+export async function getMyWaitlist(sbotaId: string): Promise<MyWaitlist | null> {
+  if (!DB) return mock.getMyWaitlist(sbotaId)
+  const { data: session } = await supabase().auth.getSession()
+  if (!session.session) return null
+  const { data, error } = await supabase().rpc('fn_my_waitlist', { s_id: sbotaId })
+  if (error) return null
+  const row = (Array.isArray(data) ? data[0] : data) as
+    | { on_list: boolean; rank: number | null; can_book: boolean }
+    | undefined
+  if (!row) return null
+  return { onList: row.on_list, rank: row.on_list ? row.rank : null, canBook: row.can_book }
+}
+
+/** الدخول في القايمة — الدالة بترفض لو فيه مكان ليّا أو لو أنا حاجز أصلًا */
+export async function joinWaitlist(
+  sbotaId: string
+): Promise<{ ok: true; rank: number } | { ok: false; error: string }> {
+  if (!DB) return mock.joinWaitlist(sbotaId)
+  const { data, error } = await supabase().rpc('fn_join_waitlist', { s_id: sbotaId })
+  if (error) return { ok: false as const, error: error.message }
+  return { ok: true as const, rank: data as number }
+}
+
+export async function leaveWaitlist(
+  sbotaId: string
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  if (!DB) return mock.leaveWaitlist(sbotaId)
+  const { error } = await supabase().rpc('fn_leave_waitlist', { s_id: sbotaId })
+  return error ? { ok: false as const, error: error.message } : { ok: true as const }
+}
+
 /** الخروجات اللي أنا فاتحها — الأعداد بس، مفيش أسماء قبل الكشف */
 export async function getMyHostedSbotat(): Promise<HostedSbota[]> {
   if (!DB) return mock.getMyHostedSbotat()
