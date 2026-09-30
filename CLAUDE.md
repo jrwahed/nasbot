@@ -778,6 +778,8 @@ union all select 'WM9 (content_pages)',       to_regclass('content_pages')      
 
 **نقطة البداية: `START_HERE.md`** — الحالة والطريق واللي فاضل، في ملف واحد.
 
+**`PRODUCT_MAP.md`** — جرد المنتج الموجود (كل صفحة وميزة وحالة ورحلة العضو لحد أول خروجة)، مع حالة كل حاجة ومصدرها. جرد مش خطة — مفيهوش اقتراحات.
+
 **`AFTER_SBOTA.md`** + **`SBOTAT_LOG.md`** (دورة ما بعد الخروجة) · `CONTENT_BRIEF.md` (المحتوى الناقص) · `CHECK_DB.sql` (فاحص القاعدة الشامل) · `README.md` · `DB_PLAN.md` · `ADMIN_PLAN.md` · `WORK_PLAN.md` · `DESIGN_TOKENS.md` · `COPY.md` · `ADMIN_GUIDE.md` · `RUNBOOK.md` · `DEPLOY_CHECKLIST.md` · **`REVIEW*.md`** (المراجعة) · ملفات `WORK_MIGRATION_*.sql` (لحد `_37`) و`WORK_CRON.sql` — كلهم في **`db-bundles/`** (تتلزق في SQL Editor).
 
 ---
