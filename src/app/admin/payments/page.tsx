@@ -476,6 +476,12 @@ function PendingTab({
   const [urls, setUrls] = useState<Record<string, string>>({})
   const [notes, setNotes] = useState<Record<string, string>>({})
   const [busy, setBusy] = useState<Record<string, boolean>>({})
+  /**
+   * التحويلات اللي اتأكدت من الصفحة دي — الكارت بيفضل مكانه بزرار واتساب
+   * (رسالة «تحويلك وصل ومكانك اتأكد» + الميعاد والمكان ورابط الحجز) لحد ما
+   * المالك يبعت ويشيله بإيده. قبل كده الكارت كان بيختفي مع التأكيد والزرار معاه.
+   */
+  const [done, setDone] = useState<Record<string, true>>({})
   const [loading, setLoading] = useState(true)
   const waTpl = useWaTemplate()
   const origin = useSiteOrigin()
@@ -557,9 +563,11 @@ function PendingTab({
       say(`مقدرناش: ${error.message}`)
       return
     }
-    setRows((rs) => rs.filter((r) => r.id !== p.id))
+    // المأكّد بيفضل (علشان الواتساب) · المرفوض بيمشي
+    if (ok) setDone((d) => ({ ...d, [p.id]: true }))
+    else setRows((rs) => rs.filter((r) => r.id !== p.id))
     setTotal((n) => (n === null ? n : Math.max(0, n - 1)))
-    say(ok ? `اتأكد ✓ — حجز ${who} بقى مدفوع` : `اترفض — و${who} هيوصله السبب`)
+    say(ok ? `اتأكد ✓ — حجز ${who} بقى مدفوع. ابعتله واتساب من الكارت.` : `اترفض — و${who} هيوصله السبب`)
     afterChange()
   }
 
@@ -587,6 +595,40 @@ function PendingTab({
       {rows.map((p) => {
         const person = personOf(p)
         const url = urls[p.id]
+        const waValues = [
+          nameOf(person),
+          outingOf(p),
+          when(p.bookings?.sbotat?.starts_at),
+          placeOf(p),
+          `${origin}/my/${p.booking_id}`,
+        ]
+
+        if (done[p.id]) {
+          return (
+            <Card key={p.id}>
+              <div className="flex flex-wrap items-center gap-3">
+                <Tag color="#7BD389">اتأكد ✓</Tag>
+                <span className="font-display text-18 font-black">{money(p.amount)}</span>
+                <span className="font-body text-15">{nameOf(person)}</span>
+                <span className="font-body text-14" style={{ color: 'var(--muted)' }}>
+                  {outingOf(p)} · {when(p.bookings?.sbotat?.starts_at)}
+                </span>
+              </div>
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <WaBtn
+                  phone={person?.phone}
+                  template={waTpl}
+                  values={waValues}
+                  label="ابعتله إن التحويل اتأكد"
+                />
+                <Btn onClick={() => setRows((rs) => rs.filter((r) => r.id !== p.id))}>
+                  بعت — شيلها من هنا
+                </Btn>
+              </div>
+            </Card>
+          )
+        }
+
         return (
           <Card key={p.id}>
             <div className="flex flex-wrap gap-4">
@@ -699,19 +741,8 @@ function PendingTab({
                   >
                     ارفض
                   </Btn>
-                  {/* بعد ما تأكّد — الرسالة جاهزة، انت بس بتدوس إرسال */}
-                  <WaBtn
-                    phone={person?.phone}
-                    template={waTpl}
-                    values={[
-                      nameOf(person),
-                      outingOf(p),
-                      when(p.bookings?.sbotat?.starts_at),
-                      placeOf(p),
-                      `${origin}/my/${p.booking_id}`,
-                    ]}
-                    label="ابعتله واتساب"
-                  />
+                  {/* ⚠ الواتساب بيبان **بعد** التأكيد بس — رسالته بتقول «مكانك اتأكد»،
+                      وبعتها قبل التأكيد كانت هتطمّن حد تحويله لسه ما اتراجعش. */}
                 </div>
               </div>
             </div>
@@ -736,6 +767,8 @@ const SEARCH_IN: { value: SearchIn; label: string }[] = [
 ]
 
 function AllTab({ say }: { say: (m: string) => void }) {
+  const waTpl = useWaTemplate()
+  const origin = useSiteOrigin()
   const [rows, setRows] = useState<PayRow[]>([])
   const [count, setCount] = useState<number | null>(null)
   const [page, setPage] = useState(0)
@@ -889,7 +922,7 @@ function AllTab({ say }: { say: (m: string) => void }) {
           <Empty>مفيش معاملة بالفلتر ده.</Empty>
         ) : (
           <Table
-            head={['مين', 'السبوطة', 'المبلغ', 'الطريقة', 'الحالة', 'امتى', 'الإيصال']}
+            head={['مين', 'السبوطة', 'المبلغ', 'الطريقة', 'الحالة', 'امتى', 'الإيصال', 'واتساب']}
           >
             {rows.map((p) => {
               const person = personOf(p)
@@ -918,6 +951,26 @@ function AllTab({ say }: { say: (m: string) => void }) {
                       >
                         شوف الصورة
                       </button>
+                    ) : (
+                      '—'
+                    )}
+                  </td>
+                  <td className="p-2 align-top">
+                    {/* رسالة «تحويلك وصل ومكانك اتأكد» — للمدفوع اللي حجزه لسه شغّال بس */}
+                    {p.status === 'succeeded' &&
+                    p.bookings &&
+                    ['paid', 'attended'].includes(p.bookings.status) ? (
+                      <WaBtn
+                        phone={person?.phone}
+                        template={waTpl}
+                        values={[
+                          nameOf(person),
+                          outingOf(p),
+                          when(p.bookings.sbotat?.starts_at),
+                          placeOf(p),
+                          `${origin}/my/${p.booking_id}`,
+                        ]}
+                      />
                     ) : (
                       '—'
                     )}
