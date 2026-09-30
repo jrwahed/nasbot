@@ -1,4 +1,4 @@
-import { GTM_ID } from '@/lib/gtm'
+import { GTM_ID, GA_ID } from '@/lib/gtm'
 
 /**
  * Google Tag Manager — كود جوجل الرسمي بالحرف، جوه <head> ومعاه <noscript>
@@ -24,10 +24,28 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
 })(window,document,'script','dataLayer','${id}');}`
 
+/**
+ * GA4 (gtag.js) — كود جوجل الرسمي، بنفس شرط `/admin`. بيعدّ تنقّل الصفحات
+ * جوه الموقع لوحده (Enhanced measurement ← «Page changes based on browser
+ * history events»، مفتوح افتراضيًا).
+ */
+const gaSnippet = (id: string) =>
+  `if(location.pathname.indexOf('/admin')!==0){` +
+  `var g=document.createElement('script');g.async=true;` +
+  `g.src='https://www.googletagmanager.com/gtag/js?id=${id}';` +
+  `document.head.appendChild(g);` +
+  `window.dataLayer=window.dataLayer||[];` +
+  `window.gtag=function(){dataLayer.push(arguments);};` +
+  `gtag('js',new Date());gtag('config','${id}');}`
+
 /** جوه <head> — أعلى حاجة ممكنة */
 export function GtmHead() {
-  if (!GTM_ID) return null
-  return <script dangerouslySetInnerHTML={{ __html: snippet(GTM_ID) }} />
+  return (
+    <>
+      {GTM_ID && <script dangerouslySetInnerHTML={{ __html: snippet(GTM_ID) }} />}
+      {GA_ID && <script dangerouslySetInnerHTML={{ __html: gaSnippet(GA_ID) }} />}
+    </>
+  )
 }
 
 /** أول حاجة بعد <body> */
