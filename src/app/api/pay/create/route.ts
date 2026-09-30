@@ -56,9 +56,26 @@ export async function POST(req: Request) {
   if (!sb) return NextResponse.json({ error: 'السبوطة دي مش موجودة' }, { status: 404 })
   const sbota = sb as { id: string; price: number }
 
-  // كل قواعد الحجز في القاعدة — مش بنكررها هنا
+  // الحجز الموجود (لو العضو رجع يغيّر طريقة الدفع/الكوبون، أو اللوحة دخّلته
+  // من قايمة الانتظار) — علشان ما نحرقش استخدام كوبون مرتين على نفس الحجز
+  const { data: existingBooking } = await db
+    .from('bookings')
+    .select('id, status, referral_code_used')
+    .eq('sbota_id', sbota.id)
+    .eq('profile_id', uid)
+    .maybeSingle()
+  const prevCode = (existingBooking as { referral_code_used: string | null } | null)?.referral_code_used ?? null
+  const ownPending = (existingBooking as { status: string } | null)?.status === 'pending_payment'
+
+  // كل قواعد الحجز في القاعدة — مش بنكررها هنا.
+  // ⚠ `fn_can_book` بتعدّ حجزي المستني الدفع على إنه «حاجز بالفعل» — فالعضو
+  //   اللي رجع يكمّل دفعه (أو اللي اللوحة دخّلته من قايمة الانتظار) كان
+  //   بيتقفل بره حجزه هو. الرسالة دي آخر فحص في الدالة، يعني لو رجعت
+  //   يبقى كل الشروط التانية عدّت.
   const { data: blocked } = await db.rpc('fn_can_book', { p_id: uid, s_id: sbota.id })
-  if (blocked) return NextResponse.json({ error: blocked }, { status: 400 })
+  if (blocked && !(ownPending && blocked === 'أنت حاجز السبوطة دي بالفعل')) {
+    return NextResponse.json({ error: blocked }, { status: 400 })
+  }
 
   // نص ولاد ونص بنات (0119) — بدري، قبل ما يحوّل على مكان مش هيتأكد.
   // الحارس الحقيقي في المحفّز؛ لو الدالة لسه مش متلزقة بنعدّي.
@@ -88,15 +105,6 @@ export async function POST(req: Request) {
   const { data: prof } = await db
     .from('profiles').select('wallet_balance').eq('id', uid).maybeSingle()
 
-  // الحجز الموجود (لو العضو رجع يغيّر طريقة الدفع/الكوبون) — علشان ما نحرقش
-  // استخدام كوبون مرتين على نفس الحجز
-  const { data: existingBooking } = await db
-    .from('bookings')
-    .select('id, referral_code_used')
-    .eq('sbota_id', sbota.id)
-    .eq('profile_id', uid)
-    .maybeSingle()
-  const prevCode = (existingBooking as { referral_code_used: string | null } | null)?.referral_code_used ?? null
 
   // ===== سبوطة الشغل: السعر من settings.work_* حسب الاختيار =====
   // بنسأل الجدول نفسه مش العرض — لو العمود لسه مش موجود بنعتبرها مش شغل ومفيش كسر.
