@@ -9,7 +9,7 @@ import { getCopy } from '@/lib/copy'
 import { getFlags } from '@/lib/flags'
 import { getContent } from '@/lib/content'
 import { FooterLinksProvider } from '@/components/FooterLinksProvider'
-import { Gtm } from '@/components/Gtm'
+import { GtmHead, GtmBody } from '@/components/Gtm'
 
 const rubik = Rubik({
   subsets: ['arabic', 'latin'],
@@ -55,11 +55,12 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       suppressHydrationWarning
     >
       <head>
+        <GtmHead />
         {/* الوضع بيتظبط قبل أول رسم — من غير وميض */}
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
       </head>
       <body>
-        <Gtm />
+        <GtmBody />
         <CopyProvider value={copy}>
           <FlagsProvider value={flags}>
             <FooterLinksProvider value={content}>
