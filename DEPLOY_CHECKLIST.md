@@ -90,11 +90,14 @@ Project ← **Settings ← Environment Variables**. لكل متغير اختار
 | `NEXT_PUBLIC_SUPABASE_URL` | الكل | Supabase ← Settings ← API ← Project URL |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | الكل | نفس الصفحة ← `anon` / `public` |
 | `SUPABASE_SERVICE_ROLE_KEY` | Production + Preview | نفس الصفحة ← `service_role` — **الجديد بعد التدوير** |
-| `NEXT_PUBLIC_SITE_URL` | Production | الدومين النهائي، مثال `https://nasbot.app` (من غير سلاش في الآخر) |
+| `NEXT_PUBLIC_SITE_URL` | Production | الدومين النهائي: `https://www.nasbot.net` (من غير سلاش في الآخر) |
 | `CRON_SECRET` | Production + Preview | ولّده: `openssl rand -hex 32` |
 | `ADMIN_AUTH_PEPPER` | Production + Preview | ولّده: `openssl rand -hex 32` — **غير** الـ CRON_SECRET |
 | `SMTP_HOST` · `SMTP_PORT` · `SMTP_USER` · `SMTP_PASS` | Production + Preview | **رمز الدخول بيروح على الإيميل.** جيميل: `smtp.gmail.com` · `465` · إيميلك · كلمة مرور تطبيق من myaccount.google.com/apppasswords |
-| `MAIL_FROM` | Production | اختياري — المرسِل الظاهر، مثال `نسبوط <you@gmail.com>` |
+| `RESEND_API_KEY` | Production + Preview | **المزوّد الأساسي للإيميل من ٢٠٢٦-٠٩-٣٠** — resend.com ← API Keys. الدومين `nasbot.net` متوثّق هناك. الفحص: `/api/health/mail` ← `"provider":"resend"` |
+| `MAIL_FROM` | Production | المرسِل الظاهر: `نسبوط <hello@nasbot.net>` (لازم على الدومين الموثّق عند Resend) |
+| `TELEGRAM_BOT_TOKEN` | Production | توكن البوت من **@BotFather** — إشعارات المالك على تليجرام (`0122`). بعد ما يتحط: Redeploy، والمالك يبعت `/start` للبوت. **متبعتوش في أي شات** |
+| `NEXT_PUBLIC_GTM_ID` · `NEXT_PUBLIC_GA_ID` | اختياري | بيغلبوا `GTM-K6JBGMBV` و`G-4PSBZZKRK4` المكتوبين في `src/lib/gtm.ts`. `off` بيقفل الواحد منهم |
 | `WHATSAPP_PROVIDER` | Production | `meta` |
 | `WHATSAPP_TOKEN` | Production | Meta for Developers ← WhatsApp ← API Setup |
 | `WHATSAPP_PHONE_ID` | Production | نفس الصفحة ← Phone number ID |
@@ -104,7 +107,7 @@ Project ← **Settings ← Environment Variables**. لكل متغير اختار
 
 مش لازم تحطهم على Vercel: `SUPABASE_DB_URL` · `SITE_URL` · `BASE_URL` ·
 `NEXT_DIST_DIR` · `MAX` — دول للطرفية والاختبارات المحلية بس.
-و`SENTRY_DSN` لسه مش متوصّل في الكود. `RESEND_API_KEY` بديل لـ SMTP لو عندك دومين موثّق عند Resend.
+و`SENTRY_DSN` لسه مش متوصّل في الكود. SMTP (جيميل) بقى **احتياطي** — الكود بيستعمل Resend لو المفتاح موجود.
 
 الشرح الكامل لكل متغير في `.env.example`.
 
