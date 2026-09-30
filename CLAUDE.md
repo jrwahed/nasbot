@@ -35,6 +35,8 @@
 - **Supabase** (Postgres 17 + Auth + Storage + RLS + pg_cron + pg_net)
 - **الإيميل:** **Resend من `hello@nasbot.net`** (من ٢٠٢٦-٠٩-٣٠) — الدومين متوثّق عند Resend (DKIM/SPF اتحطوا في DNS ڤيرسل بـ«Auto configure»)، و`RESEND_API_KEY` + `MAIL_FROM` في ڤيرسل. SMTP (Gmail · `nasbot.eg@gmail.com`) لسه متظبط **كاحتياطي**: الكود بيستعمل Resend لو المفتاح موجود وإلا SMTP. الفحص: `GET /api/health/mail` → لازم `"provider":"resend"`. ⚠ ليه اتغيّر: الإيميلات كانت بتقع في السبام — مرسل `@gmail.com` ولينكات لـ`nasbot.net` (دومين عمره ٣ أيام) = شكل رسايل النصب. الواتساب **مش** متفعّل.
 
+- **التحليلات: Google Tag Manager `GTM-K6JBGMBV`** (من ٢٠٢٦-٠٩-٣٠) — `src/components/Gtm.tsx` في الـlayout، و`track()` في `src/lib/track.ts` بتبعت لـ`dataLayer`. **مش بيتحمّل في `/admin`** عن قصد (سكريبت طرف تالت جنب بيانات الناس والفلوس). والـCSP في `next.config.mjs` فاتح GTM وGA4 بس — أي وسم لخدمة تانية من لوحة GTM (Meta · TikTok) محتاج نطاقه يتضاف هناك وإلا بيتمنع بالصمت. ومتبعتش في `track()` اسم ولا تليفون.
+
 ```bash
 npm run dev            # تطوير
 npm run verify         # الحراس التلاتة + tsc --noEmit + next build  ← قبل أي رفع
