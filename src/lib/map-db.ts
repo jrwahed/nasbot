@@ -209,6 +209,8 @@ export function sbotaFromDb(
     first_timers: number
     returning_count: number
     same_area?: number | null
+    /** مفتاح «نص ولاد ونص بنات» من settings — بيتلزق في `whoBookedMap` */
+    gender_balance?: boolean
   } | null,
   address?: { address: string; venue_name: string } | null
 ): Sbota {
@@ -227,7 +229,21 @@ export function sbotaFromDb(
 
   const booked = who?.booked ?? 0
   const left = Math.max(0, r.capacity - booked)
-  const full = r.status === 'full' || left === 0
+
+  // ===== نص ولاد ونص بنات (0119) — نفس حساب `fn_gender_cap` بالظبط =====
+  // نصيب كل نوع ceil(capacity/2)، ومش بيتطبّق على «بنات بس» ولا الشغل.
+  const isWork = (row as { is_work?: boolean }).is_work ?? r.kind === 'work'
+  const balanced = Boolean(who?.gender_balance) && !r.girls_only && !isWork
+  const half = Math.ceil(r.capacity / 2)
+  const seats = balanced
+    ? {
+        half,
+        boys: Math.min(left, Math.max(0, half - (who?.boys ?? 0))),
+        girls: Math.min(left, Math.max(0, half - (who?.girls ?? 0))),
+      }
+    : null
+
+  const full = r.status === 'full' || left === 0 || (seats !== null && seats.boys === 0 && seats.girls === 0)
 
   return {
     id: r.id,
@@ -240,7 +256,8 @@ export function sbotaFromDb(
     price: priceLabel(r.price),
     priceValue: toPounds(r.price),
     priceNote: '',
-    left: full ? 'كامل' : `فاضل ${left} من ${r.capacity}`,
+    left: full ? 'كامل' : seats ? seatsLabel(seats) : `فاضل ${left} من ${r.capacity}`,
+    seats,
     spotsLeft: left,
     spotsTotal: r.capacity,
     full,
@@ -282,10 +299,20 @@ export function sbotaFromDb(
       //   السطر يختفي بدل ما يكذب.
       sameArea: who?.same_area ?? null,
       line: whoLine(who),
+      seatsLine: seats
+        ? `مكان الولاد: ${seats.boys ? `فاضل ${seats.boys} من ${seats.half}` : 'كمل'} · مكان البنات: ${seats.girls ? `فاضل ${seats.girls} من ${seats.half}` : 'كمل'}`
+        : undefined,
       // ⚠ سطر الكشف كان هنا بالحرف وفيه «8 بالليل» ثابتة — بقى
       //   `<RevealLine />`: نصه من `copy_strings` وساعته من `settings`.
     },
   }
+}
+
+/** ملصق «فاضل كام» لما السبوطة مقسومة نص ونص */
+function seatsLabel(x: { boys: number; girls: number }): string {
+  if (x.boys && x.girls) return `فاضل ${x.boys} ولاد و${x.girls} بنات`
+  if (x.girls) return `فاضل ${x.girls} بنات بس`
+  return `فاضل ${x.boys} ولاد بس`
 }
 
 /** «3 بنات و2 شباب · الأعمار 25–31 · اتنين أول مرة · تلاتة رايحين معانا قبل كده.» */
