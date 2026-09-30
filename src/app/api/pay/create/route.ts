@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { randomUUID } from 'node:crypto'
 import { isPlaceholderPayTo, PAY_TO_MISSING } from '@/lib/server/pay-guard'
+import { resolveSbotaLink } from '@/lib/sbota-link'
 import { admin } from '@/lib/server/supabase-admin'
 
 export const runtime = 'nodejs'
@@ -46,15 +47,19 @@ export async function POST(req: Request) {
 
   const db = admin()
 
-  const { data: sb } = await db
-    .from('sbotat_public')
-    .select('id, price')
-    .eq('slug', slug)
-    .order('starts_at', { ascending: true })
-    .limit(1)
-    .maybeSingle()
+  // ⚠ `slug` هو **رابط السبوطة** (`padel-9b1799bc`) — كان slug القالب، فلما
+  //   يبقى فيه سبوطتين من نفس القالب الحجز كان بيقع على الأقرب مهما كانت
+  //   الصفحة اللي العضو فيها. نفس الحل اللي في `getSbota` بالحرف.
+  const sb = await resolveSbotaLink(slug, async (tpl) => {
+    const { data } = await db
+      .from('sbotat_public')
+      .select('id, price, status, starts_at')
+      .eq('slug', tpl)
+      .order('starts_at', { ascending: true })
+    return (data ?? []) as { id: string; price: number; status: string; starts_at: string }[]
+  })
   if (!sb) return NextResponse.json({ error: 'السبوطة دي مش موجودة' }, { status: 404 })
-  const sbota = sb as { id: string; price: number }
+  const sbota = sb
 
   // الحجز الموجود (لو العضو رجع يغيّر طريقة الدفع/الكوبون، أو اللوحة دخّلته
   // من قايمة الانتظار) — علشان ما نحرقش استخدام كوبون مرتين على نفس الحجز

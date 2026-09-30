@@ -3,6 +3,7 @@
  * الواجهات ما بتعرفش القاعدة خالص — كل التحويل هنا وفي api.ts بس.
  */
 
+import { sbotaLink } from '@/lib/sbota-link'
 import type {
   Gender,
   GirlsOnlyPref,
@@ -231,7 +232,9 @@ export function sbotaFromDb(
 
   return {
     id: r.id,
-    slug: r.slug,
+    // رابط السبوطة دي بعينها — مش القالب (sbota-link.ts). الشغل بيفضل على
+    // القالب: `/shoghl/<slug>` = يوم الشغل الجاي.
+    slug: r.kind === 'work' ? r.slug : sbotaLink(r.slug, r.id),
     name: r.name_ar,
     meta: [r.meta_prefix_ar, whenLabel(r.starts_at), r.area_label_ar ?? areaFromDb(r.area)]
       .filter(Boolean)
@@ -384,7 +387,9 @@ export function bookingFromDb(row: Record<string, unknown>): Booking {
     : (r.status as BookingState)
   return {
     id: r.id,
-    slug: s?.sbota_templates?.slug ?? '',
+    // ⚠ رابط **سبوطة الحجز** مش القالب — من غيره `getGroup` كانت بتفتح أقرب
+    //   سبوطة من نفس القالب، يعني صفحة حجزي تعرض خروجة تانية.
+    slug: sbotaLink(s?.sbota_templates?.slug ?? '', s?.id),
     // ⚠ عنوان العضو الأول والقالب احتياطي — نفس `coalesce` اللي في
     //   `sbotat_public` و`fn_my_hosted_sbotat` بالظبط. من غيره خروجة
     //   العضو بتظهر في «حجزي» باسم القالب العام (الدرس التلتاشر).
