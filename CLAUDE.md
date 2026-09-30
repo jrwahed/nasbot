@@ -33,7 +33,7 @@
 
 - **Next.js 15.1.12** (App Router) · **React 19** · **TypeScript strict** · **Tailwind**
 - **Supabase** (Postgres 17 + Auth + Storage + RLS + pg_cron + pg_net)
-- **الإيميل:** SMTP (Gmail) عبر `nodemailer` — شغّال، من `nasbot.eg@gmail.com` (`SMTP_USER` في ڤيرسل). الواتساب **مش** متفعّل.
+- **الإيميل:** **Resend من `hello@nasbot.net`** (من ٢٠٢٦-٠٩-٣٠) — الدومين متوثّق عند Resend (DKIM/SPF اتحطوا في DNS ڤيرسل بـ«Auto configure»)، و`RESEND_API_KEY` + `MAIL_FROM` في ڤيرسل. SMTP (Gmail · `nasbot.eg@gmail.com`) لسه متظبط **كاحتياطي**: الكود بيستعمل Resend لو المفتاح موجود وإلا SMTP. الفحص: `GET /api/health/mail` → لازم `"provider":"resend"`. ⚠ ليه اتغيّر: الإيميلات كانت بتقع في السبام — مرسل `@gmail.com` ولينكات لـ`nasbot.net` (دومين عمره ٣ أيام) = شكل رسايل النصب. الواتساب **مش** متفعّل.
 
 ```bash
 npm run dev            # تطوير
