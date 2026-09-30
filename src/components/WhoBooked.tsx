@@ -21,6 +21,9 @@ export function WhoBooked({ data }: { data: WhoBookedData }) {
         {t('shared.ofTotal', { n: data.booked, total: data.total })}
       </div>
       <div className="mt-[6px] font-body text-16">{data.line}</div>
+      {data.seatsLine && (
+        <div className="mt-[6px] font-body text-16 font-semibold">{data.seatsLine}</div>
+      )}
 
       {/*
         ⚠ بيظهر بس لما يكون فيه فعلًا حد من ناحيته. `null` (زائر أو «غير
