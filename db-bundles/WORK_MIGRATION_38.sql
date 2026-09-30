@@ -8,10 +8,11 @@
 -- مش بيتطبّق على «بنات بس» ولا سبوطات الشغل. وبيتقفل من
 -- /admin/settings ← «توازن المجموعة».
 --
--- بعده شغّل:
---   select fn_test_seed_up();
---   select * from test_gender_balance();   -- ٨ صفوف «نجح»
---   select fn_test_seed_down();
+-- بعده شغّل (لزقة واحدة — المحرر بيعرض نتيجة آخر أمر بس):
+--   do $$ begin perform fn_test_seed_up(); end $$;
+--   create temp table _r as select * from test_gender_balance();
+--   do $$ begin perform fn_test_seed_down(); end $$;
+--   select * from _r;                       -- ٨ صفوف «نجح»
 -- ============================================================================
 
 -- ##########################################################################
