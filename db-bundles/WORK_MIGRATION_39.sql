@@ -15,7 +15,7 @@
 --   do $$ begin perform fn_test_seed_up(); end $$;
 --   create temp table _r as select * from test_waitlist();
 --   do $$ begin perform fn_test_seed_down(); end $$;
---   select * from _r;                       -- ٩ صفوف «نجح»
+--   select * from _r;                       -- ١٠ صفوف «نجح»
 -- ============================================================================
 
 -- ##########################################################################
@@ -346,13 +346,20 @@ grant  execute on function fn_cancel_booking(uuid, text, text) to authenticated,
 
 
 -- ===== 7) رسالة «فضي مكان» تقول الحقيقة =====
--- ⚠ بتتغيّر بس لو لسه النص القديم بالحرف — لو المالك عدّلها من اللوحة ما بنلمسهاش.
+-- ⚠ بتتغيّر بس لو لسه النص القديم — لو المالك عدّلها من اللوحة ما بنلمسهاش.
+-- ⚠ الشرط **سطر واحد** بـ`like` عن قصد: أول لزقة على الإنتاج جت من ويندوز
+--   بـ`\r\n`، فالمقارنة بنص متعدد الأسطر ما طابقتش والتحديث ما حصلش (٢٠٢٦-٠٩-٣٠).
 update notification_templates
    set body_ar = 'خبر حلو — فضي مكان في {{1}}.
 أول واحد يحجز ياخده، فلو لسه عايز تيجي احجز دلوقتي: {{2}}'
  where key = 'waitlist_promoted'
-   and body_ar = 'خبر حلو — بقى فيه مكان في {{1}}.
-المكان محجوزلك لفترة قصيرة، احجز قبل ما يروح لحد تاني: {{2}}';
+   and body_ar like '%المكان محجوزلك لفترة قصيرة%';
+
+-- ولو اللزق نفسه جاب `\r` في النص الجديد — نشيله
+update notification_templates
+   set body_ar = replace(body_ar, chr(13), '')
+ where key in ('waitlist_promoted', 'gate_approved', 'gate_rejected')
+   and position(chr(13) in body_ar) > 0;
 
 
 -- ===== 8) نصوص الصفحة =====
@@ -394,7 +401,8 @@ declare
     '0120 · بنت لغت = أول بنت في القايمة اتبعتلها',
     '0120 · والتانية ما اتبعتلهاش',
     '0120 · اللي حجز طلع من القايمة لوحده',
-    '0120 · fn_cancel_booking بتنادي fn_waitlist_notify'];
+    '0120 · fn_cancel_booking بتنادي fn_waitlist_notify',
+    '0120 · رسالة «فضي مكان» ما بقتش تقول «محجوزلك»'];
   r   text[] := '{}';
   n   int;
   i   int;
@@ -489,6 +497,13 @@ begin
                         like '%perform fn_waitlist_notify(%'
                    then 'نجح'
                    else 'فشل — fn_cancel_booking رجعت للنسخة القديمة (اتلزقت 0042 بعد 0120؟) — الزق WORK_MIGRATION_39 تاني' end;
+
+    -- (١٠) الرسالة — ⚠ اتضاف بعد ما أول لزقة جت بـ`\r\n` والتحديث ما حصلش بالصمت
+    r := r || case when not exists (select 1 from notification_templates
+                                     where key = 'waitlist_promoted'
+                                       and body_ar like '%محجوزلك%')
+                   then 'نجح'
+                   else 'فشل — القالب لسه بيقول «محجوزلك» ومفيش حاجة بتحجز' end;
 
     raise exception 'test_waitlist_rollback';
   exception when others then

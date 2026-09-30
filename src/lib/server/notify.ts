@@ -327,7 +327,10 @@ function render(
   const missing: string[] = []
   const lines: string[] = []
 
-  for (const raw of body.split('\n')) {
+  // ⚠ اللزق في SQL Editor من ويندوز بيحوّل الأسطر لـ`\r\n` — وده وصل فعلًا
+  //   لقالبين على الإنتاج (٢٠٢٦-٠٩-٣٠). من غير التوحيد ده الـ`\r` بيفضل في
+  //   آخر كل سطر، والسطر «الفاضي» ما بيبقاش فاضي.
+  for (const raw of body.replace(/\r\n?/g, '\n').split('\n')) {
     let seen = 0
     let filled = 0
     let line = raw.replace(/\{\{(\d+)\}\}/g, (_m, n) => {
