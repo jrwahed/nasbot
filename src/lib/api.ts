@@ -36,6 +36,7 @@ import type {
 } from '@/types'
 import { supabase, hasSupabase, publicMediaUrl } from '@/lib/supabase'
 import * as mock from '@/lib/api-mock'
+import { resolveSbotaLink, sbotaLink, type LinkRow } from '@/lib/sbota-link'
 import {
   sbotaFromDb,
   captainFromDb,
@@ -214,17 +215,20 @@ export async function getSbotat(opts?: {
 export async function getSbota(slug: string): Promise<Sbota | null> {
   if (!DB) return mock.getSbota(slug)
 
-  const { data, error } = await selectSbotat<Record<string, unknown> | null>((cols) =>
-    supabase()
-      .from('sbotat_public')
-      .select(cols)
-      .eq('slug', slug)
-      .order('starts_at', { ascending: true })
-      .limit(1)
-      .maybeSingle()
-  )
+  // ⚠ `slug` هنا **رابط السبوطة** (`padel-9b1799bc`) أو الرابط القديم بتاع
+  //   القالب (`padel`) — `resolveSbotaLink` بتفرق بينهم (`sbota-link.ts`).
+  const data = await resolveSbotaLink(slug, async (tpl) => {
+    const { data: rows, error } = await selectSbotat<Record<string, unknown>[] | null>((cols) =>
+      supabase()
+        .from('sbotat_public')
+        .select(cols)
+        .eq('slug', tpl)
+        .order('starts_at', { ascending: true })
+    )
+    return error || !rows ? [] : (rows as (Record<string, unknown> & LinkRow)[])
+  })
 
-  if (error || !data) return null
+  if (!data) return null
   const id = (data as { id: string }).id
   const who = (await whoBookedMap([id])).get(id)
 
@@ -1302,7 +1306,7 @@ export async function getMyHostedSbotat(): Promise<HostedSbota[]> {
     note_ar: string | null; sign_ar: string | null
   }[]).map((r) => ({
     id: r.id,
-    slug: r.slug,
+    slug: sbotaLink(r.slug, r.id),
     name: r.name_ar,
     when: whenLabel(r.starts_at),
     startsAt: r.starts_at,

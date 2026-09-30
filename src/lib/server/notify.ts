@@ -2,6 +2,7 @@ import 'server-only'
 import nodemailer from 'nodemailer'
 import { admin } from '@/lib/server/supabase-admin'
 import { siteUrl } from '@/app/sitemap'
+import { sbotaLink } from '@/lib/sbota-link'
 
 /**
  * مصرف الإشعارات — بيسحب صفوف `notifications` اللي حالتها `queued` وبيبعتها بالإيميل.
@@ -520,7 +521,9 @@ export async function runNotify(limit = BATCH): Promise<NotifyResult> {
       //   شافه وهو بيحجز. من غير كده الإيميل بيقول «بادل مبتدئين» والموقع
       //   بيقول «بادل».
       name: (s.title_ar ?? '').trim() || tpl?.name_ar || '',
-      slug: tpl?.slug ?? '',
+      // رابط السبوطة دي بعينها — «فضي مكان» و«فتحت» لازم يودّوا على نفس
+      // الخروجة مش أقرب واحدة من قالبها (sbota-link.ts)
+      slug: sbotaLink(tpl?.slug ?? '', s.id),
       startsAt: s.starts_at,
       // ⚠ ساعة الكشف بقت من `settings` (0109)، والقالب كان كاتب «الساعة 8
       //   بالليل» بالحرف. الرقم بييجي من `reveal_at` بتاع السبوطة نفسها —
