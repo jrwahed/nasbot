@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { runNotify, notifyMailConfigured } from '@/lib/server/notify'
+import { runAdminAlerts } from '@/lib/server/telegram'
 
 export const runtime = 'nodejs'
 // الإرسال بياخد ثواني — نمدد المهلة زي مسار OTP
@@ -20,6 +21,10 @@ async function handle(req: Request) {
       req.headers.get('authorization') === `Bearer ${secret}`)
   if (!ok) return NextResponse.json({ error: 'مش مسموح' }, { status: 401 })
 
+  // احتياطي إشعارات تليجرام (0122): لو النداء الفوري من القاعدة وقع، بتتبعت
+  // هنا كل ٥ دقايق. قبل فحص الإيميل — تليجرام مالوش دعوة بمزوّد الإيميل.
+  const telegram = await runAdminAlerts().catch((e) => ({ telegram: String(e) }))
+
   if (!notifyMailConfigured()) {
     return NextResponse.json(
       { error: 'مفيش مزوّد إيميل متظبط — راجع RESEND_API_KEY أو SMTP_HOST/SMTP_USER/SMTP_PASS' },
@@ -28,7 +33,7 @@ async function handle(req: Request) {
   }
 
   const res = await runNotify()
-  return NextResponse.json({ ok: true, at: new Date().toISOString(), ...res })
+  return NextResponse.json({ ok: true, at: new Date().toISOString(), ...res, ...telegram })
 }
 
 export async function GET(req: Request) {

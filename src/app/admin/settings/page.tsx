@@ -159,6 +159,21 @@ const GROUPS: Group[] = [
     ],
   },
   {
+    title: 'إشعارات تليجرام',
+    picks: [
+      {
+        col: 'telegram_alerts',
+        bool: true,
+        label: 'ابعتلي على تليجرام',
+        hint: 'تحويل مستني تأكيدك · حجز اتأكد · إلغاء · قايمة الانتظار · عضو جديد · خروجة عضو · صورة مستنية · بلاغ. محتاج TELEGRAM_BOT_TOKEN في ڤيرسل، وبعدين ابعت /start للبوت.',
+        options: [
+          { value: 'true', label: 'شغّال' },
+          { value: 'false', label: 'مقفول' },
+        ],
+      },
+    ],
+  },
+  {
     title: 'توازن المجموعة',
     picks: [
       {

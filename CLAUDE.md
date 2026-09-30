@@ -525,6 +525,24 @@ psql -h 127.0.0.1 -p 5433 -U postgres -d nasbot --single-transaction -f WORK_MIG
     بيرجّع «مش موجودة» — **مش** بيفتح سبوطة تانية مكانها.
   - سبوطات الشغل فضلت على القالب عن قصد (`/shoghl/<slug>` = يوم الشغل الجاي).
 
+- 🟢 **إشعارات اللوحة على تليجرام (٢٠٢٦-٠٩-٣٠)** — `WORK_MIGRATION_41` / `0122` — **اتلزق على الإنتاج** (`test_admin_alerts()` ١٤/١٤، والفحص الشامل ٥٧ دالة صفر فشل والطابور فاضي بعده). ⚠ **لسه محتاج `TELEGRAM_BOT_TOKEN` في ڤيرسل + /start للبوت.**
+  طلب المالك: «أي حاجة تحصل تجيلي على التليجرام».
+  - محفّزات على `payments` · `bookings` · `waitlist` · `profiles` · `sbotat`
+    (خروجة عضو) · `sbota_photos` · `reports` ← `fn_admin_alert` ← طابور
+    `admin_alerts` + نداء فوري (`net.http_post`) لـ`/api/cron/admin-alerts`.
+    ومهمة الإيميلات (كل ٥ دقايق) بتسحب الطابور كاحتياطي.
+  - الإرسال في `src/lib/server/telegram.ts` بـ`TELEGRAM_BOT_TOKEN` (ڤيرسل).
+    المحادثة بتتربط لوحدها أول ما المالك يبعت `/start` للبوت
+    (`settings.telegram_chat_id`)، وتتقفل من `/admin/settings`.
+  - ⚠ **كل محفّز ملفوف في `exception when others`** — الإشعار عمره ما يوقف
+    حجز. `test_admin_alerts()` بيثبتها بكسر الطابور عمدًا.
+  - ⚠ بيانات الاختبار ما بتبعتش (`fn_alert_is_fixture`): بذرة `fn_test_seed_up`
+    · قالب `test-fixture` · أي اسم/عنوان أوله `[اختبار]` · والعنوان «خروجة
+    اختبار» بتاع `0086`/`0094`. أول تشغيل لـ`CHECK_DB` على الإنتاج حط ٢١ رسالة
+    وهمية في الطابور قبل التصليح ده. **أي اختبار جديد: سمّي بياناته `[اختبار] …`.**
+    والاختبار نفسه بيفتح الإرسال بعلم `nasbot.alerts_test`.
+  - **أي حدث جديد عايزه يوصل تليجرام:** محفّز بنفس الشكل بينادي `fn_admin_alert`.
+
 - 🔴🟢 **الحساب الممسوح كان بيرجع نص حساب (٢٠٢٦-٠٩-٣٠) — كود بس، من غير لزق.**
   المالك نفسه: مسح حسابه من «امسح حسابي» يوم ١٢، ورجع سجّل بنفس الإيميل
   يوم ٣٠. سوبابيس دخّله على **نفس** الحساب، و`/join` فتح «تعديل» (الملف
@@ -923,7 +941,7 @@ union all select 'WM9 (content_pages)',       to_regclass('content_pages')      
 
 **نقطة البداية: `START_HERE.md`** — الحالة والطريق واللي فاضل، في ملف واحد.
 
-**`AFTER_SBOTA.md`** + **`SBOTAT_LOG.md`** (دورة ما بعد الخروجة) · `CONTENT_BRIEF.md` (المحتوى الناقص) · `CHECK_DB.sql` (فاحص القاعدة الشامل) · `README.md` · `DB_PLAN.md` · `ADMIN_PLAN.md` · `WORK_PLAN.md` · `DESIGN_TOKENS.md` · `COPY.md` · `ADMIN_GUIDE.md` · `RUNBOOK.md` · `DEPLOY_CHECKLIST.md` · **`REVIEW*.md`** (المراجعة) · ملفات `WORK_MIGRATION_*.sql` (لحد `_40`) و`WORK_CRON.sql` — كلهم في **`db-bundles/`** (تتلزق في SQL Editor).
+**`AFTER_SBOTA.md`** + **`SBOTAT_LOG.md`** (دورة ما بعد الخروجة) · `CONTENT_BRIEF.md` (المحتوى الناقص) · `CHECK_DB.sql` (فاحص القاعدة الشامل) · `README.md` · `DB_PLAN.md` · `ADMIN_PLAN.md` · `WORK_PLAN.md` · `DESIGN_TOKENS.md` · `COPY.md` · `ADMIN_GUIDE.md` · `RUNBOOK.md` · `DEPLOY_CHECKLIST.md` · **`REVIEW*.md`** (المراجعة) · ملفات `WORK_MIGRATION_*.sql` (لحد `_41`) و`WORK_CRON.sql` — كلهم في **`db-bundles/`** (تتلزق في SQL Editor).
 
 ---
 
