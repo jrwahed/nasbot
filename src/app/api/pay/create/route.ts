@@ -60,6 +60,11 @@ export async function POST(req: Request) {
   const { data: blocked } = await db.rpc('fn_can_book', { p_id: uid, s_id: sbota.id })
   if (blocked) return NextResponse.json({ error: blocked }, { status: 400 })
 
+  // نص ولاد ونص بنات (0119) — بدري، قبل ما يحوّل على مكان مش هيتأكد.
+  // الحارس الحقيقي في المحفّز؛ لو الدالة لسه مش متلزقة بنعدّي.
+  const { data: genderBlocked, error: gErr } = await db.rpc('fn_gender_block', { p_id: uid, s_id: sbota.id })
+  if (!gErr && genderBlocked) return NextResponse.json({ error: genderBlocked }, { status: 400 })
+
   const { data: cfg } = await db.from('settings').select('*').single()
   const s = cfg as {
     referral_discount_pct: number
