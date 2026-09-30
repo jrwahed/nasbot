@@ -563,3 +563,50 @@ Vercel Cron بيبعت `Authorization: Bearer $CRON_SECRET` من متغيّر ا
 | pg_cron + `net.http_post` | أي تكرار | لأ — من `net._http_response` بس | نفس نمط باقي المهام، صفر خدمات زيادة |
 | Vercel Cron | مرتين يوميًا على Hobby | أيوه في سجل Vercel | بيكسر قاعدة `DEPLOY_CHECKLIST §2` |
 | نداء من بره | أي تكرار | أيوه | طرف تالت |
+
+---
+
+## 16. إشعارات المالك على تليجرام — `/api/cron/admin-alerts`
+
+من ٢٠٢٦-٠٩-٣٠ (`0122` / `WORK_MIGRATION_41`). البوت **`@nasbotegbot`**.
+
+### بيشتغل إزاي
+1. محفّزات على `payments` · `bookings` · `waitlist` · `profiles` · `sbotat`
+   (خروجة عضو) · `sbota_photos` · `reports` بتنادي `fn_admin_alert`.
+2. الدالة بتكتب سطر في `admin_alerts` وبتنده `/api/cron/admin-alerts` على
+   `nasbot.vercel.app` بنفس سر الكرون (`nasbot_cron_secret` في ڤولت).
+3. المسار بيبعت لتليجرام بـ`TELEGRAM_BOT_TOKEN`. ولو النداء الفوري وقع،
+   `nasbot-work-notify` (كل ٥ دقايق) بتسحب الطابور كمان.
+
+⚠ كل محفّز ملفوف — لو تليجرام وقع، الحجز بيكمل والإشعار بس اللي بيتأخر.
+
+### الحالة في ثانية
+```sql
+select (select telegram_alerts from settings) as شغّال,
+       (select telegram_chat_id is not null from settings) as مربوط,
+       count(*) filter (where sent_at is null) as مستني,
+       count(*) filter (where sent_at is not null) as اتبعت,
+       string_agg(distinct last_error, ' | ') as أخطاء
+  from admin_alerts;
+```
+ورد المسار نفسه في `net._http_response` (آخر نداء فيه `"telegram": …`):
+«مفيش TELEGRAM_BOT_TOKEN» · «مستني /start للبوت» · «مقفول من اللوحة» · `{sent, failed}`.
+
+### رسالة تجربة
+```sql
+select fn_admin_alert('test', '🧪 رسالة تجربة', '/admin');
+```
+
+### ربط محادثة تانية (موبايل جديد · حد تاني من الفريق)
+```sql
+update settings set telegram_chat_id = null;
+```
+وبعدها صاحب المحادثة الجديدة يبعت `/start` للبوت **على طول** — أول `/start`
+بعد المسح هو اللي بيتربط.
+
+### إيقاف
+من `/admin/settings` ← «إشعارات تليجرام» ← «مقفول». الطابور بيبطل يتملى خالص.
+
+### تغيير التوكن
+@BotFather ← `/revoke` ← التوكن الجديد في ڤيرسل ← Redeploy. المحادثة المربوطة
+بتفضل زي ما هي.

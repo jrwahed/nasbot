@@ -25,7 +25,7 @@
 
 - **منشور على:** Vercel — **`https://www.nasbot.net`** (الدومين اتشرى من ڤيرسل ٢٠٢٦-٠٩-٢٧، و`nasbot.net` بيحوّل لـ`www`). `nasbot.vercel.app` لسه شغّال، ومهمة الإشعارات في pg_cron لسه بتنادي عليه — ده سليم.
 - **القاعدة:** Supabase (مؤسسة `jpqjqyuecrabvsgcidfs` ← مشروع **`nasbot-prod`** = `nutmgtulrqrfaysrigfi`، منطقة `eu-central-1`). ⚠ في نفس المؤسسة مشروع تاني فاضي (`vohmnfaidwgvuusezktc`) — **متلمسهوش**.
-- **الفرع:** النشر من `main`. فروع التطوير بتتغيّر كل جلسة (آخرها `claude/beautiful-brown-w355tz`) — بتتدمج في `main` بـPR.
+- **الفرع:** النشر من `main`. فروع التطوير بتتغيّر كل جلسة (آخرها `claude/charming-turing-wy3qs5`) — بتتدمج في `main` بـPR.
 
 ---
 
@@ -34,6 +34,8 @@
 - **Next.js 15.1.12** (App Router) · **React 19** · **TypeScript strict** · **Tailwind**
 - **Supabase** (Postgres 17 + Auth + Storage + RLS + pg_cron + pg_net)
 - **الإيميل:** **Resend من `hello@nasbot.net`** (من ٢٠٢٦-٠٩-٣٠) — الدومين متوثّق عند Resend (DKIM/SPF اتحطوا في DNS ڤيرسل بـ«Auto configure»)، و`RESEND_API_KEY` + `MAIL_FROM` في ڤيرسل. SMTP (Gmail · `nasbot.eg@gmail.com`) لسه متظبط **كاحتياطي**: الكود بيستعمل Resend لو المفتاح موجود وإلا SMTP. الفحص: `GET /api/health/mail` → لازم `"provider":"resend"`. ⚠ ليه اتغيّر: الإيميلات كانت بتقع في السبام — مرسل `@gmail.com` ولينكات لـ`nasbot.net` (دومين عمره ٣ أيام) = شكل رسايل النصب. الواتساب **مش** متفعّل.
+
+- **إشعارات المالك: تليجرام** — البوت `@nasbotegbot`، `TELEGRAM_BOT_TOKEN` في ڤيرسل، والمحادثة في `settings.telegram_chat_id`. التفاصيل في §٨ و`RUNBOOK.md` §16.
 
 - **التحليلات: Google Tag Manager `GTM-K6JBGMBV` + GA4 `G-4PSBZZKRK4` متركّب مباشرة** (من ٢٠٢٦-٠٩-٣٠) — ⚠ **متضيفش وسم GA4 بنفس الرقم جوه GTM** وإلا كل زيارة تتعدّ مرتين. `src/components/Gtm.tsx` في الـlayout، و`track()` في `src/lib/track.ts` بتبعت لـ`dataLayer`. **مش بيتحمّل في `/admin`** عن قصد (سكريبت طرف تالت جنب بيانات الناس والفلوس). والـCSP في `next.config.mjs` فاتح GTM وGA4 بس — أي وسم لخدمة تانية من لوحة GTM (Meta · TikTok) محتاج نطاقه يتضاف هناك وإلا بيتمنع بالصمت. ومتبعتش في `track()` اسم ولا تليفون.
 
@@ -80,11 +82,12 @@ src/
     me/shoghl    شغلي (الكارت + اليوم الثابت + شغالين معاك)
     admin/       اللوحة (20 قسم — شوف §7)
     api/         otp · pay(create/transfer/pass) · admin · account/ensure ·
-                 copy/revalidate · cron/* · health/mail
+                 copy/revalidate · cron/* (notify · work-notify · admin-alerts) · health/mail
   components/    مكوّنات الواجهة + components/work/* لطبقة الشغل + admin-ui.tsx
   data/          نصوص احتياطية + قوايم (⚠ بعضها المفروض في القاعدة — REVIEW)
   lib/           طبقة البيانات والمنطق (§5)
-  lib/server/    server-only: admin-auth · mailer · otp · supabase-admin · whatsapp
+  lib/server/    server-only: admin-auth · mailer · otp · supabase-admin · whatsapp ·
+                 notify (الإيميلات) · telegram (إشعارات المالك)
 supabase/migrations/   كل تغييرات القاعدة، بالترتيب الزمني في الاسم
 scripts/         check-copy · فاحصات · بذور النصوص
 ```
@@ -219,7 +222,7 @@ psql -h 127.0.0.1 -p 5433 -U postgres -d nasbot --single-transaction -f WORK_MIG
 
 ---
 
-## ٨. الحالة الحالية (٢٠٢٦-٠٩-١٢)
+## ٨. الحالة الحالية (آخر تحديث ٢٠٢٦-٠٩-٣٠ — البنود مرتّبة بالموضوع مش بالتاريخ)
 
 - ✅ منشور وشغّال · دخول إيميل+باسورد · لوحة كاملة · طبقة الشغل (المراحل ١-٦) · إيميل بجدولة.
 - 🟢 **نقلة المنتج: العضو بيفتح خروجته بنفسه — اتلزقت** (`WORK_MIGRATION_8.sql`: `0078` الأعمدة والدوال والحدود · `0079` اختبارها · `0080` أماكن الفورم · `0081` ٥٢ نص). *(اللزق بكلام المالك ٢٠٢٦-٠٩-١٢ — لو حصل شك، شوف «التأكد إيه اللي اتلزق» تحت.)*
