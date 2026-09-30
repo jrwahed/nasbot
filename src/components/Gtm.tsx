@@ -1,38 +1,46 @@
-'use client'
-
-import Script from 'next/script'
-import { usePathname } from 'next/navigation'
 import { GTM_ID } from '@/lib/gtm'
 
 /**
- * سكريبت Google Tag Manager — الكود الرسمي بتاع جوجل بالحرف.
+ * Google Tag Manager — كود جوجل الرسمي بالحرف، جوه <head> ومعاه <noscript>
+ * أول حاجة في <body>، زي ما لوحة GTM بتطلب.
  *
- * ⚠ **مش بيتحمّل في `/admin`.** GTM بيشغّل أي وسم يتضاف من لوحة جوجل،
- *   وصفحات اللوحة فيها أرقام تليفونات وتحويلات فلوس وجلسة أدمن. سكريبت
- *   طرف تالت هناك = باب مفتوح (§٣.٣).
- * ⚠ الـCSP في `next.config.mjs` فاتح نطاقات GTM وGA4 بس — لو اتضاف من لوحة
- *   جوجل وسم لخدمة تانية (Meta · TikTok) لازم نطاقه يتضاف هناك وإلا بيتمنع.
+ * ⚠ **لازم يبقى في الـHTML نفسه** (سكريبت عادي من الخادم) — مش `next/script`.
+ *   أول نسخة كانت `next/script` بـ`afterInteractive`، فالكود بيتحط بعد ما
+ *   الصفحة تشتغل، وزرار «Test» في لوحة GTM (بيقرا الـHTML الخام) قال
+ *   «Your Google tag wasn't detected» (٢٠٢٦-٠٩-٣٠).
+ *
+ * ⚠ **مش بيشتغل في `/admin`.** GTM بيشغّل أي وسم يتضاف من لوحة جوجل،
+ *   وصفحات اللوحة فيها تليفونات وتحويلات فلوس وجلسة أدمن (§٣.٣). الشرط
+ *   على `location.pathname` جوه السكريبت نفسه علشان الـlayout يفضل static.
+ *
+ * ⚠ الـCSP في `next.config.mjs` فاتح GTM وGA4 بس — وسم لخدمة تانية من لوحة
+ *   GTM (Meta · TikTok) محتاج نطاقه يتضاف هناك وإلا بيتمنع بالصمت.
  */
-export function Gtm() {
-  const path = usePathname() ?? ''
-  if (!GTM_ID || path.startsWith('/admin')) return null
-  return (
-    <>
-      <Script id="gtm" strategy="afterInteractive">
-        {`(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+const snippet = (id: string) =>
+  `if(location.pathname.indexOf('/admin')!==0){` +
+  `(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
 new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
 j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
-})(window,document,'script','dataLayer','${GTM_ID}');`}
-      </Script>
-      <noscript>
-        <iframe
-          src={`https://www.googletagmanager.com/ns.html?id=${GTM_ID}`}
-          height="0"
-          width="0"
-          style={{ display: 'none', visibility: 'hidden' }}
-        />
-      </noscript>
-    </>
+})(window,document,'script','dataLayer','${id}');}`
+
+/** جوه <head> — أعلى حاجة ممكنة */
+export function GtmHead() {
+  if (!GTM_ID) return null
+  return <script dangerouslySetInnerHTML={{ __html: snippet(GTM_ID) }} />
+}
+
+/** أول حاجة بعد <body> */
+export function GtmBody() {
+  if (!GTM_ID) return null
+  return (
+    <noscript>
+      <iframe
+        src={`https://www.googletagmanager.com/ns.html?id=${GTM_ID}`}
+        height="0"
+        width="0"
+        style={{ display: 'none', visibility: 'hidden' }}
+      />
+    </noscript>
   )
 }
