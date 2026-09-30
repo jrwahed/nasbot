@@ -438,6 +438,27 @@ psql -h 127.0.0.1 -p 5433 -U postgres -d nasbot --single-transaction -f WORK_MIG
   - ⚠ **لسه ولا قالب متعلّم «قريب»** (٢٠٢٦-٠٩-٢٨)، فالقسم مش باين. والـ٨٥
     قالب مفيهمش صور — الكارت من غير صورة بيبان رملي فاضي.
 
+- 🟡 **نص ولاد ونص بنات + القفل التلقائي — مستني اللزق (٢٠٢٦-٠٩-٣٠).**
+  `WORK_MIGRATION_38.sql` / `0119`. طلب المالك: الـ٦ = ٣+٣ · الـ٨ = ٤+٤.
+  - نصيب كل نوع `ceil(capacity/2)` من `fn_gender_cap` (مصدر واحد). الحارس
+    الحقيقي في المحفّز `fn_capacity_guard` (بقى `security definer`) — بيمسك
+    كل الطرق: تحويل · كارت · ببلاش · اللوحة.
+  - `fn_gender_block` رسالة بدري في `/api/pay/create` قبل ما حد يحوّل،
+    وبتعدّ **المستني الدفع** كمان (اللي مهلته ما خلصتش).
+  - مش بيتطبّق على `girls_only` ولا `is_work`، وعضو من غير نوع بيتعدّ في
+    الكلي بس. المفتاح `settings.gender_balance` (مفتوح افتراضيًا) في اللوحة
+    ← «توازن المجموعة».
+  - 🔴 **باج قديم اتقفل معاه:** `fn_booking_paid` (اللي بيقلب `full`) محفّزه
+    `after update` بس، و`fn_book_free` بيعمل `insert` بـ`paid` — فخروجات
+    الأعضاء **عمرها ما قفلت**. بقى فيه `t_close_when_full` على الإدراج.
+  - ⚠ `fn_can_book` و`fn_book_free` **ما اتلمسوش عن قصد** — متعرّفين في
+    هجرات قديمة وإعادة لزقها كانت هترجّع نسخة من غير الحارس (الدرس التالت).
+  - `test_gender_balance()` ٨/٨ محليًا (محتاج `fn_test_seed_up()`)، وكل
+    الكتابة بترجع باستثناء متعمّد في الآخر. اتجرّب بفخين: الحارس القديم →
+    البنت التالتة دخلت · شيل محفّز الإدراج → السبوطة فضلت `open`. واتلزق مرتين.
+  - ⚠ ملصق «فاضل X من Y» في `/s/[slug]` لسه بالعدد الكلي — الولد بيعرف إن
+    مكان الولاد كمل من صفحة الدفع لما يدوس «احجز».
+
 - 🟢 **مفيش بيانات وهمية على الموقع — قرار المالك (٢٠٢٦-٠٩-٢٧).**
   اتشال من الواجهة: «اللي حصل الجمعة اللي فاتت» (كباتن وصور وهمية) ·
   «ابعتلي الجدول على واتساب» (الواتساب مش متفعّل، وكان بيقول «تمام» حتى
@@ -778,7 +799,7 @@ union all select 'WM9 (content_pages)',       to_regclass('content_pages')      
 
 **نقطة البداية: `START_HERE.md`** — الحالة والطريق واللي فاضل، في ملف واحد.
 
-**`AFTER_SBOTA.md`** + **`SBOTAT_LOG.md`** (دورة ما بعد الخروجة) · `CONTENT_BRIEF.md` (المحتوى الناقص) · `CHECK_DB.sql` (فاحص القاعدة الشامل) · `README.md` · `DB_PLAN.md` · `ADMIN_PLAN.md` · `WORK_PLAN.md` · `DESIGN_TOKENS.md` · `COPY.md` · `ADMIN_GUIDE.md` · `RUNBOOK.md` · `DEPLOY_CHECKLIST.md` · **`REVIEW*.md`** (المراجعة) · ملفات `WORK_MIGRATION_*.sql` (لحد `_37`) و`WORK_CRON.sql` — كلهم في **`db-bundles/`** (تتلزق في SQL Editor).
+**`AFTER_SBOTA.md`** + **`SBOTAT_LOG.md`** (دورة ما بعد الخروجة) · `CONTENT_BRIEF.md` (المحتوى الناقص) · `CHECK_DB.sql` (فاحص القاعدة الشامل) · `README.md` · `DB_PLAN.md` · `ADMIN_PLAN.md` · `WORK_PLAN.md` · `DESIGN_TOKENS.md` · `COPY.md` · `ADMIN_GUIDE.md` · `RUNBOOK.md` · `DEPLOY_CHECKLIST.md` · **`REVIEW*.md`** (المراجعة) · ملفات `WORK_MIGRATION_*.sql` (لحد `_38`) و`WORK_CRON.sql` — كلهم في **`db-bundles/`** (تتلزق في SQL Editor).
 
 ---
 
