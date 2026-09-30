@@ -301,14 +301,23 @@ export async function getCaptains(): Promise<Captain[]> {
   return (data ?? []).map(captainFromDb)
 }
 
-export async function getCaptain(id: string): Promise<Captain> {
-  if (!DB) return mock.getCaptain(id)
+/**
+ * الكابتن بالمعرّف — `null` لو مفيش.
+ *
+ * ⚠ كانت بترجّع كابتن **من بيانات العرض** («الكابتن يوسف · واقف عند البوابة
+ *   7:50…») لما القاعدة ما تلاقيش حد — وكل سبوطات نسبوط دلوقتي من غير
+ *   كابتن. فصفحة حجز حقيقي على الإنتاج كانت بتعرض كابتن وهمي (٢٠٢٦-٠٩-٣٠).
+ *   بيانات العرض مكانها `api-mock.ts` لما مفيش قاعدة خالص — مش احتياطي هنا.
+ */
+export async function getCaptain(id: string | null | undefined): Promise<Captain | null> {
+  if (!DB) return mock.getCaptain(id ?? '')
+  if (!id) return null
   const { data } = await supabase()
     .from('captains')
     .select('id, bio_line, activities, display_name, craft_ar, photo_path')
     .eq('id', id)
     .maybeSingle()
-  return data ? captainFromDb(data) : (await mock.getCaptain(id))
+  return data ? captainFromDb(data) : null
 }
 
 export async function applyAsCaptain(payload: {
@@ -667,12 +676,26 @@ export async function createAccount(profile: Partial<Profile>) {
   return { ok: true as const, profile }
 }
 
+/** «مفيش حد» — فاضي بجد، مش عضو وهمي (مفيش اسم ولا رصيد ولا كود) */
+function emptyMe(): Me {
+  return {
+    firstName: '',
+    photo: '',
+    persona: personas[0],
+    count: 0,
+    credit: 0,
+    referralCode: '',
+    role: 'member',
+  }
+}
+
 export async function getMe(): Promise<Me> {
   if (!DB) return mock.getMe()
 
   const { data: auth } = await supabase().auth.getUser()
   const uid = auth.user?.id
-  if (!uid) return mock.getMe()
+  // ⚠ كان بيرجّع «أحمد» برصيد ١٥٠ جنيه وكود إحالة وهمي — من بيانات العرض.
+  if (!uid) return emptyMe()
 
   const { data } = await supabase()
     .from('profiles')
@@ -682,7 +705,7 @@ export async function getMe(): Promise<Me> {
     .eq('id', uid)
     .maybeSingle()
 
-  if (!data) return mock.getMe()
+  if (!data) return emptyMe()
   const r = data as {
     first_name: string; avatar_path: string | null; type: string | null
     wallet_balance: number; referral_code: string; sbota_count: number; role: string
@@ -975,7 +998,8 @@ export async function cancelBooking(bookingId: string, reason?: string) {
 export interface Group {
   booking: Booking
   sbota: Sbota
-  captain: Captain
+  /** `null` = السبوطة من غير كابتن (كل سبوطات نسبوط دلوقتي وكل خروجات الأعضاء) */
+  captain: Captain | null
   people: Person[]
   why: string
   revealed: boolean
@@ -2196,7 +2220,9 @@ function personaFromType(t: GameConfig['types'][number]): Persona {
 export async function finishGame(answers: GameAnswers) {
   const cfg = await getGameConfig()
   const persona = personaFromType(resultFor(cfg, answers))
-  const next = (await getSbotat()).find((s) => !s.full) ?? (await mock.finishGame(answers)).next
+  // ⚠ كان بيرجع لسبوطة **من بيانات العرض** لو مفيش ولا واحدة مفتوحة — يعني
+  //   لينك لصفحة مش موجودة. مفيش مفتوح = مفيش اقتراح.
+  const next: Sbota | null = (await getSbotat()).find((s) => !s.full) ?? null
 
   if (DB) {
     const { data: auth } = await supabase().auth.getUser()
