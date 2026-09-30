@@ -58,6 +58,7 @@ interface SbotaRow {
   capacity: number
   status: string
   price: number
+  origin: string | null
   girls_only: boolean
   title_ar: string | null
   venue_name_ar: string | null
@@ -249,7 +250,7 @@ function BookingsEditor({ me }: { me: AdminMe }) {
       const { data, error } = await db
         .from('sbotat')
         .select(
-          'id, starts_at, capacity, status, price, girls_only, title_ar, venue_name_ar, address_ar, sbota_templates(name_ar)'
+          'id, starts_at, capacity, status, price, origin, girls_only, title_ar, venue_name_ar, address_ar, sbota_templates(name_ar)'
         )
         .order('starts_at', { ascending: false })
         .range(0, ADMIN_SCAN_MAX - 1)
@@ -673,61 +674,35 @@ function WaitlistTab({
       flash('مفيش مكان فاضي في السبوطة دي دلوقتي.')
       return
     }
+    // خروجة عضو مجانية: مفيش دفع يستناه، فالحجز بيتأكد على طول
+    const isFree = sbota.origin === 'member' && sbota.price === 0
     if (
       !confirm(
-        `هنعمل حجز لـ ${name} في المكان الفاضي ونشيله من قايمة الانتظار.\n\n` +
-          `الحجز هيتسجّل «مستني الدفع» ومعاه مهلة ٢٤ ساعة — الفلوس بتتحصّل منه زي أي حجز عادي، ` +
-          `ولو ما دفعش في المهلة بيتلغي لوحده.\n\nتمام؟`
+        isFree
+          ? `هنحجز لـ ${name} المكان الفاضي ونشيله من قايمة الانتظار.\n\n` +
+              `الخروجة ببلاش، فالحجز بيتأكد على طول وإيميل «مكانك محجوز» بيتبعتله.\n\nتمام؟`
+          : `هنعمل حجز لـ ${name} في المكان الفاضي ونشيله من قايمة الانتظار.\n\n` +
+              `الحجز هيتسجّل «مستني الدفع» بمهلة من الإعدادات («مهلة الدفع للي اتدخّل من الانتظار»). ` +
+              `ولو ما دفعش في المهلة بيتلغي لوحده.\n\nتمام؟`
       )
     )
       return
 
+    // ⚠ القاعدة هي اللي بتقرر (`fn_admit_waitlist` — 0121): العدد ونصيب
+    //   الولاد والبنات وشروط العضو والصلاحية. الزرار هنا بيسأل بس.
     setBusy(true)
-    const db = supabase()
-
-    // القاعدة مش بتسمح بأكتر من حجز لنفس الشخص في نفس السبوطة — حتى لو الحجز القديم متلغي
-    const { data: old } = await db
-      .from('bookings')
-      .select('id, status')
-      .eq('sbota_id', w.sbota_id)
-      .eq('profile_id', w.profile_id)
-      .maybeSingle()
-    if (old) {
-      setBusy(false)
-      const st = (old as { status: string }).status
-      flash(
-        `${name} عنده حجز في السبوطة دي خلاص (${STATUS_LABEL[st] ?? st}) — شوفه في تبويب الحجوزات بدل ما نعمل حجز تاني.`
-      )
-      return
-    }
-
-    const { data: ins, error } = await db
-      .from('bookings')
-      .insert({
-        sbota_id: w.sbota_id,
-        profile_id: w.profile_id,
-        status: 'pending_payment',
-        price_paid: 0,
-        expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-      })
-      .select('id')
-    if (error) {
-      setBusy(false)
-      flash(`مقدرناش نعمل الحجز: ${error.message}`)
-      return
-    }
-    if (rejected(ins)) {
-      setBusy(false)
-      flash('مااتعملش — القاعدة رفضت الكتابة، محتاج صلاحية bookings.edit')
-      return
-    }
-    const { error: delErr } = await db.from('waitlist').delete().eq('id', w.id)
+    const { data, error } = await supabase().rpc('fn_admit_waitlist', { p_waitlist_id: w.id })
     setBusy(false)
-    if (delErr) {
-      flash(`الحجز اتعمل بس فضل في قايمة الانتظار: ${delErr.message}`)
-    } else {
-      flash(`${name} دخل السبوطة ✓ — فاضل يدفع.`)
+    if (error) {
+      flash(`مااتعملش: ${error.message}`)
+      return
     }
+    const res = (data ?? {}) as { paid?: boolean; hold_hours?: number | null }
+    flash(
+      res.paid
+        ? `${name} اتحجزله ✓`
+        : `${name} دخل السبوطة ✓ — قدامه ${res.hold_hours ?? '—'} ساعة يدفع.`
+    )
     await reload()
   }
 
