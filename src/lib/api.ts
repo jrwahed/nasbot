@@ -171,29 +171,11 @@ async function selectSbotat<T>(
 }
 
 /** بيجيب أرقام «مين حاجز» لمجموعة سبوطات مرة واحدة */
-/**
- * «نص ولاد ونص بنات» (0119) — المفتاح من `settings`. بيتقرا مرة لكل نداء
- * لـ`whoBookedMap` وبيتلزق على كل صف، فكل مكان بيعرض «فاضل كام» (الرئيسية ·
- * الخريطة · صفحة السبوطة) بيعرف يقسّم من غير ما يسأل تاني.
- * لو العمود لسه مش موجود أو القراية وقعت = مش مقسّم (زي قبل 0119).
- */
-async function genderBalanceOn(): Promise<boolean> {
-  try {
-    const { data, error } = await supabase().from('settings').select('gender_balance').maybeSingle()
-    if (error || !data) return false
-    return (data as { gender_balance?: boolean }).gender_balance === true
-  } catch {
-    return false
-  }
-}
-
 async function whoBookedMap(ids: string[]) {
   const out = new Map<string, Awaited<ReturnType<typeof one>>>()
-  const balanced = ids.length ? await genderBalanceOn() : false
   async function one(id: string) {
     const { data } = await supabase().rpc('fn_who_booked', { s_id: id })
-    const row = Array.isArray(data) ? data[0] : data
-    return row ? { ...row, gender_balance: balanced } : row
+    return Array.isArray(data) ? data[0] : data
   }
   await Promise.all(ids.map(async (id) => out.set(id, await one(id))))
   return out

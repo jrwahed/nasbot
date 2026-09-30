@@ -48,11 +48,6 @@ export interface Sbota {
   priceNote: string
   /** «فاضل 3 من 8» أو «كامل» */
   left: string
-  /**
-   * «نص ولاد ونص بنات» (0119): الفاضل لكل نوع من نصيبه (`half`).
-   * `null`/غايب = السبوطة مش مقسومة (المفتاح مقفول · بنات بس · شغل).
-   */
-  seats?: { half: number; boys: number; girls: number } | null
   spotsLeft: number
   spotsTotal: number
   full: boolean
@@ -110,8 +105,6 @@ export interface WhoBooked {
   sameArea?: number | null
   /** «3 بنات و2 شباب · الأعمار 25–31 · اتنين أول مرة · تلاتة رايحين معانا قبل كده.» */
   line: string
-  /** «مكان الولاد: فاضل 2 من 3 · مكان البنات: كمل» — لما السبوطة مقسومة بس */
-  seatsLine?: string
 }
 
 /**
