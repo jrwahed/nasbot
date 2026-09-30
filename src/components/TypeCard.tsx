@@ -45,13 +45,16 @@ export const TypeCard = forwardRef<
       </div>
 
       <div className="flex flex-col gap-4">
-        <div
-          className="rounded-16 p-4"
-          style={{ background: '#1E2128', color: '#FBF7EF' }}
-        >
-          <div className="font-body text-13" style={{ color: '#C9C4B8' }}>{t('shared.text.30')}</div>
-          <div className="mt-1 font-display text-20 font-black">{nextLine}</div>
-        </div>
+        {/* من غير سبوطة مفتوحة الكرت ده بيختفي — مش بيعرض خروجة وهمية */}
+        {nextLine && (
+          <div
+            className="rounded-16 p-4"
+            style={{ background: '#1E2128', color: '#FBF7EF' }}
+          >
+            <div className="font-body text-13" style={{ color: '#C9C4B8' }}>{t('shared.text.30')}</div>
+            <div className="mt-1 font-display text-20 font-black">{nextLine}</div>
+          </div>
+        )}
         <Logo size={26} variant="onDark" />
       </div>
     </div>

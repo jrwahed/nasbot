@@ -100,8 +100,8 @@ export default function GroupPage() {
         </span>
       </div>
 
-      {/* ===== الكابتن ===== */}
-      {live && (
+      {/* ===== الكابتن — بس لو السبوطة ليها كابتن حقيقي ===== */}
+      {live && captain && (
       <div
         className="mt-[22px] flex items-center gap-[14px] rounded-20 p-4"
         style={{ background: '#EFE3CF', color: '#14161A' }}

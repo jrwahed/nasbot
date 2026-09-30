@@ -23,6 +23,7 @@ function ResultPage() {
   const cardRef = useRef<HTMLDivElement>(null)
   const [persona, setPersona] = useState<Persona | null>(null)
   const [next, setNext] = useState<Sbota | null>(null)
+  const [loaded, setLoaded] = useState(false)
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState('')
 
@@ -30,6 +31,7 @@ function ResultPage() {
     finishGame(loadAnswers()).then((r) => {
       setPersona(r.persona)
       setNext(r.next)
+      setLoaded(true)
     })
   }, [])
 
@@ -74,7 +76,7 @@ function ResultPage() {
     router.push(isLoggedIn() ? `/s/${next.slug}/pay` : `/login?next=/s/${next.slug}/pay`)
   }
 
-  if (!persona || !next) {
+  if (!loaded || !persona) {
     return (
       <main className="mx-auto w-full max-w-page px-5">
         <InnerHeader back={t('result.label.2')} href="/game" padded={false} />
@@ -85,7 +87,8 @@ function ResultPage() {
 
   const gender = getSession()?.gender
   const shown = personaName(persona, gender)
-  const nextLine = `${next.name} — ${next.when}`
+  // مفيش سبوطة مفتوحة = نوعك بس، من غير «اللي جاية» ولا زرار حجز
+  const nextLine = next ? `${next.name} — ${next.when}` : ''
 
   return (
     <main className="mx-auto w-full max-w-page px-5 pb-8">
@@ -112,7 +115,9 @@ function ResultPage() {
       )}
 
       <div className="mt-6 flex flex-col gap-3">
-        <PrimaryButton size="lg" className="w-full" onClick={book}>{t('result.text.1')}</PrimaryButton>
+        {next && (
+          <PrimaryButton size="lg" className="w-full" onClick={book}>{t('result.text.1')}</PrimaryButton>
+        )}
         <SecondaryButton onClick={share} className="w-full" disabled={busy}>
           {busy ? t('shared.wait') : t('result.label.1')}
         </SecondaryButton>

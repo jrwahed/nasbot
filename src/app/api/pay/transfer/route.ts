@@ -33,6 +33,9 @@ export async function POST(req: Request) {
     .update({ receipt_path: receiptPath, status: 'pending_review' })
     .eq('booking_id', bookingId)
     .in('provider', ['instapay', 'vodafone_cash'])
+    // ⚠ الدفعة المفتوحة بس. من غير الشرط ده صورة حجز جديد بعد إلغاء كانت
+    //   بتقلب الدفعة القديمة المأكدة (اللي عليها الاسترداد) «مستنية مراجعة».
+    .in('status', ['initiated', 'pending_review', 'failed'])
 
   if (error) return NextResponse.json({ error: 'مقدرناش نسجل التحويل' }, { status: 500 })
 
