@@ -9,6 +9,7 @@ import { getCopy } from '@/lib/copy'
 import { getFlags } from '@/lib/flags'
 import { getContent } from '@/lib/content'
 import { FooterLinksProvider } from '@/components/FooterLinksProvider'
+import { Gtm } from '@/components/Gtm'
 
 const rubik = Rubik({
   subsets: ['arabic', 'latin'],
@@ -58,6 +59,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
       </head>
       <body>
+        <Gtm />
         <CopyProvider value={copy}>
           <FlagsProvider value={flags}>
             <FooterLinksProvider value={content}>

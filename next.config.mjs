@@ -34,19 +34,25 @@ const isDev = process.env.NODE_ENV === 'development'
  *   src/lib/api.ts عبر postgres_changes) — من غير wss الشات بيموت في سكات.
  *   data: و blob: لأن صفحة النتيجة بتعمل fetch على data URL.
  *   في التطوير بنفتح ws://localhost علشان HMR.
- * - frame-ancestors 'none' + frame-src 'none' — الموقع مفيهوش iframes ولا
- *   المفروض حد يحطه في iframe.
+ * - frame-ancestors 'none' — محدش يحط الموقع في iframe.
+ * - Google Tag Manager (طلب المالك ٢٠٢٦-٠٩-٣٠، `src/components/Gtm.tsx`):
+ *   السكريبت من googletagmanager.com، وقياسات GA4 رايحة *.google-analytics.com
+ *   و*.analytics.google.com (connect + img)، و frame-src للـ<noscript> بس.
+ *   ⚠ أي وسم تاني يتضاف من لوحة GTM لخدمة تانية لازم نطاقه يتضاف هنا.
  */
+const GTM = 'https://www.googletagmanager.com'
+const GA = 'https://*.google-analytics.com https://*.analytics.google.com'
+
 const csp = [
   "default-src 'self'",
   "base-uri 'self'",
   "object-src 'none'",
   "frame-ancestors 'none'",
-  "frame-src 'none'",
+  `frame-src ${GTM}`,
   "form-action 'self'",
-  `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ''}`,
+  `script-src 'self' 'unsafe-inline' ${GTM}${isDev ? " 'unsafe-eval'" : ''}`,
   "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data: blob: https://*.supabase.co",
+  `img-src 'self' data: blob: https://*.supabase.co ${GTM} ${GA}`,
   "font-src 'self' data:",
   "media-src 'self' data: blob: https://*.supabase.co",
   "worker-src 'self' blob:",
@@ -55,6 +61,8 @@ const csp = [
     "connect-src 'self' data: blob:",
     'https://*.supabase.co',
     'wss://*.supabase.co',
+    GTM,
+    GA,
     isDev ? 'ws://localhost:* http://localhost:*' : '',
   ]
     .filter(Boolean)
