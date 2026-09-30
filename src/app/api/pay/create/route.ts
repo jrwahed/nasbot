@@ -248,7 +248,25 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true, bookingId, paid: true, amount: 0 })
   }
 
-  // دفعة يدوية مستنية التحويل
+  // دفعة يدوية مستنية التحويل.
+  // ⚠ الحجز بيتعاد استعماله لو العضو لغى ورجع حجز تاني (فيه `unique (sbota_id,
+  //   profile_id)`)، والمفتاح كان دايمًا `manual:<الحجز>` — فالـupsert كان
+  //   بيكتب **فوق الدفعة القديمة المأكدة** اللي عليها الاسترداد: تاريخ فلوس
+  //   بيتمسح (حصل ٢٠٢٦-٠٩-٣٠). دلوقتي: لو فيه دفعة لسه مفتوحة نكمّل عليها،
+  //   ولو اللي موجود اتقفل (اتأكد/اترجّع) نفتح دفعة **جديدة** بمفتاح جديد.
+  const { data: pays } = await db
+    .from('payments')
+    .select('idempotency_key, status')
+    .eq('booking_id', bookingId)
+    .order('created_at', { ascending: false })
+  const payList = (pays ?? []) as { idempotency_key: string; status: string }[]
+  const openPay = payList.find((p) => ['initiated', 'pending_review', 'failed'].includes(p.status))
+  const payKey = openPay
+    ? openPay.idempotency_key
+    : payList.length
+      ? `manual:${bookingId}:${randomUUID()}`
+      : `manual:${bookingId}`
+
   await db
     .from('payments')
     .upsert(
@@ -257,7 +275,7 @@ export async function POST(req: Request) {
         provider: method,
         amount,
         status: 'initiated',
-        idempotency_key: `manual:${bookingId}`,
+        idempotency_key: payKey,
       },
       { onConflict: 'idempotency_key' }
     )
