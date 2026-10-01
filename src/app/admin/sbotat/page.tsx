@@ -31,6 +31,7 @@ import {
   when,
   day,
 } from '@/components/admin-ui'
+import { AreaChips, Inp, NewSbota } from '../_components/sbota-form'
 
 /**
  * المواعيد — كل سبوطة مجدولة.
@@ -94,6 +95,7 @@ interface Sbota {
 interface Template {
   id: string
   name_ar: string
+  slug: string
   default_price: number
   org_fee: number
   duration_min: number
@@ -148,86 +150,7 @@ const AREAS = [
   { value: 'downtown_zamalek', label: 'وسط البلد والزمالك' },
   { value: 'other', label: 'مكان تاني' },
 ]
-/**
- * مناطق الخريطة — الكبسولات اللي بتخلي اللي تكتبه يوصل لكتلة على الخريطة.
- *
- * ⚠ السبوطة بتوصل لكتلتها على `/map` بمطابقة **اسم المنطقة**. ولما المطابقة
- *    بتفشل السبوطة بتختفي من الخريطة من غير أي رسالة — ده اللي كان حاصل
- *    للتلات سبوطات المفتوحة. الكود بقى فيه كتلة أخيرة بتلم اللي مش معروف،
- *    بس أحسن حاجة إنك تدوس على المنطقة من هنا: الاسم بيبقى مظبوط والكود
- *    بيتحط معاه، فالسبوطة بتقع في مكانها بالظبط.
- */
-function useMapAreas() {
-  const [rows, setRows] = useState<
-    { key: string; label: string; area: string | null; far: boolean }[]
-  >([])
-  useEffect(() => {
-    let alive = true
-    void supabase()
-      .from('map_areas')
-      .select('key, label_ar, area, is_far, is_mystery, w')
-      .eq('is_active', true)
-      .order('sort', { ascending: true })
-      .then((res: { data: MapAreaRow[] | null }) => {
-        if (!alive) return
-        setRows(
-          (res.data ?? [])
-            .filter((r) => !r.is_mystery && (r.w > 0 || r.is_far))
-            .map((r) => ({ key: r.key, label: r.label_ar, area: r.area, far: r.is_far }))
-        )
-      })
-    return () => {
-      alive = false
-    }
-  }, [])
-  return rows
-}
-
-interface MapAreaRow {
-  key: string
-  label_ar: string
-  area: string | null
-  is_far: boolean
-  is_mystery: boolean
-  w: number
-}
-
-function AreaChips({
-  value,
-  onPick,
-}: {
-  value: string
-  onPick: (label: string, area: string | null) => void
-}) {
-  const areas = useMapAreas()
-  if (!areas.length) return null
-  return (
-    <div className="mt-2 flex flex-wrap gap-2">
-      {areas.map((a) => {
-        const on = value.trim() === a.label
-        return (
-          <button
-            key={a.key}
-            type="button"
-            onClick={() => onPick(a.label, a.area)}
-            className="min-h-[32px] cursor-pointer rounded-pill px-3 font-display text-13 font-black"
-            style={{
-              background: on ? '#F4632A' : 'transparent',
-              color: on ? '#14161A' : 'var(--fg)',
-              border: `2px solid ${on ? '#F4632A' : 'var(--line)'}`,
-              opacity: a.far ? 0.75 : 1,
-            }}
-          >
-            {a.label}
-          </button>
-        )
-      })}
-    </div>
-  )
-}
-
-const areaLabel = (a: string | null) =>
-  a ? (AREAS.find((x) => x.value === a)?.label ?? a) : '—'
+const areaLabel = (a: string | null) => (a ? (AREAS.find((x) => x.value === a)?.label ?? a) : '—')
 
 /** الأسبوع عندنا بيبدأ سبت */
 const DAY_NAMES = ['السبت', 'الحد', 'الاتنين', 'التلات', 'الأربع', 'الخميس', 'الجمعة']
@@ -288,50 +211,6 @@ async function countBooked(ids: string[]): Promise<Record<string, number>> {
   return map
 }
 
-/* ---------------------------------------------------------- حقول صغيرة */
-
-function Inp({
-  label,
-  type = 'text',
-  value,
-  onChange,
-  hint,
-  className,
-  placeholder,
-}: {
-  label?: string
-  type?: string
-  value: string
-  onChange: (v: string) => void
-  hint?: string
-  className?: string
-  /** بيوري اللي هييجي من القالب لو الخانة اتسابت فاضية */
-  placeholder?: string
-}) {
-  return (
-    <label className="flex flex-col gap-1">
-      {label && (
-        <span className="font-body text-13" style={{ color: 'var(--muted)' }}>
-          {label}
-        </span>
-      )}
-      <input
-        type={type}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
-        className={`rounded-14 px-3 py-2 font-body text-16 ${className ?? ''}`}
-        style={{ background: 'var(--bg)', color: 'var(--fg)', border: '2px solid var(--line)' }}
-      />
-      {hint && (
-        <span className="font-body text-12" style={{ color: 'var(--muted)' }}>
-          {hint}
-        </span>
-      )}
-    </label>
-  )
-}
-
 /* ---------------------------------------------------------- الصفحة */
 
 export default function AdminSbotatPage() {
@@ -341,6 +220,7 @@ export default function AdminSbotatPage() {
         <SbotatEditor
           canEdit={me.permissions.has('sbotat.edit')}
           canCancel={me.permissions.has('sbotat.cancel')}
+          canBroadcast={me.permissions.has('notifications.broadcast')}
         />
       )}
     </AdminShell>
@@ -350,7 +230,15 @@ export default function AdminSbotatPage() {
 type TabId = 'table' | 'cal'
 type PanelMode = 'edit' | 'repeat' | 'cancel'
 
-function SbotatEditor({ canEdit, canCancel }: { canEdit: boolean; canCancel: boolean }) {
+function SbotatEditor({
+  canEdit,
+  canCancel,
+  canBroadcast,
+}: {
+  canEdit: boolean
+  canCancel: boolean
+  canBroadcast: boolean
+}) {
   const [rows, setRows] = useState<Sbota[]>([])
   const [total, setTotal] = useState<number | null>(null)
   const [calRows, setCalRows] = useState<Sbota[]>([])
@@ -359,7 +247,11 @@ function SbotatEditor({ canEdit, canCancel }: { canEdit: boolean; canCancel: boo
   const [captains, setCaptains] = useState<Captain[]>([])
   const [booked, setBooked] = useState<Record<string, number>>({})
   const [wants, setWants] = useState<Record<string, number>>({})
-  const [stats, setStats] = useState<{ soon: number; open: number; risky: number } | null>(null)
+  const [stats, setStats] = useState<{
+    soon: number
+    open: number
+    risky: number
+  } | null>(null)
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
 
@@ -382,7 +274,7 @@ function SbotatEditor({ canEdit, canCancel }: { canEdit: boolean; canCancel: boo
       db
         .from('sbota_templates')
         .select(
-          'id, name_ar, default_price, org_fee, duration_min, min_group, max_group, is_day, girls_only'
+          'id, name_ar, slug, default_price, org_fee, duration_min, min_group, max_group, is_day, girls_only',
         )
         .order('name_ar')
         .range(0, ADMIN_SCAN_MAX - 1),
@@ -528,39 +420,29 @@ function SbotatEditor({ canEdit, canCancel }: { canEdit: boolean; canCancel: boo
     set(v)
   }
 
-  const tplOf = useCallback(
-    (id: string) => templates.find((t) => t.id === id),
-    [templates]
-  )
+  const tplOf = useCallback((id: string) => templates.find((t) => t.id === id), [templates])
   const venueOf = useCallback((id: string | null) => venues.find((v) => v.id === id), [venues])
   const captainOf = useCallback(
     (id: string | null) => captains.find((c) => c.id === id),
-    [captains]
+    [captains],
   )
   const captainName = useCallback(
     (id: string | null) => {
       const c = captainOf(id)
       return c ? (c.display_name ?? c.bio_line) : '—'
     },
-    [captainOf]
+    [captainOf],
   )
 
   /* ------------------------------------------------ حسابات */
 
-  const under = useCallback(
-    (r: Sbota) => (booked[r.id] ?? 0) < r.min_to_run,
-    [booked]
-  )
+  const under = useCallback((r: Sbota) => (booked[r.id] ?? 0) < r.min_to_run, [booked])
 
   /* ------------------------------------------------ التعديلات */
 
   async function patch(id: string, p: Record<string, unknown>, note = 'اتحفظ ✓') {
     // .select() علشان نتأكد إن الصف اتغيّر فعلًا — RLS بترجّع صفر صفوف من غير خطأ
-    const { data, error } = await supabase()
-      .from('sbotat')
-      .update(p)
-      .eq('id', id)
-      .select('id')
+    const { data, error } = await supabase().from('sbotat').update(p).eq('id', id).select('id')
     if (error) {
       flash(`مقدرناش نحفظ: ${error.message}`)
       return false
@@ -653,8 +535,8 @@ function SbotatEditor({ canEdit, canCancel }: { canEdit: boolean; canCancel: boo
         <div className="mt-4">
           <NewSbota
             templates={templates}
-            venues={venues}
             captains={captains}
+            canBroadcast={canBroadcast}
             flash={flash}
             onDone={async () => {
               setAdding(false)
@@ -712,16 +594,7 @@ function SbotatEditor({ canEdit, canCancel }: { canEdit: boolean; canCancel: boo
               <Empty>مفيش سبوطة بالفلتر ده.</Empty>
             ) : (
               <Table
-                head={[
-                  'السبوطة',
-                  'إمتى',
-                  'المكان',
-                  'الكابتن',
-                  'السعر',
-                  'الحجز',
-                  'الحالة',
-                  '',
-                ]}
+                head={['السبوطة', 'إمتى', 'المكان', 'الكابتن', 'السعر', 'الحجز', 'الحالة', '']}
               >
                 {rows.map((r) => {
                   const n = booked[r.id] ?? 0
@@ -735,15 +608,11 @@ function SbotatEditor({ canEdit, canCancel }: { canEdit: boolean; canCancel: boo
                         venueName={r.venue_name_ar || venueOf(r.venue_id)?.name || '—'}
                         areaText={r.area_label_ar ?? areaLabel(r.area)}
                         captain={
-                          r.origin === 'member'
-                            ? r.host_name_ar || '—'
-                            : captainName(r.captain_id)
+                          r.origin === 'member' ? r.host_name_ar || '—' : captainName(r.captain_id)
                         }
                         booked={n}
                         wants={wants[r.id] ?? 0}
-                        low={
-                          under(r) && !['cancelled', 'done', 'proposed'].includes(r.status)
-                        }
+                        low={under(r) && !['cancelled', 'done', 'proposed'].includes(r.status)}
                         canEdit={canEdit}
                         canCancel={canCancel}
                         onEdit={() => toggle(r.id, 'edit')}
@@ -755,10 +624,14 @@ function SbotatEditor({ canEdit, canCancel }: { canEdit: boolean; canCancel: boo
                           if (
                             confirm(
                               `هنفتح الحجز في «${r.title_ar || tplName(r.template_id)}».\n` +
-                                `${wants[r.id] ?? 0} قالوا جايين — هيوصلهم إيميل «اتفتحت» دلوقتي.\n\nتمام؟`
+                                `${wants[r.id] ?? 0} قالوا جايين — هيوصلهم إيميل «اتفتحت» دلوقتي.\n\nتمام؟`,
                             )
                           )
-                            patch(r.id, { status: 'open' }, 'الحجز اتفتح ✓ — اللي قالوا جايين اتبلّغوا')
+                            patch(
+                              r.id,
+                              { status: 'open' },
+                              'الحجز اتفتح ✓ — اللي قالوا جايين اتبلّغوا',
+                            )
                         }}
                       />
 
@@ -770,7 +643,10 @@ function SbotatEditor({ canEdit, canCancel }: { canEdit: boolean; canCancel: boo
                           <td colSpan={8} className="p-2">
                             <div
                               className="rounded-16 p-3 text-13"
-                              style={{ background: 'var(--bg)', border: '2px solid var(--line)' }}
+                              style={{
+                                background: 'var(--bg)',
+                                border: '2px solid var(--line)',
+                              }}
                             >
                               <div className="font-display text-15 font-black">
                                 {r.title_ar || '—'}
@@ -1031,237 +907,6 @@ function SbotaRow({
   )
 }
 
-/* ============================================================ سبوطة جديدة */
-
-function NewSbota({
-  templates,
-  venues,
-  captains,
-  flash,
-  onDone,
-}: {
-  templates: Template[]
-  venues: Venue[]
-  captains: Captain[]
-  flash: (m: string) => void
-  onDone: () => Promise<void>
-}) {
-  const [templateId, setTemplateId] = useState('')
-  const [venueNameAr, setVenueNameAr] = useState('')
-  const [addressAr, setAddressAr] = useState('')
-  const [signAr, setSignAr] = useState('')
-  const [areaLabelAr, setAreaLabelAr] = useState('')
-  // كود المنطقة بيتحط بس لما تدوس على كبسولة — الكتابة الحرة بتسيبه فاضي
-  // والكود بيطابق بالاسم.
-  const [areaKey, setAreaKey] = useState<string | null>(null)
-  const [captainId, setCaptainId] = useState('')
-  const [date, setDate] = useState(dayAdd(todayCairo(), 7))
-  const [time, setTime] = useState('18:00')
-  const [price, setPrice] = useState('')
-  const [capacity, setCapacity] = useState('')
-  const [minToRun, setMinToRun] = useState('4')
-  const [duration, setDuration] = useState('120')
-  const [girlsOnly, setGirlsOnly] = useState(false)
-  const [isDay, setIsDay] = useState(false)
-  const [isMystery, setIsMystery] = useState(false)
-  const [busy, setBusy] = useState(false)
-
-  /** أول ما تختار قالب بنملّي منه السعر والعدد والمدة — وتقدر تغيّرهم */
-  function pickTemplate(id: string) {
-    setTemplateId(id)
-    const t = templates.find((x) => x.id === id)
-    if (!t) return
-    setPrice(String(Math.round(t.default_price / 100)))
-    setCapacity(String(t.max_group))
-    setMinToRun(String(t.min_group))
-    setDuration(String(t.duration_min))
-    setGirlsOnly(t.girls_only)
-    setIsDay(t.is_day)
-  }
-
-  async function create() {
-    const t = templates.find((x) => x.id === templateId)
-    if (!t) return flash('اختار القالب الأول')
-    if (!date || !time) return flash('حدّد التاريخ والساعة')
-
-    const cap = Math.round(Number(capacity) || 0)
-    const min = Math.round(Number(minToRun) || 0)
-    const dur = Math.round(Number(duration) || 0)
-    if (cap < 2 || cap > 40) return flash('العدد لازم يكون من 2 لـ 40')
-    if (min > cap) return flash('الحد الأدنى مينفعش يكون أكبر من العدد')
-    if (dur < 1) return flash('المدة لازم تكون أكتر من صفر')
-
-    const startsAt = cairoToIso(date, time)
-    const endsAt = new Date(new Date(startsAt).getTime() + dur * 60000).toISOString()
-
-    setBusy(true)
-    const { error } = await supabase()
-      .from('sbotat')
-      .insert({
-        template_id: t.id,
-        // المكان بيتكتب مش بيتختار — `venues` بقى فيه أماكن الشغل بس
-        venue_id: null,
-        venue_name_ar: venueNameAr.trim() || null,
-        address_ar: addressAr.trim() || null,
-        sign_ar: signAr.trim() || null,
-        area_label_ar: areaLabelAr.trim() || null,
-        area: areaKey,
-        captain_id: captainId || null,
-        starts_at: startsAt,
-        ends_at: endsAt,
-        price: Math.round(Number(price) || 0) * 100,
-        org_fee: t.org_fee,
-        capacity: cap,
-        min_to_run: min,
-        status: 'draft',
-        girls_only: girlsOnly,
-        is_day: isDay,
-        is_mystery: isMystery,
-      })
-    setBusy(false)
-
-    if (error) return flash(`مقدرناش نعمل السبوطة: ${error.message}`)
-    flash('السبوطة اتعملت ✓ — لسه مسودة، افتحها وخليها «مفتوحة» لما تجهز')
-    await onDone()
-  }
-
-  return (
-    <Card
-      title="سبوطة جديدة"
-      hint="اختار القالب الأول — الاسم والحدوتة والصور والسعر والعدد كلهم بييجوا منه، وبعد كده غيّر اللي تحب. الاسم والتفاصيل بتتعدّل من «عدّل» بعد ما تعملها."
-    >
-      <div className="mt-3 flex flex-wrap items-end gap-3">
-        <SelectField
-          label="القالب"
-          value={templateId}
-          onChange={pickTemplate}
-          options={[
-            { value: '', label: '— اختار قالب —' },
-            ...templates.map((t) => ({ value: t.id, label: t.name_ar })),
-          ]}
-        />
-        <SelectField
-          label="الكابتن"
-          value={captainId}
-          onChange={setCaptainId}
-          options={[
-            { value: '', label: '— من غير كابتن لسه —' },
-            ...captains
-              .filter((c) => c.is_active)
-              .map((c) => ({ value: c.id, label: c.display_name ?? c.bio_line })),
-          ]}
-        />
-      </div>
-
-      {/* المكان بيتكتب — القايمة اتشالت لأن `venues` بقى فيه أماكن الشغل بس */}
-      <div className="mt-3 flex flex-wrap items-end gap-3">
-        <Inp
-          label="اسم المكان"
-          value={venueNameAr}
-          onChange={setVenueNameAr}
-          className="w-full md:w-[300px]"
-          hint="زي ما الناس بتقوله — «كافيه البوسطة»."
-        />
-        <Inp
-          label="العلامة (هيعرفوا بعض إزاي)"
-          value={signAr}
-          onChange={setSignAr}
-          className="w-full md:w-[360px]"
-          hint="«الترابيزة اللي عليها ورقة برتقالي». بتوصل للحاجزين مع كشف المجموعة بس — مش معروضة على الموقع."
-        />
-        <div className="w-full">
-          <Inp
-            label="اسم المنطقة اللي بيبان"
-            value={areaLabelAr}
-            onChange={(v) => {
-              setAreaLabelAr(v)
-              setAreaKey(null)
-            }}
-            hint="دوس على منطقة تحت — كده السبوطة بتبان على الخريطة في مكانها."
-          />
-          <AreaChips
-            value={areaLabelAr}
-            onPick={(label, area) => {
-              setAreaLabelAr(label)
-              setAreaKey(area)
-            }}
-          />
-        </div>
-      </div>
-
-      <div className="mt-3">
-        <label className="block font-body text-13" style={{ color: 'var(--muted)' }}>
-          العنوان بالتفاصيل
-        </label>
-        <textarea
-          value={addressAr}
-          onChange={(e) => setAddressAr(e.target.value)}
-          rows={2}
-          className="mt-1 w-full rounded-12 p-3 font-body text-14"
-          style={{ background: 'var(--bg)', border: '2px solid var(--line)', color: 'inherit' }}
-        />
-        <div className="mt-1 font-body text-12" style={{ color: 'var(--muted)' }}>
-          ما بيوصلش غير للي <b>دفع فعلًا</b>. رفع صورة تحويل مش كفاية — لازم
-          تعتمده من «الفلوس».
-        </div>
-      </div>
-
-      <div className="mt-3 flex flex-wrap items-end gap-3">
-        <Inp label="التاريخ" type="date" value={date} onChange={setDate} />
-        <Inp label="الساعة (بتوقيت القاهرة)" type="time" value={time} onChange={setTime} />
-        <Inp
-          label="المدة (دقيقة)"
-          type="number"
-          value={duration}
-          onChange={setDuration}
-          className="w-[110px]"
-        />
-        <Inp
-          label="السعر (جنيه)"
-          type="number"
-          value={price}
-          onChange={setPrice}
-          className="w-[120px]"
-        />
-        <Inp
-          label="العدد"
-          type="number"
-          value={capacity}
-          onChange={setCapacity}
-          className="w-[100px]"
-        />
-        <Inp
-          label="أقل عدد تمشي بيه"
-          type="number"
-          value={minToRun}
-          onChange={setMinToRun}
-          className="w-[110px]"
-        />
-      </div>
-
-      <div className="mt-3 flex flex-wrap gap-6">
-        <Toggle label="بنات بس" value={girlsOnly} onChange={setGirlsOnly} />
-        <Toggle label="نهاري" value={isDay} onChange={setIsDay} />
-        <Toggle
-          label="غامضة"
-          value={isMystery}
-          onChange={setIsMystery}
-          hint="المكان ما بيبانش غير قبلها بشوية."
-        />
-      </div>
-
-      <div className="mt-4 flex flex-wrap items-center gap-3">
-        <Btn kind="primary" onClick={create} disabled={busy}>
-          {busy ? 'ثانية واحدة…' : 'اعمل السبوطة'}
-        </Btn>
-        <span className="font-body text-13" style={{ color: 'var(--muted)' }}>
-          مواعيد قفل الحجز والكشف وفتح الشات القاعدة بتحسبها لوحدها.
-        </span>
-      </div>
-    </Card>
-  )
-}
-
 /* ============================================================ تعديل */
 
 function EditPanel({
@@ -1280,7 +925,7 @@ function EditPanel({
   const parts = cairoParts(row.starts_at)
   const lenMin = Math.max(
     1,
-    Math.round((new Date(row.ends_at).getTime() - new Date(row.starts_at).getTime()) / 60000)
+    Math.round((new Date(row.ends_at).getTime() - new Date(row.starts_at).getTime()) / 60000),
   )
 
   const [date, setDate] = useState(parts.date)
@@ -1396,8 +1041,7 @@ function EditPanel({
           options={templates.map((t) => ({ value: t.id, label: t.name_ar }))}
         />
         <div className="mt-1 font-body text-12" style={{ color: 'var(--muted)' }}>
-          لما تغيّر القالب بييجي معاه السعر والعمولة والمدة والعدد — وتقدر
-          تغيّرهم تحت.
+          لما تغيّر القالب بييجي معاه السعر والعمولة والمدة والعدد — وتقدر تغيّرهم تحت.
         </div>
       </div>
 
@@ -1406,8 +1050,8 @@ function EditPanel({
           className="mt-3 rounded-14 p-3 font-body text-13"
           style={{ background: '#3A2A14', color: '#F2C98A' }}
         >
-          ⚠ فيه كلام مكتوب تحت — ده اللي هيظهر للناس، مش كلام القالب.
-          فضّي الخانة لو عايز ترجع لكلام القالب.
+          ⚠ فيه كلام مكتوب تحت — ده اللي هيظهر للناس، مش كلام القالب. فضّي الخانة لو عايز ترجع لكلام
+          القالب.
         </div>
       )}
 
@@ -1433,7 +1077,11 @@ function EditPanel({
           rows={4}
           placeholder="سيبها فاضية تاخد حدوتة القالب"
           className="mt-1 w-full rounded-12 p-3 font-body text-14"
-          style={{ background: 'var(--bg)', border: '2px solid var(--line)', color: 'inherit' }}
+          style={{
+            background: 'var(--bg)',
+            border: '2px solid var(--line)',
+            color: 'inherit',
+          }}
         />
       </div>
 
@@ -1477,7 +1125,10 @@ function EditPanel({
           onChange={setCaptainId}
           options={[
             { value: '', label: '— من غير كابتن —' },
-            ...captains.map((c) => ({ value: c.id, label: c.display_name ?? c.bio_line })),
+            ...captains.map((c) => ({
+              value: c.id,
+              label: c.display_name ?? c.bio_line,
+            })),
           ]}
         />
       </div>
@@ -1491,11 +1142,14 @@ function EditPanel({
           onChange={(e) => setAddressAr(e.target.value)}
           rows={2}
           className="mt-1 w-full rounded-12 p-3 font-body text-14"
-          style={{ background: 'var(--bg)', border: '2px solid var(--line)', color: 'inherit' }}
+          style={{
+            background: 'var(--bg)',
+            border: '2px solid var(--line)',
+            color: 'inherit',
+          }}
         />
         <div className="mt-1 font-body text-12" style={{ color: 'var(--muted)' }}>
-          ما بيوصلش غير للي <b>دفع فعلًا</b>. رفع صورة تحويل مش كفاية — لازم
-          تعتمده من «الفلوس».
+          ما بيوصلش غير للي <b>دفع فعلًا</b>. رفع صورة تحويل مش كفاية — لازم تعتمده من «الفلوس».
         </div>
       </div>
 
@@ -1582,10 +1236,7 @@ function RepeatPanel({
   const [count, setCount] = useState('4')
   const [busy, setBusy] = useState(false)
 
-  const lenMs = Math.max(
-    60000,
-    new Date(row.ends_at).getTime() - new Date(row.starts_at).getTime()
-  )
+  const lenMs = Math.max(60000, new Date(row.ends_at).getTime() - new Date(row.starts_at).getTime())
 
   /** أول يوم بعد تاريخ السبوطة دي بيقع في اليوم اللي اخترته */
   function firstDate(): string {
@@ -1644,7 +1295,10 @@ function RepeatPanel({
           label="يوم الأسبوع"
           value={weekday}
           onChange={setWeekday}
-          options={DAY_JS.map((js, i) => ({ value: String(js), label: DAY_NAMES[i] }))}
+          options={DAY_JS.map((js, i) => ({
+            value: String(js),
+            label: DAY_NAMES[i],
+          }))}
         />
         <Inp label="الساعة (القاهرة)" type="time" value={time} onChange={setTime} />
         <Inp
@@ -1659,8 +1313,7 @@ function RepeatPanel({
         </Btn>
       </div>
       <p className="mt-2 font-body text-13" style={{ color: 'var(--muted)' }}>
-        بنبدأ من أول {DAY_NAMES[DAY_JS.indexOf(Number(weekday))] ?? ''} بعد{' '}
-        {day(row.starts_at)}.
+        بنبدأ من أول {DAY_NAMES[DAY_JS.indexOf(Number(weekday))] ?? ''} بعد {day(row.starts_at)}.
       </p>
     </Card>
   )
@@ -1694,7 +1347,7 @@ function CancelPanel({
     if (!why) return flash('اكتب سبب الإلغاء الأول — بيتسجل وبيروح للناس')
     if (
       !confirm(
-        `هنلغي «${name}» بتاعة ${when(row.starts_at)} ونرجّع فلوس ${booked} حجز كاملة. مفيش رجوع في ده. تمام؟`
+        `هنلغي «${name}» بتاعة ${when(row.starts_at)} ونرجّع فلوس ${booked} حجز كاملة. مفيش رجوع في ده. تمام؟`,
       )
     )
       return
@@ -1741,13 +1394,16 @@ function CancelPanel({
     flash(
       firstErr
         ? `اتلغت ✓ — رجّعنا ${done} حجز، وفي حجز مقدرناش: ${firstErr}`
-        : `اتلغت ✓ — رجّعنا فلوس ${done} حجز`
+        : `اتلغت ✓ — رجّعنا فلوس ${done} حجز`,
     )
     await onDone()
   }
 
   return (
-    <Card title="إلغاء السبوطة" hint="كل حجز مدفوع هيرجع كامل ومعاه رصيد اعتذار. الخطوة دي مفيهاش رجوع.">
+    <Card
+      title="إلغاء السبوطة"
+      hint="كل حجز مدفوع هيرجع كامل ومعاه رصيد اعتذار. الخطوة دي مفيهاش رجوع."
+    >
       <div className="mt-3 flex flex-col gap-2">
         <label className="flex flex-col gap-1">
           <span className="font-body text-13" style={{ color: 'var(--muted)' }}>
@@ -1759,7 +1415,11 @@ function CancelPanel({
             onChange={(e) => setReason(e.target.value)}
             placeholder="مثلًا: الجو مش مناسب والمكان قفل"
             className="w-full rounded-14 px-3 py-2 font-body text-16"
-            style={{ background: 'var(--bg)', color: 'var(--fg)', border: '2px solid var(--line)' }}
+            style={{
+              background: 'var(--bg)',
+              color: 'var(--fg)',
+              border: '2px solid var(--line)',
+            }}
           />
         </label>
 
