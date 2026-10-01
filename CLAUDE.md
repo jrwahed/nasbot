@@ -553,6 +553,16 @@ psql -h 127.0.0.1 -p 5433 -U postgres -d nasbot --single-transaction -f WORK_MIG
   القايمة وصفحة العضو و«طلبات الدخول» (روابط موقّعة ٥ دقايق، `useAvatarUrls`).
   محليًا مفيش `storage` فالهجرة والاختبار بيتخطّوا نفسهم — الاختبار الحقيقي على الإنتاج.
 
+- 🟢 **«مكتملة» من اللوحة بقت مكتملة في كل حتة (٢٠٢٦-١٠-٠١)** — `WORK_MIGRATION_43` / `0124` + `map-db.ts`.
+  طلب المالك: لما يقلب الخروجة `full` بإيده، الكارت يقول «6 من 6» مش «0 من 6 ·
+  لسه محدش حجز». `sbotaFromDb` بقت تعرض السعة كلها لما `status = 'full'`
+  والحجوزات الحقيقية أقل (`markedFull`) — **عرض بس**، الحجوزات والفلوس ما بتتلمسش،
+  و«جايين منين» بيختفي. ولو اكتملت بحجوزات حقيقية بتتعرض زي ما هي.
+  - 🔴 وكشف باج: `fn_seat_for` كانت بتعدّ الحجوزات بس، فالخروجة المقلوبة `full`
+    كانت «فيها مكان» — زرار «سجلني في الانتظار» يقع وزرار الحجز مقفول. بقت
+    `status = 'full'` لوحدها = مفيش مكان. `test_full_means_full()` ٣/٣، واتجرّب
+    بفخ (رجّعنا `0120`) → الصفين الأحمر وقعوا بنفس رسالة الإنتاج.
+
 - 🔴🟢 **الحساب الممسوح كان بيرجع نص حساب (٢٠٢٦-٠٩-٣٠) — كود بس، من غير لزق.**
   المالك نفسه: مسح حسابه من «امسح حسابي» يوم ١٢، ورجع سجّل بنفس الإيميل
   يوم ٣٠. سوبابيس دخّله على **نفس** الحساب، و`/join` فتح «تعديل» (الملف
@@ -951,7 +961,7 @@ union all select 'WM9 (content_pages)',       to_regclass('content_pages')      
 
 **نقطة البداية: `START_HERE.md`** — الحالة والطريق واللي فاضل، في ملف واحد.
 
-**`AFTER_SBOTA.md`** + **`SBOTAT_LOG.md`** (دورة ما بعد الخروجة) · `CONTENT_BRIEF.md` (المحتوى الناقص) · `CHECK_DB.sql` (فاحص القاعدة الشامل) · `README.md` · `DB_PLAN.md` · `ADMIN_PLAN.md` · `WORK_PLAN.md` · `DESIGN_TOKENS.md` · `COPY.md` · `ADMIN_GUIDE.md` · `RUNBOOK.md` · `DEPLOY_CHECKLIST.md` · **`REVIEW*.md`** (المراجعة) · ملفات `WORK_MIGRATION_*.sql` (لحد `_42`) و`WORK_CRON.sql` — كلهم في **`db-bundles/`** (تتلزق في SQL Editor).
+**`AFTER_SBOTA.md`** + **`SBOTAT_LOG.md`** (دورة ما بعد الخروجة) · `CONTENT_BRIEF.md` (المحتوى الناقص) · `CHECK_DB.sql` (فاحص القاعدة الشامل) · `README.md` · `DB_PLAN.md` · `ADMIN_PLAN.md` · `WORK_PLAN.md` · `DESIGN_TOKENS.md` · `COPY.md` · `ADMIN_GUIDE.md` · `RUNBOOK.md` · `DEPLOY_CHECKLIST.md` · **`REVIEW*.md`** (المراجعة) · ملفات `WORK_MIGRATION_*.sql` (لحد `_43`) و`WORK_CRON.sql` — كلهم في **`db-bundles/`** (تتلزق في SQL Editor).
 
 ---
 
