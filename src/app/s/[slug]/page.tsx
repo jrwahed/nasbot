@@ -13,7 +13,7 @@ import { StickyCTA } from '@/components/StickyCTA'
 import { BottomSheet } from '@/components/BottomSheet'
 import { PrimaryButton, SecondaryButton } from '@/components/Buttons'
 import { ClockIcon, ArrowIcon, PinIcon, LevelIcon } from '@/components/Icons'
-import { getSbota, getCaptain, bookFree, getMyWaitlist, joinWaitlist, leaveWaitlist, type MyWaitlist } from '@/lib/api'
+import { getSbota, getCaptain, bookFree, getMyWaitlist, joinWaitlist, leaveWaitlist, getMySbotaWant, wantSbota, type MyWaitlist } from '@/lib/api'
 import { useContentRef, useNumberedRules } from '@/components/FooterLinksProvider'
 import { track } from '@/lib/track'
 import { isLoggedIn } from '@/lib/session'
@@ -49,6 +49,8 @@ export default function SbotaPage() {
   /** قايمة الانتظار (0120) — `null` للزائر */
   const [wait, setWait] = useState<MyWaitlist | null>(null)
   const [waitBusy, setWaitBusy] = useState(false)
+  /** «أنا جاي لو اتعملت» على الخروجة المقترحة (0127) */
+  const [wanted, setWanted] = useState(false)
   const waiting = search.get('wait') === '1'
 
   useEffect(() => {
@@ -60,7 +62,8 @@ export default function SbotaPage() {
         return
       }
       setSbota(s)
-      getMyWaitlist(s.id).then((w) => alive && setWait(w))
+      if (s.proposed) getMySbotaWant(s.id).then((w) => alive && setWanted(w))
+      else getMyWaitlist(s.id).then((w) => alive && setWait(w))
       // ⚠ خروجة العضو مالهاش كابتن. من غير الشرط ده `getCaptain('')` بترجّع
       //   كابتن **وهمي** من الاحتياطي — يعني الصفحة تعرض حد مالوش وجود.
       setCaptain(s.captainId ? await getCaptain(s.captainId) : null)
@@ -109,6 +112,25 @@ export default function SbotaPage() {
     const res = await joinWaitlist(sbota.id)
     if (res.ok) setWait(await getMyWaitlist(sbota.id))
     else setFreeErr(res.error || t('sbota.wait.err'))
+    setWaitBusy(false)
+  }
+
+  /**
+   * «أنا جاي لو اتعملت» — من غير دفع. لما العدد يوصل، المالك بيفتح الحجز
+   * واللي قالوا جايين بيوصلهم إيميل. القاعدة بترفضه لو الخروجة مش مقترحة.
+   */
+  const onWant = async (on: boolean) => {
+    if (!sbota || waitBusy) return
+    if (!isLoggedIn()) {
+      router.push(`/login?next=/s/${sbota.slug}`)
+      return
+    }
+    setFreeErr('')
+    setWaitBusy(true)
+    if (on) track('click_ana_gai', { slug: sbota.slug, proposed: true })
+    const res = await wantSbota(sbota.id, on)
+    if (res.ok) setWanted(on)
+    else setFreeErr(res.error || t('proposed.err'))
     setWaitBusy(false)
   }
 
@@ -228,7 +250,14 @@ export default function SbotaPage() {
 
       {/* ===== مين حاجز ===== */}
       <div className="px-5 pt-4">
-        <WhoBooked data={sbota.whoBooked} />
+        {sbota.proposed ? (
+          <div className="rounded-20 p-[18px]" style={{ background: '#EFE3CF', color: '#14161A' }}>
+            <div className="font-display text-20 font-black">{t('proposed.title')}</div>
+            <div className="mt-[6px] font-body text-16">{t('proposed.body')}</div>
+          </div>
+        ) : (
+          <WhoBooked data={sbota.whoBooked} />
+        )}
       </div>
 
       {isWork && (
@@ -302,6 +331,27 @@ export default function SbotaPage() {
             <PrimaryButton size="lg" className="w-full" disabled>
               {t('flags.off.note')}
             </PrimaryButton>
+          ) : sbota.proposed ? (
+            wanted ? (
+              <>
+                <SecondaryButton className="w-full" disabled>
+                  {t('proposed.in')}
+                </SecondaryButton>
+                <button
+                  type="button"
+                  onClick={() => onWant(false)}
+                  disabled={waitBusy}
+                  className="mt-2 w-full font-body text-14 font-semibold underline"
+                  style={{ color: 'var(--muted)' }}
+                >
+                  {t('proposed.out')}
+                </button>
+              </>
+            ) : (
+              <PrimaryButton size="lg" onClick={() => onWant(true)} disabled={waitBusy} className="w-full">
+                {t('proposed.cta')}
+              </PrimaryButton>
+            )
           ) : wait?.onList ? (
             <>
               <SecondaryButton className="w-full" disabled>
@@ -355,7 +405,9 @@ export default function SbotaPage() {
             {/* رسالة القفل من feature_flags.off_message_ar */}
             {!booking.on
               ? booking.off || t('flags.closed.body')
-              : waiting || noSeat || wait?.onList
+              : sbota.proposed
+                ? t('proposed.note')
+                : waiting || noSeat || wait?.onList
                 ? t('sbota.waitlistNote')
                 : t('sbota.label.2')}
           </div>

@@ -234,7 +234,9 @@ export function sbotaFromDb(
   const markedFull = r.status === 'full' && realBooked < r.capacity
   const booked = markedFull ? r.capacity : realBooked
   const left = Math.max(0, r.capacity - booked)
-  const full = r.status === 'full' || left === 0
+  // «مقترحة» (0127): لسه بتجمع «أنا جاي» — مش كاملة ولا مفتوحة
+  const proposed = r.status === 'proposed'
+  const full = !proposed && (r.status === 'full' || left === 0)
 
   return {
     id: r.id,
@@ -253,6 +255,7 @@ export function sbotaFromDb(
     spotsLeft: left,
     spotsTotal: r.capacity,
     full,
+    proposed,
     girls: r.girls_only,
     kind: r.is_mystery ? 'mystery' : r.kind === 'work' ? 'work' : 'normal',
     timeOfDay: r.is_day ? 'day' : 'night',

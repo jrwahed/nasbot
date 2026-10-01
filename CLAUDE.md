@@ -584,6 +584,23 @@ psql -h 127.0.0.1 -p 5433 -U postgres -d nasbot --single-transaction -f WORK_MIG
   - `test_email_broadcast()` ٩/٩ محليًا **وعلى الإنتاج** (اتلزق)، واتجرّب بفخ
     (الجمهور بيتجاهل إلغاء الاشتراك → صفين وقعوا). التشغيل في `RUNBOOK.md` §17.
 
+- 🟢 **«أنا جاي لو اتعملت» — نجمع الناس قبل ما الحجز يفتح (٢٠٢٦-١٠-٠١)** — `WORK_MIGRATION_45A` (`0126`) ثم `45B` (`0127`).
+  المالك: «البادل اتفتحت وقبلها بيومين حجز واحد بس فاضطريت ألغيها». قراره:
+  الخروجة تنزل **«مقترحة»** (`sbota_status_t = 'proposed'`) بميعادها وسعرها ·
+  الناس تدوس «أنا جاي لو اتعملت» من غير دفع (`fn_want_sbota` — مفيش سياسة
+  كتابة) · تليجرام 🙋 مع كل واحد و🎯 لما يوصل `settings.proposed_min_interest` ·
+  **المالك بيفتح بإيده** (زرار «افتح الحجز» في `/admin/sbotat`) ← محفّز
+  `t_notify_proposal_opened` بيبعت `soon_opened` لكل اللي قالوا جايين.
+  - ⚠ حالة في الـenum مش عمود **عن قصد**: كل حارس حجز (`fn_can_book` ·
+    `fn_seat_for` · `fn_join_waitlist` · `/api/pay/create`) بيرفض أي حالة غير
+    `open` — فالمقترحة مقفولة في كل الطرق من غير ما نلمسهم.
+  - ⚠ `sbotat_public` (`0097`) و`sbotat_read_public` (`0078`) اتعادوا هنا
+    بـ`proposed` — **إعادة لزق الهجرتين القديمتين بتخفي المقترحات من الموقع**،
+    و`test_proposed()` بيقع أحمر (اتجرّب بفخ). أي تعديل جاي للفيو لازم يحتفظ بـ`proposed`.
+  - العدد **مش بيتعرض للزوار** (نفس قرار «قريب»). الكارت عليه ستيكر «مقترحة»
+    وزرار «أنا جاي لو اتعملت»، و«نديها واحدة؟»/«مين جاي؟» بيستبعدوها.
+  - `test_proposed()` ٩/٩.
+
 - 🔴🟢 **الحساب الممسوح كان بيرجع نص حساب (٢٠٢٦-٠٩-٣٠) — كود بس، من غير لزق.**
   المالك نفسه: مسح حسابه من «امسح حسابي» يوم ١٢، ورجع سجّل بنفس الإيميل
   يوم ٣٠. سوبابيس دخّله على **نفس** الحساب، و`/join` فتح «تعديل» (الملف
@@ -982,7 +999,7 @@ union all select 'WM9 (content_pages)',       to_regclass('content_pages')      
 
 **نقطة البداية: `START_HERE.md`** — الحالة والطريق واللي فاضل، في ملف واحد.
 
-**`AFTER_SBOTA.md`** + **`SBOTAT_LOG.md`** (دورة ما بعد الخروجة) · `CONTENT_BRIEF.md` (المحتوى الناقص) · `CHECK_DB.sql` (فاحص القاعدة الشامل) · `README.md` · `DB_PLAN.md` · `ADMIN_PLAN.md` · `WORK_PLAN.md` · `DESIGN_TOKENS.md` · `COPY.md` · `ADMIN_GUIDE.md` · `RUNBOOK.md` · `DEPLOY_CHECKLIST.md` · **`REVIEW*.md`** (المراجعة) · ملفات `WORK_MIGRATION_*.sql` (لحد `_44`) و`WORK_CRON.sql` — كلهم في **`db-bundles/`** (تتلزق في SQL Editor).
+**`AFTER_SBOTA.md`** + **`SBOTAT_LOG.md`** (دورة ما بعد الخروجة) · `CONTENT_BRIEF.md` (المحتوى الناقص) · `CHECK_DB.sql` (فاحص القاعدة الشامل) · `README.md` · `DB_PLAN.md` · `ADMIN_PLAN.md` · `WORK_PLAN.md` · `DESIGN_TOKENS.md` · `COPY.md` · `ADMIN_GUIDE.md` · `RUNBOOK.md` · `DEPLOY_CHECKLIST.md` · **`REVIEW*.md`** (المراجعة) · ملفات `WORK_MIGRATION_*.sql` (لحد `_45B`) و`WORK_CRON.sql` — كلهم في **`db-bundles/`** (تتلزق في SQL Editor).
 
 ---
 
