@@ -546,6 +546,13 @@ psql -h 127.0.0.1 -p 5433 -U postgres -d nasbot --single-transaction -f WORK_MIG
     والاختبار نفسه بيفتح الإرسال بعلم `nasbot.alerts_test`.
   - **أي حدث جديد عايزه يوصل تليجرام:** محفّز بنفس الشكل بينادي `fn_admin_alert`.
 
+- 🟢 **اللوحة بتشوف صور الأعضاء (٢٠٢٦-١٠-٠١)** — `WORK_MIGRATION_42` / `0123`.
+  دلو `avatars` كان مقفول على صاحب الصورة بس (`0025`)، فـ`/admin/people` كانت
+  بتكتب «عنده صورة» ومش قادرة تعرضها. سياسة `avatars_admin_read` **بـ`people.view`
+  مش `fn_is_admin()`** (صورة وش = هوية §٣.٧)، وقراية بس. الصورة بتبان في
+  القايمة وصفحة العضو و«طلبات الدخول» (روابط موقّعة ٥ دقايق، `useAvatarUrls`).
+  محليًا مفيش `storage` فالهجرة والاختبار بيتخطّوا نفسهم — الاختبار الحقيقي على الإنتاج.
+
 - 🔴🟢 **الحساب الممسوح كان بيرجع نص حساب (٢٠٢٦-٠٩-٣٠) — كود بس، من غير لزق.**
   المالك نفسه: مسح حسابه من «امسح حسابي» يوم ١٢، ورجع سجّل بنفس الإيميل
   يوم ٣٠. سوبابيس دخّله على **نفس** الحساب، و`/join` فتح «تعديل» (الملف
@@ -944,7 +951,7 @@ union all select 'WM9 (content_pages)',       to_regclass('content_pages')      
 
 **نقطة البداية: `START_HERE.md`** — الحالة والطريق واللي فاضل، في ملف واحد.
 
-**`AFTER_SBOTA.md`** + **`SBOTAT_LOG.md`** (دورة ما بعد الخروجة) · `CONTENT_BRIEF.md` (المحتوى الناقص) · `CHECK_DB.sql` (فاحص القاعدة الشامل) · `README.md` · `DB_PLAN.md` · `ADMIN_PLAN.md` · `WORK_PLAN.md` · `DESIGN_TOKENS.md` · `COPY.md` · `ADMIN_GUIDE.md` · `RUNBOOK.md` · `DEPLOY_CHECKLIST.md` · **`REVIEW*.md`** (المراجعة) · ملفات `WORK_MIGRATION_*.sql` (لحد `_41`) و`WORK_CRON.sql` — كلهم في **`db-bundles/`** (تتلزق في SQL Editor).
+**`AFTER_SBOTA.md`** + **`SBOTAT_LOG.md`** (دورة ما بعد الخروجة) · `CONTENT_BRIEF.md` (المحتوى الناقص) · `CHECK_DB.sql` (فاحص القاعدة الشامل) · `README.md` · `DB_PLAN.md` · `ADMIN_PLAN.md` · `WORK_PLAN.md` · `DESIGN_TOKENS.md` · `COPY.md` · `ADMIN_GUIDE.md` · `RUNBOOK.md` · `DEPLOY_CHECKLIST.md` · **`REVIEW*.md`** (المراجعة) · ملفات `WORK_MIGRATION_*.sql` (لحد `_42`) و`WORK_CRON.sql` — كلهم في **`db-bundles/`** (تتلزق في SQL Editor).
 
 ---
 
