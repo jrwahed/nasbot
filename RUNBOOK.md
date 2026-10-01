@@ -610,3 +610,43 @@ update settings set telegram_chat_id = null;
 ### تغيير التوكن
 @BotFather ← `/revoke` ← التوكن الجديد في ڤيرسل ← Redeploy. المحادثة المربوطة
 بتفضل زي ما هي.
+
+---
+
+## 17. الإيميل الجماعي — «الرسايل» ← «إرسال جماعي»
+
+من ٢٠٢٦-١٠-٠١ (`0125` / `WORK_MIGRATION_44`). بيتبعت من نفس طابور الإيميلات
+(`notifications`، قالب `broadcast`) ونفس المهمة اللي كل ٥ دقايق — ٢٠ إيميل في الدفعة.
+
+### الحالة في ثانية
+```sql
+select b.created_at, b.subject_ar, b.audience, b.recipients_count, b.sent_count, b.status,
+       (select count(*) from notifications n
+         where n.template_key = 'broadcast' and n.payload->>'broadcast_id' = b.id::text
+           and n.status = 'failed') as فشل
+  from broadcasts b order by b.created_at desc limit 10;
+```
+وأسباب الفشل: `select error, count(*) from notifications where template_key = 'broadcast' and status = 'failed' group by 1;`
+(«لغى الاشتراك في الأخبار» مش عطل — ده حد داس الرابط بعد ما الحملة اتحطت).
+
+### كام واحد لغى الاشتراك
+```sql
+select count(*) filter (where not email_news) as لغوا, count(*) as الكل
+  from profiles where deleted_at is null;
+```
+
+### رجّع حد للأخبار (طلب منك)
+`update profiles set email_news = true where id = '<id>';` — أو يدوس «لأ، رجّعني»
+في نفس صفحة الإلغاء.
+
+### حدود
+- **Resend المجاني: ١٠٠ إيميل في اليوم و٣٠٠٠ في الشهر.** لو الحملة أكبر، اللي
+  بعد الـ١٠٠ بيقع «فشل» من Resend. الحل: خطة مدفوعة من resend.com.
+- عدد الحملات في اليوم: `settings.daily_broadcast_limit` (التجربة لنفسك مش بتتحسب).
+
+### وقّف حملة بتتبعت
+```sql
+update notifications set status = 'failed', error = 'اتوقفت بإيد المالك'
+ where template_key = 'broadcast' and status = 'queued'
+   and payload->>'broadcast_id' = '<id الحملة>';
+```
