@@ -226,7 +226,13 @@ export function sbotaFromDb(
     venue_name_ar: string | null; cost_note_ar: string | null
   }
 
-  const booked = who?.booked ?? 0
+  const realBooked = who?.booked ?? 0
+  // ⚠ المالك بيقلب الخروجة «مكتملة» من اللوحة بإيده (طلبه ٢٠٢٦-١٠-٠١) —
+  //   ساعتها العدد اللي بيتعرض = السعة كلها، مش الحجوزات الحقيقية. من غير
+  //   كده الصفحة كانت بتقول «كامل» وتحتها «0 من 6 · لسه محدش حجز».
+  //   العرض بس: الحجوزات والفلوس والمجموعة ما بتتلمسش.
+  const markedFull = r.status === 'full' && realBooked < r.capacity
+  const booked = markedFull ? r.capacity : realBooked
   const left = Math.max(0, r.capacity - booked)
   const full = r.status === 'full' || left === 0
 
@@ -283,8 +289,8 @@ export function sbotaFromDb(
       // ⚠ `?? null` مش `?? 0` — صفر معناه «مفيش حد من ناحيتك»، وnull
       //   معناها «مش عارفين» (زائر أو «غير كده»). الفرق ده هو اللي بيخلّي
       //   السطر يختفي بدل ما يكذب.
-      sameArea: who?.same_area ?? null,
-      line: whoLine(who),
+      sameArea: markedFull ? null : (who?.same_area ?? null),
+      line: markedFull ? 'المجموعة كملت.' : whoLine(who),
       // ⚠ سطر الكشف كان هنا بالحرف وفيه «8 بالليل» ثابتة — بقى
       //   `<RevealLine />`: نصه من `copy_strings` وساعته من `settings`.
     },
