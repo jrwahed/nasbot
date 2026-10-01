@@ -122,6 +122,8 @@ interface Captain {
 
 const STATUSES = [
   { value: 'draft', label: 'مسودة' },
+  // (0127) باينة للناس ومقفولة للحجز — بتجمع «أنا جاي لو اتعملت»
+  { value: 'proposed', label: 'مقترحة — بتجمع ناس' },
   { value: 'open', label: 'مفتوحة' },
   { value: 'full', label: 'كمّلت' },
   { value: 'locked', label: 'مقفولة' },
@@ -131,6 +133,7 @@ const STATUSES = [
 ]
 const statusLabel = (s: string) => STATUSES.find((x) => x.value === s)?.label ?? s
 const STATUS_COLOR: Record<string, string | undefined> = {
+  proposed: '#C9B6F2',
   open: '#9BE38B',
   full: '#F4632A',
   cancelled: '#F2A0A0',
@@ -253,6 +256,20 @@ function chunk<T>(list: T[], size: number): T[][] {
  * عدد المحجوز لكل سبوطة من السبوطات اللي اتطلبت بس.
  * الأصل كان بيجيب كل الحجوزات (20 ألف صف) ويعدّهم في المتصفح.
  */
+/** «أنا جاي لو اتعملت» لكل خروجة مقترحة (0127) */
+async function countWants(ids: string[]): Promise<Record<string, number>> {
+  const map: Record<string, number> = {}
+  if (ids.length === 0) return map
+  const db = supabase()
+  for (const part of chunk(ids, 100)) {
+    const { data } = await db.from('sbota_interest').select('sbota_id').in('sbota_id', part)
+    for (const r of (data ?? []) as { sbota_id: string }[]) {
+      map[r.sbota_id] = (map[r.sbota_id] ?? 0) + 1
+    }
+  }
+  return map
+}
+
 async function countBooked(ids: string[]): Promise<Record<string, number>> {
   const map: Record<string, number> = {}
   if (ids.length === 0) return map
@@ -341,6 +358,7 @@ function SbotatEditor({ canEdit, canCancel }: { canEdit: boolean; canCancel: boo
   const [venues, setVenues] = useState<Venue[]>([])
   const [captains, setCaptains] = useState<Captain[]>([])
   const [booked, setBooked] = useState<Record<string, number>>({})
+  const [wants, setWants] = useState<Record<string, number>>({})
   const [stats, setStats] = useState<{ soon: number; open: number; risky: number } | null>(null)
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
@@ -423,6 +441,8 @@ function SbotatEditor({ canEdit, canCancel }: { canEdit: boolean; canCancel: boo
     setTotal(count ?? null)
     const map = await countBooked(list.map((r) => r.id))
     setBooked((old) => ({ ...old, ...map }))
+    const w = await countWants(list.filter((r) => r.status === 'proposed').map((r) => r.id))
+    setWants((old) => ({ ...old, ...w }))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fStatus, fOrigin, fArea, fWeek, page])
 
@@ -720,7 +740,10 @@ function SbotatEditor({ canEdit, canCancel }: { canEdit: boolean; canCancel: boo
                             : captainName(r.captain_id)
                         }
                         booked={n}
-                        low={under(r) && r.status !== 'cancelled' && r.status !== 'done'}
+                        wants={wants[r.id] ?? 0}
+                        low={
+                          under(r) && !['cancelled', 'done', 'proposed'].includes(r.status)
+                        }
                         canEdit={canEdit}
                         canCancel={canCancel}
                         onEdit={() => toggle(r.id, 'edit')}
@@ -728,6 +751,15 @@ function SbotatEditor({ canEdit, canCancel }: { canEdit: boolean; canCancel: boo
                         onRepeat={() => toggle(r.id, 'repeat')}
                         onCancel={() => toggle(r.id, 'cancel')}
                         onApprove={() => patch(r.id, { status: 'open' }, 'الخروجة اتعتمدت ✓')}
+                        onOpenProposed={() => {
+                          if (
+                            confirm(
+                              `هنفتح الحجز في «${r.title_ar || tplName(r.template_id)}».\n` +
+                                `${wants[r.id] ?? 0} قالوا جايين — هيوصلهم إيميل «اتفتحت» دلوقتي.\n\nتمام؟`
+                            )
+                          )
+                            patch(r.id, { status: 'open' }, 'الحجز اتفتح ✓ — اللي قالوا جايين اتبلّغوا')
+                        }}
                       />
 
                       {/* ⚠ كلام العضو كامل — المالك لازم يقراه قبل «اعتمد».
@@ -889,6 +921,7 @@ function SbotaRow({
   areaText,
   captain,
   booked,
+  wants,
   low,
   canEdit,
   canCancel,
@@ -897,6 +930,7 @@ function SbotaRow({
   onRepeat,
   onCancel,
   onApprove,
+  onOpenProposed,
 }: {
   row: Sbota
   name: string
@@ -904,6 +938,7 @@ function SbotaRow({
   areaText: string
   captain: string
   booked: number
+  wants?: number
   low: boolean
   canEdit: boolean
   canCancel: boolean
@@ -912,6 +947,7 @@ function SbotaRow({
   onRepeat: () => void
   onCancel: () => void
   onApprove: () => void
+  onOpenProposed?: () => void
 }) {
   // خروجة عضو لسه مسوّدة = مستنية موافقتك (لما «تظهر بعد موافقتك» شغّالة
   // في الإعدادات). زرار واحد بيحوّلها لـ open وبس.
@@ -950,9 +986,15 @@ function SbotaRow({
       </td>
       <td className="whitespace-nowrap p-2">{money(row.price)}</td>
       <td className="whitespace-nowrap p-2">
-        <span className="font-display text-16 font-black">
-          {booked}/{row.capacity}
-        </span>
+        {row.status === 'proposed' ? (
+          <span className="font-display text-16 font-black" title="قالوا «أنا جاي لو اتعملت»">
+            🙋 {wants ?? 0}
+          </span>
+        ) : (
+          <span className="font-display text-16 font-black">
+            {booked}/{row.capacity}
+          </span>
+        )}
         {low && (
           <div className="pt-1">
             <Tag color="#F2A0A0">ناقصة {Math.max(0, row.min_to_run - booked)} عن الحد</Tag>
@@ -970,6 +1012,11 @@ function SbotaRow({
       <td className="p-2">
         <div className="flex flex-wrap justify-end gap-1">
           {canEdit && needsApproval && <Btn onClick={onApprove}>اعتمد</Btn>}
+          {canEdit && row.status === 'proposed' && onOpenProposed && (
+            <Btn kind="primary" onClick={onOpenProposed}>
+              افتح الحجز
+            </Btn>
+          )}
           {canEdit && <Btn onClick={onEdit}>عدّل</Btn>}
           {canEdit && <Btn onClick={onDuplicate}>نسخ</Btn>}
           {canEdit && <Btn onClick={onRepeat}>متكرر</Btn>}

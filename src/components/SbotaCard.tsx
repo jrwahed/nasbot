@@ -36,6 +36,11 @@ export function SbotaCard({
     e.preventDefault()
     e.stopPropagation()
     track('click_ana_gai', { slug: sbota.slug })
+    // المقترحة: «أنا جاي» في صفحتها، مفيش صفحة دفع
+    if (sbota.proposed) {
+      router.push(link)
+      return
+    }
     if (sbota.full) {
       router.push(`${link}?wait=1`)
       return
@@ -63,12 +68,12 @@ export function SbotaCard({
           />
           <span className="absolute end-[14px] top-[14px]">
             <Sticker
-              color={sbota.full ? 'ink' : 'orange'}
+              color={sbota.full ? 'ink' : sbota.proposed ? 'cream' : 'orange'}
               rotate={rotate}
               fontSize={16}
               padding="5px 14px"
             >
-              {sbota.left}
+              {sbota.proposed ? t('proposed.badge') : sbota.left}
             </Sticker>
           </span>
           {sbota.girls && (
@@ -108,7 +113,9 @@ export function SbotaCard({
               <span className="font-body text-14 font-semibold">{sbota.priceNote}</span>
             )}
           </div>
-          {sbota.full ? (
+          {sbota.proposed ? (
+            <WaitButton onClick={onGo}>{t('proposed.cta')}</WaitButton>
+          ) : sbota.full ? (
             <WaitButton onClick={onGo}>{t('shared.text.28')}</WaitButton>
           ) : (
             <PrimaryButton className="shrink-0" onClick={onGo}>{t('shared.text.27')}</PrimaryButton>

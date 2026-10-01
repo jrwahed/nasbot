@@ -51,6 +51,8 @@ export interface Sbota {
   spotsLeft: number
   spotsTotal: number
   full: boolean
+  /** «مقترحة» (0127): بتجمع «أنا جاي» قبل ما الحجز يفتح — مفيش حجز ولا دفع */
+  proposed?: boolean
   girls: boolean
   kind: SbotaKind
   timeOfDay: TimeOfDay

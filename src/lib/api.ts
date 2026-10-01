@@ -256,8 +256,9 @@ export async function getRandomSbota(
   if (!DB) return mock.getRandomSbota(timeOfDay, exclude)
 
   const all = await getSbotat(timeOfDay ? { timeOfDay } : undefined)
-  const pool = all.filter((s) => !s.full && s.slug !== exclude)
-  const fallback = (await getSbotat()).filter((s) => !s.full && s.slug !== exclude)
+  // ⚠ المقترحة مش بتتحجز — «نديها واحدة؟» و«مين جاي؟» بيودّوا على `/pay` على طول
+  const pool = all.filter((s) => !s.full && !s.proposed && s.slug !== exclude)
+  const fallback = (await getSbotat()).filter((s) => !s.full && !s.proposed && s.slug !== exclude)
   const from = pool.length ? pool : fallback.length ? fallback : all
   return from[Math.floor(Math.random() * from.length)]
 }
@@ -1151,6 +1152,21 @@ export interface SafetyView {
 }
 
 /** صفحة `/tamenny/[token]` — مفتوحة للزائر المجهول عن قصد */
+/** «أنا جاي لو اتعملت» على خروجة مقترحة (0127) */
+export async function getMySbotaWant(sbotaId: string): Promise<boolean> {
+  if (!DB) return false
+  const { data: session } = await supabase().auth.getSession()
+  if (!session.session) return false
+  const { data } = await supabase().rpc('fn_my_sbota_want', { s_id: sbotaId })
+  return data === true
+}
+
+export async function wantSbota(sbotaId: string, on: boolean) {
+  if (!DB) return { ok: true as const }
+  const { error } = await supabase().rpc('fn_want_sbota', { s_id: sbotaId, p_on: on })
+  return error ? { ok: false as const, error: error.message } : { ok: true as const }
+}
+
 /**
  * إلغاء الاشتراك في الإيميلات الجماعية (0125) — بالتوكن اللي في الإيميل،
  * من غير دخول. بيرجّع الاسم الأول (ممكن فاضي) أو `null` لو التوكن غلط.
