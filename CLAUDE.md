@@ -81,6 +81,7 @@ src/
     shoghl/      طبقة الشغل: /  /[slug]  /[slug]/pay  /pass  /amaken
     me/shoghl    شغلي (الكارت + اليوم الثابت + شغالين معاك)
     admin/       اللوحة (20 قسم — شوف §7)
+    admin/_components  مكوّنات مشتركة بين صفحات اللوحة (`sbota-form.tsx` = فورم الخروجة الجديدة)
     api/         otp · pay(create/transfer/pass) · admin · account/ensure ·
                  copy/revalidate · cron/* (notify · work-notify · admin-alerts) · health/mail
   components/    مكوّنات الواجهة + components/work/* لطبقة الشغل + admin-ui.tsx
