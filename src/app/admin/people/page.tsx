@@ -205,6 +205,66 @@ const SKILL_ACTIVITY: Record<string, string> = {
 }
 
 /** 01012345299 → 010••••299 — الرقم مايتعرضش كامل غير لما تطلبه */
+/* ============================================================ الصور */
+
+const AVATARS_BUCKET = 'avatars'
+const AVATAR_SECONDS = 300
+
+/**
+ * روابط موقّعة لصور الأعضاء دفعة واحدة. الدلو خاص، والقراية للوحة بصلاحية
+ * `people.view` بس (`0123`) — قبلها اللوحة كانت بتكتب «عنده صورة» ومش قادرة
+ * تعرضها.
+ */
+function useAvatarUrls(paths: (string | null | undefined)[]) {
+  const key = paths.filter(Boolean).join('|')
+  const [urls, setUrls] = useState<Record<string, string>>({})
+  useEffect(() => {
+    const list = key ? key.split('|') : []
+    if (!list.length) {
+      setUrls({})
+      return
+    }
+    let alive = true
+    supabase()
+      .storage.from(AVATARS_BUCKET)
+      .createSignedUrls(list, AVATAR_SECONDS)
+      .then(({ data }: { data: { path: string | null; signedUrl: string }[] | null }) => {
+        if (!alive) return
+        const m: Record<string, string> = {}
+        for (const d of data ?? []) if (d.path && d.signedUrl) m[d.path] = d.signedUrl
+        setUrls(m)
+      })
+    return () => {
+      alive = false
+    }
+  }, [key])
+  return urls
+}
+
+/** الصورة بتفتح كبيرة في تاب جديد لما تدوس عليها */
+function Avatar({ url, size }: { url?: string; size: number }) {
+  if (!url) {
+    return (
+      <div
+        className="shrink-0 rounded-full"
+        style={{ width: size, height: size, background: 'var(--line)' }}
+        aria-hidden
+      />
+    )
+  }
+  return (
+    <a href={url} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} className="shrink-0">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={url}
+        alt=""
+        className="rounded-full object-cover"
+        style={{ width: size, height: size, border: '2px solid var(--fg)' }}
+      />
+    </a>
+  )
+}
+
 function maskPhone(p: string | null | undefined) {
   const s = (p ?? '').replace(/\s+/g, '')
   if (s.length < 7) return '••••'
@@ -234,6 +294,7 @@ interface GateRow {
   work_status_other: string | null
   apply_social: string | null
   apply_why: string | null
+  avatar_path: string | null
   created_at: string
   referred_by: string | null
   inviter: { first_name: string | null } | null
@@ -258,7 +319,7 @@ function GateRequests({ onDone, flash }: { onDone: () => void; flash: (m: string
     const { data } = await supabase()
       .from('profiles')
       .select(
-        'id, first_name, phone, area, area_other, work_status, work_status_other, apply_social, apply_why, created_at, referred_by, inviter:profiles!profiles_referred_by_fkey(first_name)'
+        'id, first_name, phone, area, area_other, work_status, work_status_other, apply_social, apply_why, avatar_path, created_at, referred_by, inviter:profiles!profiles_referred_by_fkey(first_name)'
       )
       .eq('gate_status', 'pending')
       .is('deleted_at', null)
@@ -290,6 +351,8 @@ function GateRequests({ onDone, flash }: { onDone: () => void; flash: (m: string
     onDone()
   }
 
+  const avatars = useAvatarUrls((rows ?? []).map((r) => r.avatar_path))
+
   if (rows === null || rows.length === 0) return null
 
   return (
@@ -298,6 +361,7 @@ function GateRequests({ onDone, flash }: { onDone: () => void; flash: (m: string
         {rows.map((r) => (
           <div key={r.id} className="rounded-16 p-4" style={{ background: 'var(--bg)' }}>
             <div className="flex flex-wrap items-center gap-2">
+              <Avatar url={r.avatar_path ? avatars[r.avatar_path] : undefined} size={56} />
               <span className="font-display text-17 font-black">
                 {r.first_name?.trim() || 'من غير اسم'}
               </span>
@@ -366,6 +430,7 @@ function People({ me }: { me: AdminMe }) {
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
   const [selected, setSelected] = useState<string | null>(null)
+  const avatars = useAvatarUrls(rows.map((r) => r.avatar_path))
   const [shown, setShown] = useState<Record<string, boolean>>({})
 
   const [q, setQ] = useState('')
@@ -564,14 +629,19 @@ function People({ me }: { me: AdminMe }) {
                     }}
                   >
                     <td className="p-2">
-                      <div className="font-display text-15 font-black">
-                        {r.first_name || 'من غير اسم'}
-                      </div>
-                      <div className="flex flex-wrap gap-1 pt-1">
-                        {r.banned_at && <Tag color="#F4632A">محظور</Tag>}
-                        {r.deleted_at && <Tag>مسح حسابه</Tag>}
-                        {r.role === 'captain' && <Tag>كابتن</Tag>}
-                        {r.type && <Tag>{typeNames[r.type] ?? r.type}</Tag>}
+                      <div className="flex items-center gap-2">
+                        <Avatar url={r.avatar_path ? avatars[r.avatar_path] : undefined} size={40} />
+                        <div>
+                          <div className="font-display text-15 font-black">
+                            {r.first_name || 'من غير اسم'}
+                          </div>
+                          <div className="flex flex-wrap gap-1 pt-1">
+                            {r.banned_at && <Tag color="#F4632A">محظور</Tag>}
+                            {r.deleted_at && <Tag>مسح حسابه</Tag>}
+                            {r.role === 'captain' && <Tag>كابتن</Tag>}
+                            {r.type && <Tag>{typeNames[r.type] ?? r.type}</Tag>}
+                          </div>
+                        </div>
                       </div>
                     </td>
                     <td className="p-2">{areaLabel(r.area, r.area_other)}</td>
@@ -670,6 +740,7 @@ function Detail({
   const [interests, setInterests] = useState<InterestRow[] | null>(null)
   const [skills, setSkills] = useState<SkillRow[] | null>(null)
   const [showPhone, setShowPhone] = useState(false)
+  const avatar = useAvatarUrls([person.avatar_path])
   const [flagKind, setFlagKind] = useState('no_show')
   const [flagNote, setFlagNote] = useState('')
   const [busy, setBusy] = useState(false)
@@ -800,7 +871,8 @@ function Detail({
     <div className="flex flex-col gap-4">
       {/* الرأس */}
       <Card>
-        <div className="flex flex-wrap items-start gap-2">
+        <div className="flex flex-wrap items-start gap-3">
+          <Avatar url={person.avatar_path ? avatar[person.avatar_path] : undefined} size={96} />
           <div>
             <div className="font-display text-22 font-black">
               {person.first_name || 'من غير اسم'}
@@ -821,7 +893,7 @@ function Detail({
           {person.deleted_at && <Tag>مسح حسابه {day(person.deleted_at)}</Tag>}
           {person.role === 'captain' && <Tag>كابتن</Tag>}
           {typeName && <Tag>{typeName}</Tag>}
-          {person.avatar_path && <Tag>عنده صورة</Tag>}
+          {!person.avatar_path && <Tag>من غير صورة</Tag>}
         </div>
 
         {person.banned_at && (
