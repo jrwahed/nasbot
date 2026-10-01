@@ -31,9 +31,8 @@ import type { AdminMe } from '@/lib/admin'
  * كان موجود، الرسالة بتوصل للعضو ناقصة — علشان كده الصفحة بتقف قدامه
  * وتقوله بالظبط إيه اللي ضاع قبل ما يحفظ.
  *
- * الإرسال الجماعي: مفيش لحد دلوقتي أي دالة في القاعدة بتبعت فعلًا،
- * فإحنا بنسجّل الحملة في broadcasts بحالة draft وبنقول للي بيبعت
- * إنها مسجّلة ولسه ما اتبعتتش — أحسن ما نكدب عليه.
+ * الإرسال الجماعي: بالإيميل وبيبعت فعلًا من 0125 (`fn_send_broadcast`).
+ * قبلها كان بيسجّل «مسودة» وبس.
  *
  * الترقيم من القاعدة: الطابور بيتفلتر بالحالة على الخادم وبيتجاب صفحة صفحة،
  * وعدد الشريحة في الإرسال الجماعي بقى **عدّ** من القاعدة مش تحميل ٥٠٠٠ ملف
@@ -66,6 +65,8 @@ interface BroadcastRow {
   id: string
   segment: Record<string, unknown>
   template_key: string | null
+  subject_ar?: string | null
+  audience?: string | null
   recipients_count: number
   sent_count: number
   status: string
@@ -183,11 +184,7 @@ function Messages({ me }: { me: AdminMe }) {
       )}
       {tab === 'queue' && <Queue flash={flash} />}
       {tab === 'broadcast' && (
-        <Broadcast
-          templates={(templates ?? []).filter((t) => t.is_active)}
-          canSend={me.permissions.has('notifications.broadcast')}
-          flash={flash}
-        />
+        <Broadcast canSend={me.permissions.has('notifications.broadcast')} flash={flash} />
       )}
     </div>
   )
@@ -580,37 +577,87 @@ function Queue({ flash }: { flash: (m: string) => void }) {
 
 /* ============================================================ إرسال جماعي */
 
-function Broadcast({
-  templates,
-  canSend,
-  flash,
-}: {
-  templates: TemplateRow[]
-  canSend: boolean
-  flash: (m: string) => void
-}) {
-  const [allPeople, setAllPeople] = useState<number | null>(null)
-  const [recipients, setRecipients] = useState<number | null>(null)
-  const [preview, setPreview] = useState<PersonRow[]>([])
-  const [bookingsErr, setBookingsErr] = useState<string | null>(null)
+/* ============================================================ الإرسال الجماعي */
+
+/**
+ * الإرسال الجماعي بالإيميل (0125) — بيبعت فعلًا.
+ *
+ * قبل كده التبويب ده كان بيسجّل «مسودة» وما بيبعتش لحد. دلوقتي
+ * `fn_send_broadcast` بتحط إيميل لكل واحد في طابور الإشعارات، ومهمة
+ * الإيميلات (كل ٥ دقايق) بتبعته من Resend. وكل إيميل جماعي في آخره رابط
+ * «مش عايز أخبار تاني» — واللي داس عليه بيتشال من أي حملة جاية.
+ *
+ * الجمهور بيتحسب في القاعدة (`fn_broadcast_audience`) مش هنا.
+ */
+const AUDIENCES: { value: string; label: string; needsSbota?: boolean }[] = [
+  { value: 'all', label: 'كل الأعضاء' },
+  { value: 'waitlist', label: 'قايمة الانتظار', needsSbota: true },
+  { value: 'booked', label: 'اللي حجزوا', needsSbota: true },
+  { value: 'never_booked', label: 'سجلوا وما حجزوش' },
+  { value: 'soon', label: 'داسوا «قولّي لما تفتح»' },
+]
+
+interface AudienceRow {
+  profile_id: string
+  first_name: string | null
+  email: string
+}
+
+interface SbotaPick {
+  id: string
+  starts_at: string
+  title_ar: string | null
+  sbota_templates: { name_ar: string } | { name_ar: string }[] | null
+}
+
+function Broadcast({ canSend, flash }: { canSend: boolean; flash: (m: string) => void }) {
+  const [audience, setAudience] = useState('all')
+  const [sbotaId, setSbotaId] = useState('')
+  const [sbotat, setSbotat] = useState<SbotaPick[]>([])
+  const [people, setPeople] = useState<AudienceRow[] | null>(null)
+  const [audErr, setAudErr] = useState<string | null>(null)
+  const [subject, setSubject] = useState('')
+  const [body, setBody] = useState('')
+  const [link, setLink] = useState('')
+  const [busy, setBusy] = useState(false)
   const [past, setPast] = useState<BroadcastRow[]>([])
   const [pastTotal, setPastTotal] = useState<number | null>(null)
   const [page, setPage] = useState(0)
-  const [sentToday, setSentToday] = useState(0)
-  const [limit, setLimit] = useState(1)
-  const [meId, setMeId] = useState<string | null>(null)
 
-  const [area, setArea] = useState('all')
-  const [booked, setBooked] = useState('any')
-  const [templateKey, setTemplateKey] = useState('')
-  const [busy, setBusy] = useState(false)
+  const needsSbota = AUDIENCES.find((a) => a.value === audience)?.needsSbota ?? false
 
-  /** الحملات اللي فاتت — صفحة صفحة */
+  /** السبوطات الجاية واللي قريبة — للجمهور اللي محتاج سبوطة */
+  useEffect(() => {
+    supabase()
+      .from('sbotat')
+      .select('id, starts_at, title_ar, sbota_templates(name_ar)')
+      .gte('starts_at', new Date(Date.now() - 30 * 86_400_000).toISOString())
+      .order('starts_at', { ascending: true })
+      .limit(100)
+      .then(({ data }: { data: unknown }) => setSbotat((data ?? []) as SbotaPick[]))
+  }, [])
+
+  /** الجمهور من القاعدة — بيتحسب مع كل تغيير */
+  const loadAudience = useCallback(async () => {
+    setPeople(null)
+    const { data, error } = await supabase().rpc('fn_broadcast_audience', {
+      p_audience: audience,
+      p_sbota: needsSbota && sbotaId ? sbotaId : null,
+    })
+    if (error) {
+      setAudErr(error.message)
+      setPeople([])
+      return
+    }
+    setAudErr(null)
+    setPeople((data ?? []) as AudienceRow[])
+  }, [audience, sbotaId, needsSbota])
+
   const loadPast = useCallback(async () => {
     const { data, count } = await supabase()
       .from('broadcasts')
       .select(
-        'id, segment, template_key, recipients_count, sent_count, status, created_by, created_at',
+        'id, segment, template_key, subject_ar, audience, recipients_count, sent_count, status, created_by, created_at',
         { count: 'exact' }
       )
       .order('created_at', { ascending: false })
@@ -619,239 +666,190 @@ function Broadcast({
     setPastTotal(count ?? null)
   }, [page])
 
-  /** الحدود والأرقام الثابتة — مرة واحدة */
-  const loadMeta = useCallback(async () => {
-    const db = supabase()
-    const [all, s, u, mine, probe] = await Promise.all([
-      db.from('profiles').select('id', { count: 'exact', head: true }),
-      db.from('settings').select('daily_broadcast_limit').limit(1),
-      db.auth.getUser(),
-      // حملات النهاردة — عدّ بحدود يوم القاهرة، مش فلترة لآخر ٥٠ حملة
-      db
-        .from('broadcasts')
-        .select('id', { count: 'exact', head: true })
-        .gte('created_at', cairoDayStart(todayCairo())),
-      // بنتأكد إن عندنا قراية على الحجوزات قبل ما نعتمد على فلتر «حجز قبل كده»
-      db.from('bookings').select('id', { count: 'exact', head: true }),
-    ])
-    setAllPeople(all.count ?? null)
-    const lim = (s.data ?? []) as { daily_broadcast_limit: number }[]
-    if (lim[0]) setLimit(lim[0].daily_broadcast_limit)
-    setMeId(u.data.user?.id ?? null)
-    setSentToday(mine.count ?? 0)
-    setBookingsErr(probe.error ? probe.error.message : null)
-  }, [])
-
-  /**
-   * الشريحة: عدّها من القاعدة، وهات ٢٠ اسم عيّنة بس.
-   * فلتر «حجز قبل كده» بيتعمل على العلاقة نفسها — `bookings.status=in.(…)`
-   * مع `bookings=not.is.null` (حجز) أو `bookings=is.null` (ما حجزش).
-   */
-  const loadSegment = useCallback(async () => {
-    const withBookings = booked !== 'any'
-    const cols = withBookings
-      ? 'id, first_name, phone, area, banned_at, deleted_at, bookings(id)'
-      : 'id, first_name, phone, area, banned_at, deleted_at'
-
-    const build = (select: string, opts: { count?: 'exact'; head?: boolean }) => {
-      let q = supabase().from('profiles').select(select, opts)
-      q = q.is('deleted_at', null).is('banned_at', null).not('phone', 'is', null)
-      if (area === 'none') q = q.is('area', null)
-      else if (area !== 'all') q = q.eq('area', area)
-      if (withBookings) {
-        q = q.in('bookings.status', ['paid', 'attended'])
-        q = booked === 'yes' ? q.not('bookings', 'is', null) : q.is('bookings', null)
-      }
-      return q
-    }
-
-    const [count, sample] = await Promise.all([
-      build(withBookings ? 'id, bookings(id)' : 'id', { count: 'exact', head: true }),
-      build(cols, {}).order('created_at', { ascending: false }).range(0, PREVIEW_MAX - 1),
-    ])
-    setRecipients(count.count ?? 0)
-    setPreview((sample.data ?? []) as unknown as PersonRow[])
-  }, [area, booked])
-
   useEffect(() => {
-    loadMeta()
-  }, [loadMeta])
+    loadAudience()
+  }, [loadAudience])
 
   useEffect(() => {
     loadPast()
   }, [loadPast])
 
-  useEffect(() => {
-    loadSegment()
-  }, [loadSegment])
-
-  const reload = useCallback(async () => {
-    await Promise.all([loadMeta(), loadPast(), loadSegment()])
-  }, [loadMeta, loadPast, loadSegment])
-
-  const overLimit = sentToday >= limit
-  const template = templates.find((t) => t.key === templateKey) ?? null
-
-  async function send() {
-    if (!canSend) return
-    if (!template) return flash('اختار قالب الأول.')
-    const n = recipients ?? 0
-    if (n === 0) return flash('مفيش حد في الشريحة دي.')
-    if (overLimit)
-      return flash(
-        `خلصت حد النهاردة (${sentToday} من ${limit}). الحد بيتغيّر من الإعدادات — daily_broadcast_limit.`
-      )
-
-    const areaLabel = AREAS.find((a) => a.value === area)?.label ?? area
-    const bookedLabel = BOOKED.find((b) => b.value === booked)?.label ?? booked
-    const ok = confirm(
-      `هتتسجّل حملة لـ ${n} عضو بالظبط.\n\n` +
-        `الشريحة: ${areaLabel} · ${bookedLabel}\n` +
-        `القالب: ${template.key}\n\n` +
-        `النص: ${template.body_ar}\n\n` +
-        'تمام؟'
-    )
-    if (!ok) return
-
-    setBusy(true)
-    const { error } = await supabase()
-      .from('broadcasts')
-      .insert({
-        segment: { area, booked, exclude_banned: true },
-        template_key: template.key,
-        recipients_count: n,
-        sent_count: 0,
-        status: 'draft',
-        created_by: meId,
-      })
-      .select('id')
-    setBusy(false)
-
-    if (error) return flash(`مقدرناش نسجّل الحملة: ${error.message}`)
-    await reload()
-    flash(
-      `الحملة اتسجّلت لـ ${n} عضو بحالة «مسودة» — لسه ما اتبعتتش لحد. لازم اللي بيبعت يشغّلها.`
-    )
+  const sbotaLabel = (x: SbotaPick) => {
+    const tpl = Array.isArray(x.sbota_templates) ? x.sbota_templates[0] : x.sbota_templates
+    return `${(x.title_ar ?? '').trim() || tpl?.name_ar || 'سبوطة'} · ${when(x.starts_at)}`
   }
 
-  if (recipients === null) return <Loading />
+  async function send(test: boolean) {
+    if (!canSend) return
+    if (!subject.trim()) return flash('اكتب عنوان للإيميل.')
+    if (body.trim().length < 10) return flash('النص قصير قوي.')
+    const n = people?.length ?? 0
+    if (!test) {
+      if (n === 0) return flash('مفيش حد في الجمهور ده.')
+      const label = AUDIENCES.find((a) => a.value === audience)?.label ?? audience
+      if (
+        !confirm(
+          `هيتبعت إيميل لـ ${n} واحد (${label}).\n\nالعنوان: ${subject}\n\n` +
+            'الإيميلات بتتبعت على دفعات خلال الدقايق الجاية. تمام؟'
+        )
+      )
+        return
+    }
+    setBusy(true)
+    const { data, error } = await supabase().rpc('fn_send_broadcast', {
+      p_subject: subject,
+      p_body: body,
+      p_audience: test ? 'me' : audience,
+      p_sbota: !test && needsSbota && sbotaId ? sbotaId : null,
+      p_link: link.trim() || null,
+    })
+    setBusy(false)
+    if (error) return flash(`مااتبعتش: ${error.message}`)
+    const res = (data ?? {}) as { recipients?: number }
+    if (test) {
+      flash(
+        res.recipients
+          ? 'التجربة اتحطت في الطابور — هتوصلك على إيميلك خلال ٥ دقايق.'
+          : 'مفيش إيميل على حسابك، أو لغيت الأخبار — التجربة ما اتبعتتش.'
+      )
+    } else {
+      flash(`اتحطت ✓ — ${res.recipients ?? 0} إيميل هيتبعتوا خلال الدقايق الجاية.`)
+      setSubject('')
+      setBody('')
+      setLink('')
+    }
+    await loadPast()
+  }
+
+  const inputStyle = { background: 'var(--bg)', color: 'var(--fg)', border: '2px solid var(--line)' }
 
   return (
     <div className="mt-5 flex flex-col gap-4">
-      <div
-        className="rounded-16 px-4 py-3 font-body text-14"
-        style={{ background: 'var(--surface)' }}
-      >
-        <b className="font-display text-16">اقرا ده قبل ما تبعت.</b>
-        <div className="mt-1" style={{ color: 'var(--muted)' }}>
-          مفيش لحد دلوقتي دالة في القاعدة بتبعت الحملة فعلًا. اللي بيحصل هنا إن الحملة بتتسجّل
-          بحالة «مسودة» بالشريحة والعدد، واللي بيشغّل الواتساب هو اللي بيبعتها. يعني الضغط على الزرار
-          <b> ما بيوصلش رسايل </b>
-          للأعضاء — بيحجز الحملة بس.
-        </div>
-      </div>
-
       {!canSend && (
         <div className="rounded-16 px-4 py-3 font-body text-14" style={{ background: 'var(--surface)' }}>
           أنت بتتفرّج بس. الإرسال الجماعي محتاج صلاحية notifications.broadcast.
         </div>
       )}
 
-      <div className="flex flex-wrap gap-3">
-        <Stat label="حملات النهاردة" value={`${sentToday} من ${limit}`} hint="الحد من الإعدادات" />
-        <Stat label="هيوصلوا" value={String(recipients)} hint="بعد ما شيلنا المحظورين" />
-        <Stat label="كل الأعضاء" value={allPeople === null ? '…' : String(allPeople)} />
-      </div>
-
-      <Card title="اختار مين" hint="العد بيتحسب في القاعدة ومع كل تغيير.">
+      <Card title="لمين؟" hint="اللي لغى الأخبار من الرابط اللي في الإيميل مش بيتحسب.">
         <div className="mt-3 flex flex-wrap items-end gap-3">
-          <SelectField label="المنطقة" value={area} options={AREAS} onChange={setArea} />
-          <SelectField label="حجز قبل كده؟" value={booked} options={BOOKED} onChange={setBooked} />
-          <SelectField
-            label="القالب"
-            value={templateKey}
-            options={[
-              { value: '', label: '— اختار قالب —' },
-              ...templates.map((t) => ({ value: t.key, label: t.key })),
-            ]}
-            onChange={setTemplateKey}
-          />
-        </div>
-
-        {bookingsErr && (
-          <div className="mt-2 font-body text-13" style={{ color: 'var(--err-text)' }}>
-            مقدرناش نقرا الحجوزات ({bookingsErr}) — فلتر «حجز قبل كده» مش هيبقى مظبوط. محتاج صلاحية
-            bookings.view.
-          </div>
-        )}
-
-        {template && (
-          <div className="mt-3 rounded-14 px-3 py-2 font-body text-15" style={{ background: 'var(--bg)' }}>
-            {template.body_ar}
-            <div className="mt-1 font-body text-12" style={{ color: 'var(--muted)' }}>
-              فيه {varsIn(template.body_ar).length} متغير بيتملي وقت الإرسال.
-            </div>
-          </div>
-        )}
-
-        <div className="mt-4 flex flex-wrap items-center gap-3">
-          <Btn
-            kind="primary"
-            disabled={!canSend || busy || !template || recipients === 0 || overLimit}
-            onClick={send}
-          >
-            {busy ? 'ثانية واحدة…' : `سجّل الحملة لـ ${recipients} عضو`}
-          </Btn>
-          {overLimit && (
-            <span className="font-body text-13" style={{ color: 'var(--err-text)' }}>
-              خلصت حد النهاردة ({limit} في اليوم). استنى بكرة أو غيّر الحد من الإعدادات.
-            </span>
+          <SelectField label="الجمهور" value={audience} options={AUDIENCES} onChange={setAudience} />
+          {needsSbota && (
+            <SelectField
+              label="السبوطة"
+              value={sbotaId}
+              onChange={setSbotaId}
+              options={[{ value: '', label: 'كل السبوطات' }, ...sbotat.map((x) => ({ value: x.id, label: sbotaLabel(x) }))]}
+            />
           )}
+          <Stat label="هيوصلهم" value={people === null ? '…' : String(people.length)} />
         </div>
-
-        {preview.length > 0 && (
+        {audErr && (
+          <div className="mt-2 font-body text-13" style={{ color: 'var(--err-text)' }}>
+            {audErr}
+          </div>
+        )}
+        {people && people.length > 0 && (
           <details className="mt-3">
             <summary className="cursor-pointer font-body text-14" style={{ color: 'var(--accent-text)' }}>
-              شوف أول {PREVIEW_MAX} واحد في الشريحة
+              شوف الأسامي
             </summary>
             <div className="mt-2 flex flex-wrap gap-2">
-              {preview.map((p) => (
-                <Tag key={p.id}>{p.first_name?.trim() || p.phone}</Tag>
+              {people.slice(0, 50).map((p) => (
+                <Tag key={p.profile_id}>{p.first_name?.trim() || p.email}</Tag>
               ))}
-              {recipients > preview.length && <Tag>+{recipients - preview.length} كمان</Tag>}
+              {people.length > 50 && <Tag>+{people.length - 50} كمان</Tag>}
             </div>
           </details>
         )}
       </Card>
 
+      <Card title="الإيميل" hint="اكتب {name} في النص علشان يتحط الاسم الأول لكل واحد.">
+        <div className="mt-3 flex flex-col gap-3">
+          <label className="flex flex-col gap-1">
+            <span className="font-body text-13" style={{ color: 'var(--muted)' }}>العنوان</span>
+            <input
+              value={subject}
+              onChange={(e) => setSubject(e.target.value)}
+              placeholder="مثلًا: خروجة جديدة السبت"
+              className="w-full rounded-14 px-3 py-2 font-body text-16"
+              style={inputStyle}
+            />
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="font-body text-13" style={{ color: 'var(--muted)' }}>النص</span>
+            <textarea
+              rows={7}
+              value={body}
+              onChange={(e) => setBody(e.target.value)}
+              placeholder={'أهلًا {name}،\n…'}
+              className="w-full rounded-14 px-3 py-2 font-body text-16"
+              style={inputStyle}
+            />
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="font-body text-13" style={{ color: 'var(--muted)' }}>
+              رابط الزرار (اختياري — بيبان زرار برتقالي «افتح نسبوط»)
+            </span>
+            <input
+              value={link}
+              onChange={(e) => setLink(e.target.value)}
+              placeholder="https://www.nasbot.net/s/…"
+              dir="ltr"
+              className="w-full rounded-14 px-3 py-2 font-body text-16"
+              style={inputStyle}
+            />
+          </label>
+        </div>
+
+        <div className="mt-4 flex flex-wrap items-center gap-3">
+          <Btn disabled={!canSend || busy} onClick={() => send(true)}>
+            ابعتلي تجربة الأول
+          </Btn>
+          <Btn
+            kind="primary"
+            disabled={!canSend || busy || !people || people.length === 0}
+            onClick={() => send(false)}
+          >
+            {busy ? 'ثانية واحدة…' : `ابعت لـ ${people?.length ?? 0}`}
+          </Btn>
+        </div>
+        <div className="mt-2 font-body text-12" style={{ color: 'var(--muted)' }}>
+          كل إيميل في آخره رابط «مش عايز أخبار تاني». عدد الحملات في اليوم من الإعدادات
+          (daily_broadcast_limit)، والتجربة لنفسك مش بتتحسب.
+        </div>
+      </Card>
+
       <Card title="الحملات اللي فاتت">
         <div className="mt-3">
           {past.length === 0 ? (
-            <Empty>لسه محدش سجّل حملة.</Empty>
+            <Empty>لسه ما اتبعتتش ولا حملة.</Empty>
           ) : (
-            <Table head={['الحالة', 'القالب', 'الشريحة', 'العدد', 'اتبعت لكام', 'امتى']}>
-              {past.map((b) => {
-                const seg = b.segment as { area?: string; booked?: string }
-                return (
-                  <tr key={b.id} style={{ borderTop: '1px solid var(--line)' }}>
-                    <td className="p-2">
-                      <Tag color={b.status === 'draft' ? '#FFD166' : undefined}>
-                        {b.status === 'draft' ? 'مسودة — ما اتبعتتش' : b.status}
-                      </Tag>
-                    </td>
-                    <td className="p-2">
-                      <code className="text-13">{b.template_key ?? '—'}</code>
-                    </td>
-                    <td className="p-2">
-                      {AREAS.find((a) => a.value === seg.area)?.label ?? seg.area ?? '—'} ·{' '}
-                      {BOOKED.find((x) => x.value === seg.booked)?.label ?? seg.booked ?? '—'}
-                    </td>
-                    <td className="p-2">{b.recipients_count}</td>
-                    <td className="p-2">{b.sent_count}</td>
-                    <td className="p-2 whitespace-nowrap">{when(b.created_at)}</td>
-                  </tr>
-                )
-              })}
+            <Table head={['الحالة', 'العنوان', 'لمين', 'العدد', 'اتبعت', 'امتى']}>
+              {past.map((b) => (
+                <tr key={b.id} style={{ borderTop: '1px solid var(--line)' }}>
+                  <td className="p-2">
+                    <Tag color={b.status === 'sending' ? '#FFD166' : b.status === 'draft' ? '#EFE3CF' : '#9BE39B'}>
+                      {b.status === 'sending'
+                        ? 'بيتبعت'
+                        : b.status === 'sent'
+                          ? 'اتبعت'
+                          : b.status === 'draft'
+                            ? 'مسودة قديمة'
+                            : b.status}
+                    </Tag>
+                  </td>
+                  <td className="p-2">{b.subject_ar ?? b.template_key ?? '—'}</td>
+                  <td className="p-2">
+                    {b.audience === 'me'
+                      ? 'تجربة'
+                      : AUDIENCES.find((a) => a.value === b.audience)?.label ?? b.audience ?? '—'}
+                  </td>
+                  <td className="p-2">{b.recipients_count}</td>
+                  <td className="p-2">{b.sent_count}</td>
+                  <td className="p-2 whitespace-nowrap">{when(b.created_at)}</td>
+                </tr>
+              ))}
             </Table>
           )}
 

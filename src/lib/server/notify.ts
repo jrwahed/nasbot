@@ -54,6 +54,7 @@ interface Transport {
     subject: string
     text: string
     html: string
+    headers?: Record<string, string>
   }): Promise<{ messageId?: string }>
 }
 
@@ -62,14 +63,15 @@ async function sendEmail(
   to: string,
   subject: string,
   text: string,
-  html: string
+  html: string,
+  headers?: Record<string, string>
 ): Promise<{ ok: boolean; ref?: string; error?: string }> {
   if (RESEND_KEY) {
     try {
       const res = await fetch('https://api.resend.com/emails', {
         method: 'POST',
         headers: { authorization: `Bearer ${RESEND_KEY}`, 'content-type': 'application/json' },
-        body: JSON.stringify({ from: mailFrom(), to, subject, text, html }),
+        body: JSON.stringify({ from: mailFrom(), to, subject, text, html, ...(headers ? { headers } : {}) }),
       })
       const j = await res.json().catch(() => ({}) as { id?: string; message?: string })
       return res.ok ? { ok: true, ref: j.id } : { ok: false, error: j.message ?? 'فشل الإرسال' }
@@ -79,7 +81,7 @@ async function sendEmail(
   }
   if (smtp) {
     try {
-      const info = await smtp.sendMail({ from: mailFrom(), to, subject, text, html })
+      const info = await smtp.sendMail({ from: mailFrom(), to, subject, text, html, headers })
       return { ok: true, ref: info.messageId }
     } catch (e) {
       return { ok: false, error: (e as Error).message }
@@ -88,7 +90,7 @@ async function sendEmail(
   return { ok: false, error: 'مفيش مزوّد إيميل متظبط' }
 }
 
-function htmlShell(body: string, link?: string): string {
+function htmlShell(body: string, link?: string, unsub?: string): string {
   const cta = link
     ? `<div style="margin-top:20px"><a href="${link}" style="display:inline-block;background:#F4632A;color:#14161A;font-weight:900;text-decoration:none;padding:12px 22px;border-radius:999px">افتح نسبوط</a></div>`
     : ''
@@ -105,7 +107,11 @@ function htmlShell(body: string, link?: string): string {
       <div style="font-size:17px;line-height:1.9">${safe}</div>
       ${cta}
       <div style="font-size:13px;color:#666;margin-top:22px;line-height:1.7">
-        وصلتك الرسالة دي من نسبوط. لو مش عايز، رد علينا وهنوقفها.
+        ${
+          unsub
+            ? `وصلتك الرسالة دي علشان انت عضو في نسبوط. <a href="${unsub}" style="color:#666">مش عايز أخبار تاني</a>.`
+            : 'وصلتك الرسالة دي من نسبوط. لو مش عايز، رد علينا وهنوقفها.'
+        }
       </div>
     </div>
   </body>
@@ -445,19 +451,22 @@ export async function runNotify(limit = BATCH): Promise<NotifyResult> {
   const keys = [...new Set(list.map((r) => r.template_key).filter((k): k is string => !!k))]
   const profileIds = new Set<string>()
   const sbotaIds = new Set<string>()
+  const broadcastIds = new Set<string>()
   for (const r of list) {
     if (r.profile_id) profileIds.add(r.profile_id)
     const other = r.payload?.other_id
     if (typeof other === 'string') profileIds.add(other)
     const sb = r.payload?.sbota_id
     if (typeof sb === 'string') sbotaIds.add(sb)
+    const bc = r.payload?.broadcast_id
+    if (typeof bc === 'string') broadcastIds.add(bc)
   }
 
-  const [tpls, profs, sbs] = await Promise.all([
+  const [tpls, profs, sbs, bcs] = await Promise.all([
     db.from('notification_templates').select('key, body_ar, is_active').in('key', keys),
     db
       .from('profiles')
-      .select('id, email, first_name, deleted_at')
+      .select('id, email, first_name, deleted_at, email_news, unsub_token')
       .in('id', [...profileIds]),
     sbotaIds.size
       ? db
@@ -468,23 +477,44 @@ export async function runNotify(limit = BATCH): Promise<NotifyResult> {
           )
           .in('id', [...sbotaIds])
       : Promise.resolve({ data: [] as unknown[] }),
+    // الإرسال الجماعي (0125): العنوان والنص والرابط في الحملة نفسها
+    broadcastIds.size
+      ? db.from('broadcasts').select('id, subject_ar, body_ar, link_url').in('id', [...broadcastIds])
+      : Promise.resolve({ data: [] as unknown[] }),
   ])
+
+  const bcMap = new Map<string, { subject: string; body: string; link: string | null }>()
+  for (const b of (bcs.data ?? []) as {
+    id: string
+    subject_ar: string | null
+    body_ar: string | null
+    link_url: string | null
+  }[]) {
+    bcMap.set(b.id, { subject: b.subject_ar ?? 'نسبوط', body: b.body_ar ?? '', link: b.link_url })
+  }
 
   const tplMap = new Map<string, { body: string; active: boolean }>()
   for (const t of (tpls.data ?? []) as { key: string; body_ar: string; is_active: boolean }[]) {
     tplMap.set(t.key, { body: t.body_ar, active: t.is_active })
   }
-  const profMap = new Map<string, { email: string | null; firstName: string; deleted: boolean }>()
+  const profMap = new Map<
+    string,
+    { email: string | null; firstName: string; deleted: boolean; news: boolean; unsub: string | null }
+  >()
   for (const p of (profs.data ?? []) as {
     id: string
     email: string | null
     first_name: string | null
     deleted_at: string | null
+    email_news?: boolean | null
+    unsub_token?: string | null
   }[]) {
     profMap.set(p.id, {
       email: p.email,
       firstName: (p.first_name ?? '').trim(),
       deleted: !!p.deleted_at,
+      news: p.email_news !== false,
+      unsub: p.unsub_token ?? null,
     })
   }
   type SbRow = {
@@ -612,6 +642,43 @@ export async function runNotify(limit = BATCH): Promise<NotifyResult> {
       continue
     }
 
+    // ===== الإرسال الجماعي (0125) — النص من الحملة، ومعاه رابط إلغاء الاشتراك =====
+    if (key === 'broadcast') {
+      const bc =
+        typeof row.payload?.broadcast_id === 'string' ? bcMap.get(row.payload.broadcast_id) : undefined
+      if (!bc) {
+        await mark(db, row, false, 'الحملة مش موجودة')
+        out.failed += 1
+        continue
+      }
+      // ⚠ ممكن يكون لغى اشتراكه بعد ما الحملة اتحطت في الطابور
+      if (!recipient.news) {
+        await mark(db, row, false, 'لغى الاشتراك في الأخبار')
+        out.failed += 1
+        continue
+      }
+      const bText = bc.body.replace(/\{name\}/g, recipient.firstName || '')
+      const unsub = recipient.unsub ? `${SITE}/unsubscribe/${recipient.unsub}` : undefined
+      const res = await sendEmail(
+        smtp,
+        email,
+        bc.subject,
+        unsub ? `${bText}\n\nمش عايز أخبار تاني: ${unsub}` : bText,
+        htmlShell(bText, bc.link ?? undefined, unsub),
+        unsub ? { 'List-Unsubscribe': `<${unsub}>` } : undefined
+      )
+      if (res.ok) {
+        await mark(db, row, true, null, res.ref)
+        out.sent += 1
+      } else {
+        const giveUp = row.attempts + 1 >= MAX_ATTEMPTS
+        await mark(db, row, false, res.error ?? 'فشل الإرسال', undefined, !giveUp)
+        out.failed += 1
+        out.errors.push(`${row.id}: ${res.error ?? 'فشل الإرسال'}`)
+      }
+      continue
+    }
+
     // ===== السياق =====
     const payload = row.payload ?? {}
     const sb = typeof payload.sbota_id === 'string' ? sbMap.get(payload.sbota_id) : undefined
@@ -691,6 +758,20 @@ export async function runNotify(limit = BATCH): Promise<NotifyResult> {
       out.failed += 1
       out.errors.push(`${row.id}: ${res.error ?? 'فشل الإرسال'}`)
     }
+  }
+
+  // عدّاد الحملات: اتبعت كام، وخلصت ولا لسه (اللوحة بتعرضه)
+  for (const id of broadcastIds) {
+    const [sent, open] = await Promise.all([
+      db.from('notifications').select('id', { count: 'exact', head: true })
+        .eq('template_key', 'broadcast').eq('status', 'sent').eq('payload->>broadcast_id', id),
+      db.from('notifications').select('id', { count: 'exact', head: true })
+        .eq('template_key', 'broadcast').eq('status', 'queued').eq('payload->>broadcast_id', id),
+    ])
+    await db
+      .from('broadcasts')
+      .update({ sent_count: sent.count ?? 0, ...(open.count === 0 ? { status: 'sent' } : {}) })
+      .eq('id', id)
   }
 
   if (smtp && typeof (smtp as unknown as { close?: () => void }).close === 'function') {

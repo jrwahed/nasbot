@@ -563,6 +563,27 @@ psql -h 127.0.0.1 -p 5433 -U postgres -d nasbot --single-transaction -f WORK_MIG
     `status = 'full'` لوحدها = مفيش مكان. `test_full_means_full()` ٣/٣، واتجرّب
     بفخ (رجّعنا `0120`) → الصفين الأحمر وقعوا بنفس رسالة الإنتاج.
 
+- 🟢 **الإرسال الجماعي بالإيميل بقى بيبعت فعلًا (٢٠٢٦-١٠-٠١)** — `WORK_MIGRATION_44` / `0125`.
+  طلب المالك: «أبعت إيميل لقايمة الانتظار أو كل اللي سجلوا — أخبار ونشرة».
+  تبويب «إرسال جماعي» في `/admin/notifications` كان بيسجّل `draft` وما بيبعتش
+  لحد (ميزة ميتة تاني، ومعمولة للواتساب اللي مش متفعّل).
+  - `fn_broadcast_audience(audience, sbota)` — `all` · `waitlist` · `booked` ·
+    `never_booked` · `soon` · `me` (تجربة). `fn_send_broadcast` بتحط صف
+    `notifications` (قالب `broadcast`) لكل واحد، و`notify.ts` بيبعته من
+    `broadcasts.subject_ar/body_ar/link_url` (`{name}` بيتبدّل).
+  - **إلغاء الاشتراك:** `profiles.email_news` + `unsub_token`، رابط في آخر كل
+    إيميل جماعي + هيدر `List-Unsubscribe` ← `/unsubscribe/[token]`
+    (`fn_unsubscribe`/`fn_resubscribe` بالتوكن، مفتوحين للمجهول عن قصد).
+    **الإيميلات الجماعية بس** بتحترمه — إيميلات الحجز خدمة وبتتبعت دايمًا.
+  - الصلاحية `notifications.broadcast` في **الدالتين** (الإرسال بينادي الجمهور
+    — فحارسين على نفس الباب؛ فخ شيل حارس الإرسال لوحده ما وقعش الاختبار وده
+    متوقّع). الحد اليومي `settings.daily_broadcast_limit` (حملات، والتجربة مش
+    بتتحسب).
+  - ⚠ **Resend المجاني: ١٠٠ إيميل في اليوم.** الطابور بيبعت ٢٠ كل ٥ دقايق — لو
+    الأعضاء بقوا أكتر من ١٠٠، الباقي بيقع «فشل» من Resend لحد بكره. الحل خطة مدفوعة.
+  - `test_email_broadcast()` ٩/٩، واتجرّب بفخ (الجمهور بيتجاهل إلغاء الاشتراك →
+    صفين وقعوا).
+
 - 🔴🟢 **الحساب الممسوح كان بيرجع نص حساب (٢٠٢٦-٠٩-٣٠) — كود بس، من غير لزق.**
   المالك نفسه: مسح حسابه من «امسح حسابي» يوم ١٢، ورجع سجّل بنفس الإيميل
   يوم ٣٠. سوبابيس دخّله على **نفس** الحساب، و`/join` فتح «تعديل» (الملف
@@ -961,7 +982,7 @@ union all select 'WM9 (content_pages)',       to_regclass('content_pages')      
 
 **نقطة البداية: `START_HERE.md`** — الحالة والطريق واللي فاضل، في ملف واحد.
 
-**`AFTER_SBOTA.md`** + **`SBOTAT_LOG.md`** (دورة ما بعد الخروجة) · `CONTENT_BRIEF.md` (المحتوى الناقص) · `CHECK_DB.sql` (فاحص القاعدة الشامل) · `README.md` · `DB_PLAN.md` · `ADMIN_PLAN.md` · `WORK_PLAN.md` · `DESIGN_TOKENS.md` · `COPY.md` · `ADMIN_GUIDE.md` · `RUNBOOK.md` · `DEPLOY_CHECKLIST.md` · **`REVIEW*.md`** (المراجعة) · ملفات `WORK_MIGRATION_*.sql` (لحد `_43`) و`WORK_CRON.sql` — كلهم في **`db-bundles/`** (تتلزق في SQL Editor).
+**`AFTER_SBOTA.md`** + **`SBOTAT_LOG.md`** (دورة ما بعد الخروجة) · `CONTENT_BRIEF.md` (المحتوى الناقص) · `CHECK_DB.sql` (فاحص القاعدة الشامل) · `README.md` · `DB_PLAN.md` · `ADMIN_PLAN.md` · `WORK_PLAN.md` · `DESIGN_TOKENS.md` · `COPY.md` · `ADMIN_GUIDE.md` · `RUNBOOK.md` · `DEPLOY_CHECKLIST.md` · **`REVIEW*.md`** (المراجعة) · ملفات `WORK_MIGRATION_*.sql` (لحد `_44`) و`WORK_CRON.sql` — كلهم في **`db-bundles/`** (تتلزق في SQL Editor).
 
 ---
 

@@ -1151,6 +1151,22 @@ export interface SafetyView {
 }
 
 /** صفحة `/tamenny/[token]` — مفتوحة للزائر المجهول عن قصد */
+/**
+ * إلغاء الاشتراك في الإيميلات الجماعية (0125) — بالتوكن اللي في الإيميل،
+ * من غير دخول. بيرجّع الاسم الأول (ممكن فاضي) أو `null` لو التوكن غلط.
+ */
+export async function unsubscribeNews(token: string): Promise<string | null> {
+  if (!DB) return ''
+  const { data, error } = await supabase().rpc('fn_unsubscribe', { p_token: token })
+  return error || data === null || data === undefined ? null : String(data)
+}
+
+export async function resubscribeNews(token: string): Promise<boolean> {
+  if (!DB) return true
+  const { data, error } = await supabase().rpc('fn_resubscribe', { p_token: token })
+  return !error && data === true
+}
+
 export async function getSafetyView(token: string): Promise<SafetyView | null> {
   if (!DB) return null
   const { data, error } = await supabase().rpc('fn_safety_view', { p_token: token })
