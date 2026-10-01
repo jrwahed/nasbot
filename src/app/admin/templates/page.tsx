@@ -20,7 +20,10 @@ import {
   useFlash,
   money,
   day,
+  when,
 } from '@/components/admin-ui'
+import type { AdminMe } from '@/lib/admin'
+import { NewSbota } from '../_components/sbota-form'
 
 /**
  * قوالب السبوطات.
@@ -142,12 +145,14 @@ const slugify = (name: string) =>
 export default function AdminTemplatesPage() {
   return (
     <AdminShell title="قوالب السبوطات" needs="sbotat.edit">
-      {() => <TemplatesEditor />}
+      {(me: AdminMe) => (
+        <TemplatesEditor canBroadcast={me.permissions.has('notifications.broadcast')} />
+      )}
     </AdminShell>
   )
 }
 
-function TemplatesEditor() {
+function TemplatesEditor({ canBroadcast }: { canBroadcast: boolean }) {
   const [rows, setRows] = useState<Row[]>([])
   const [total, setTotal] = useState<number | null>(null)
   const [all, setAll] = useState<number | null>(null)
@@ -176,20 +181,17 @@ function TemplatesEditor() {
 
   const reload = useCallback(async () => {
     setBusy(true)
-    let query = supabase()
-      .from('sbota_templates')
-      .select('*', { count: 'exact' })
-      .order('name_ar')
+    let query = supabase().from('sbota_templates').select('*', { count: 'exact' }).order('name_ar')
     if (kind !== 'الكل') query = query.eq('kind', kind)
     if (soonOnly) query = query.eq('coming_soon', true)
     if (needle) {
       query = query.or(
-        `name_ar.ilike.*${needle}*,slug.ilike.*${needle}*,story_ar.ilike.*${needle}*`
+        `name_ar.ilike.*${needle}*,slug.ilike.*${needle}*,story_ar.ilike.*${needle}*`,
       )
     }
     const { data, count, error } = await query.range(
       page * ADMIN_PAGE_SIZE,
-      page * ADMIN_PAGE_SIZE + ADMIN_PAGE_SIZE - 1
+      page * ADMIN_PAGE_SIZE + ADMIN_PAGE_SIZE - 1,
     )
     setLoading(false)
     setBusy(false)
@@ -383,11 +385,10 @@ function TemplatesEditor() {
                 {r.is_day && <Tag>نهاري</Tag>}
                 {r.overnight && <Tag>بمبيت</Tag>}
                 {r.coming_soon && <Tag color="#F4632A">قريب</Tag>}
-                {(waiting[r.id] ?? 0) > 0 && (
-                  <Tag color="#2B4CFF">{waiting[r.id]} مستني يفتح</Tag>
-                )}
+                {(waiting[r.id] ?? 0) > 0 && <Tag color="#2B4CFF">{waiting[r.id]} مستني يفتح</Tag>}
                 <span className="font-body text-14" style={{ color: 'var(--muted)' }}>
-                  {money(r.default_price)} · {r.duration_min} دقيقة · {r.min_group}–{r.max_group} شخص
+                  {money(r.default_price)} · {r.duration_min} دقيقة · {r.min_group}–{r.max_group}{' '}
+                  شخص
                 </span>
                 <span className="ms-auto font-body text-12" style={{ color: 'var(--muted)' }}>
                   آخر تعديل {day(r.updated_at)}
@@ -551,9 +552,9 @@ function TemplatesEditor() {
                       </span>
                     </div>
                     <div className="font-body text-13" style={{ color: 'var(--muted)' }}>
-                      الكارت بيبان تحت السبوطات المفتوحة: الصورة الأولى والاسم والجو — من غير
-                      ميعاد ولا سعر. أول ما تفتح سبوطة من القالب ده، كل اللي داسوا «قولّي لما
-                      تفتح» بيوصلهم إيميل مرة واحدة، والكارت بيختفي طول ما هي مفتوحة.
+                      الكارت بيبان تحت السبوطات المفتوحة: الصورة الأولى والاسم والجو — من غير ميعاد
+                      ولا سعر. أول ما تفتح سبوطة من القالب ده، كل اللي داسوا «قولّي لما تفتح»
+                      بيوصلهم إيميل مرة واحدة، والكارت بيختفي طول ما هي مفتوحة.
                     </div>
                     {r.coming_soon && (r.hero_photos ?? []).length === 0 && (
                       <div className="font-body text-13" style={{ color: '#F4632A' }}>
@@ -579,6 +580,8 @@ function TemplatesEditor() {
                       onChange={(v) => patch(r.id, { overnight: v })}
                     />
                   </div>
+
+                  <TemplateOutings template={r} canBroadcast={canBroadcast} flash={flash} />
 
                   <div className="flex flex-wrap items-center gap-3">
                     <Btn kind="danger" onClick={() => remove(r)}>
@@ -749,12 +752,7 @@ function NewTemplate({
       </div>
 
       <div className="mt-3 grid gap-3 md:grid-cols-3">
-        <TextField
-          label="المستوى"
-          value={level}
-          hint="مثلًا: مبتدئين ومتوسطين"
-          onSave={setLevel}
-        />
+        <TextField label="المستوى" value={level} hint="مثلًا: مبتدئين ومتوسطين" onSave={setLevel} />
         <TextField label="الجو (سطر قصير)" value={mood} hint="مثلًا: نشيط ومزحم" onSave={setMood} />
         <TextField
           label="الاسم في اللينك (slug)"
@@ -813,5 +811,107 @@ function NewTemplate({
         </Btn>
       </div>
     </Card>
+  )
+}
+
+/* ============================================================ خروجات القالب */
+
+const OUTING_STATUS: Record<string, string> = {
+  draft: 'مسودة',
+  proposed: 'مقترحة',
+  open: 'مفتوحة',
+  full: 'كمّلت',
+  locked: 'مقفولة',
+  running: 'شغالة',
+}
+
+/**
+ * جوه القالب: الخروجات الجاية منه + «خروجة جديدة» من غير ما تروح «السبوطات».
+ * المالك (٢٠٢٦-١٠-٠١): «القوالب والسبوطات بيتوّهوني». الفورم نفسه مشترك
+ * (`_components/sbota-form.tsx`) — نفس اللي في «السبوطات» بالحرف.
+ */
+function TemplateOutings({
+  template,
+  canBroadcast,
+  flash,
+}: {
+  template: Row
+  canBroadcast: boolean
+  flash: (m: string) => void
+}) {
+  const [list, setList] = useState<
+    { id: string; starts_at: string; status: string; title_ar: string | null }[]
+  >([])
+  const [adding, setAdding] = useState(false)
+
+  const load = useCallback(async () => {
+    const { data } = await supabase()
+      .from('sbotat')
+      .select('id, starts_at, status, title_ar')
+      .eq('template_id', template.id)
+      .gte('starts_at', new Date().toISOString())
+      .not('status', 'in', '(cancelled,done)')
+      .order('starts_at')
+      .limit(20)
+    setList((data ?? []) as typeof list)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [template.id])
+
+  useEffect(() => {
+    load()
+  }, [load])
+
+  return (
+    <div className="flex flex-col gap-3 rounded-14 p-3" style={{ border: '2px solid #F4632A' }}>
+      <div className="flex flex-wrap items-center gap-3">
+        <span className="font-display text-16 font-black" style={{ color: 'var(--fg)' }}>
+          الخروجات الجاية من القالب ده
+        </span>
+        <div className="ms-auto">
+          <Btn kind="primary" onClick={() => setAdding((v) => !v)}>
+            {adding ? 'اقفل' : '+ خروجة جديدة من القالب ده'}
+          </Btn>
+        </div>
+      </div>
+
+      {list.length === 0 ? (
+        <div className="font-body text-13" style={{ color: 'var(--muted)' }}>
+          مفيش خروجة جاية منه لسه.
+        </div>
+      ) : (
+        <ul className="flex flex-col gap-1">
+          {list.map((o) => (
+            <li key={o.id} className="flex flex-wrap items-center gap-2 font-body text-14">
+              <Tag
+                color={
+                  o.status === 'open' ? '#9BE38B' : o.status === 'proposed' ? '#C9B6F2' : undefined
+                }
+              >
+                {OUTING_STATUS[o.status] ?? o.status}
+              </Tag>
+              <span style={{ color: 'var(--fg)' }}>{o.title_ar || template.name_ar}</span>
+              <span style={{ color: 'var(--muted)' }}>{when(o.starts_at)}</span>
+            </li>
+          ))}
+          <li className="font-body text-12" style={{ color: 'var(--muted)' }}>
+            الحالة والحجوزات و«افتح الحجز» من «السبوطات».
+          </li>
+        </ul>
+      )}
+
+      {adding && (
+        <NewSbota
+          templates={[template]}
+          fixedTemplateId={template.id}
+          canBroadcast={canBroadcast}
+          flash={flash}
+          onDone={async () => {
+            setAdding(false)
+            await load()
+            await revalidateSite()
+          }}
+        />
+      )}
+    </div>
   )
 }
