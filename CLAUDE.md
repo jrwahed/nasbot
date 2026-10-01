@@ -111,9 +111,9 @@ scripts/         check-copy · فاحصات · بذور النصوص
 
 ## ٥. القاعدة — أهم الجداول والدوال
 
-**الجداول:** `profiles` · `sbotat`(+`sbotat_public`) · `sbota_templates` · `venues` · `bookings` · `payments` · `wallet_ledger` · `coupons` · `pair_affinity` · `matching_runs` · `chat_rooms`/`chat_members` · `notifications`/`notification_templates` · `admin_users`/`admin_roles`/`role_permissions` · `settings`(صف واحد) · `copy_strings` · `safety_links` · `audit_log`. **طبقة الشغل:** `professions` · `work_venues` · `work_passes` · `pass_redemptions` · `recurring_bookings` · `work_affinity` · `venue_reports` · `leads` · `work_metrics`.
+**الجداول:** `profiles` · `sbotat`(+`sbotat_public`) · `sbota_templates` · `venues` · `bookings` · `payments` · `wallet_ledger` · `coupons` · `pair_affinity` · `matching_runs` · `chat_rooms`/`chat_members` · `notifications`/`notification_templates` · `admin_users`/`admin_roles`/`role_permissions` · `settings`(صف واحد) · `copy_strings` · `safety_links` · `audit_log` · `waitlist` · `template_interest` («قريب») · `sbota_interest` («أنا جاي» على المقترحة) · `admin_alerts` (طابور تليجرام) · `broadcasts` (الإيميل الجماعي). **طبقة الشغل:** `professions` · `work_venues` · `work_passes` · `pass_redemptions` · `recurring_bookings` · `work_affinity` · `venue_reports` · `leads` · `work_metrics`.
 
-**دوال مهمة:** `fn_can_book` · `fn_capacity_guard` (قفل السعة) · `fn_booking_paid` · `fn_cancel_booking` · `fn_approve_transfer` · `fn_redeem_pass`/`fn_revert_pass`/`fn_activate_pass` · `fn_build_matching`/`fn_build_work_matching` · `fn_reveal` · `fn_pair_want`/`fn_work_want` (الطريق الصح لكتابة التبادل) · `fn_is_admin`/`fn_has_permission` · `fn_can_see_place`/`fn_sbota_place` (الحارس والبيانات، كل واحد لوحده) · `fn_safety_link`/`fn_safety_my`/`fn_safety_view`/`fn_safety_mark`/`fn_safety_revoke` · `fn_sbota_arrival`/`fn_set_sbota_sign`.
+**دوال مهمة:** `fn_can_book` · `fn_capacity_guard` (قفل السعة) · `fn_booking_paid` · `fn_cancel_booking` · `fn_approve_transfer` · `fn_redeem_pass`/`fn_revert_pass`/`fn_activate_pass` · `fn_build_matching`/`fn_build_work_matching` · `fn_reveal` · `fn_pair_want`/`fn_work_want` (الطريق الصح لكتابة التبادل) · `fn_is_admin`/`fn_has_permission` · `fn_can_see_place`/`fn_sbota_place` (الحارس والبيانات، كل واحد لوحده) · `fn_safety_link`/`fn_safety_my`/`fn_safety_view`/`fn_safety_mark`/`fn_safety_revoke` · `fn_sbota_arrival`/`fn_set_sbota_sign` · `fn_join_waitlist`/`fn_admit_waitlist` · `fn_book_free` (بعلم `nasbot.trusted_booking`) · `fn_want_soon`/`fn_want_sbota` · `fn_admin_alert` · `fn_send_broadcast`.
 
 **صفحات المحتوى (0082):** `content_pages` · `content_blocks`. القواعد والأسئلة ومين إحنا والشروط — الفقرات بتتضاف وتتمسح وتترتّب من `/admin/content` ← «صفحات الموقع». الكتابة بـ`content.edit`. والفقرة اللي الكود بيسأل عنها بالاسم ليها `ref` ثابت (`guarantee`).
 
@@ -216,13 +216,13 @@ psql -h 127.0.0.1 -p 5433 -U postgres -d nasbot --single-transaction -f WORK_MIG
 
 الأقسام: الرئيسية · النصوص · اللعبة · حقول التسجيل · القوالب · السبوطات · الحجوزات · المطابقة · الناس · الكباتن · الفلوس · **الصور** · البلاغات · الرسائل · الخريطة · الإعدادات · **الشغل** · **الفريق** · السجل. الدخول: إيميل + باسورد + تطبيق مصادقة (TOTP). الأدوار: `owner`·`admin`·`ops`·`finance`·`support`.
 
-في `/admin/sbotat` فيه فلتر «مين فاتحها» ووسم «من عضو» وزرار **«اعتمد»** للمسوّدات (بيبان بس لما `member_sbota_auto_open = false`). وفي `/admin/settings` تبويب الأرقام فيه مجموعة «خروجات الأعضاء».
+في `/admin/sbotat` فيه فلتر «مين فاتحها» ووسم «من عضو» وزرار **«اعتمد»** للمسوّدات (بيبان بس لما `member_sbota_auto_open = false`). وفي `/admin/settings` تبويب الأرقام فيه مجموعة «خروجات الأعضاء». وفي نفس الصفحة الحالة **«مقترحة»** وعمود 🙋 (عدد «أنا جاي») وزرار **«افتح الحجز»** (`0127`).
 
 **نمط الكتابة الصح في اللوحة:** بعد أي `update/insert/delete` اعمل `.select('id')` وعدّي النتيجة على `rejected()` من `src/lib/admin.ts` — المصفوفة الفاضية معناها **القاعدة رفضت**، مش نجاح. من غير الحارس ده الصفحة بتقول «اتحفظ ✓» وهي كذبة. مطبّق دلوقتي في: الحجوزات · النصوص · اللعبة · المطابقة · حقول التسجيل · الإعدادات · الشغل · الفريق.
 
 ---
 
-## ٨. الحالة الحالية (آخر تحديث ٢٠٢٦-٠٩-٣٠ — البنود مرتّبة بالموضوع مش بالتاريخ)
+## ٨. الحالة الحالية (آخر تحديث ٢٠٢٦-١٠-٠١ — البنود مرتّبة بالموضوع مش بالتاريخ)
 
 - ✅ منشور وشغّال · دخول إيميل+باسورد · لوحة كاملة · طبقة الشغل (المراحل ١-٦) · إيميل بجدولة.
 - 🟢 **نقلة المنتج: العضو بيفتح خروجته بنفسه — اتلزقت** (`WORK_MIGRATION_8.sql`: `0078` الأعمدة والدوال والحدود · `0079` اختبارها · `0080` أماكن الفورم · `0081` ٥٢ نص). *(اللزق بكلام المالك ٢٠٢٦-٠٩-١٢ — لو حصل شك، شوف «التأكد إيه اللي اتلزق» تحت.)*
@@ -996,6 +996,8 @@ union all select 'WM9 (content_pages)',       to_regclass('content_pages')      
 حاجة تانية. البند المكتوب قبل أول خروجة تخمين مهما كان مقنع.
 
 ### ملفات التوثيق
+
+`RUNBOOK.md` فيه التشغيل اليومي: §16 تليجرام · §17 الإيميل الجماعي · §18 الخروجة المقترحة.
 
 **نقطة البداية: `START_HERE.md`** — الحالة والطريق واللي فاضل، في ملف واحد.
 

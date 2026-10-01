@@ -650,3 +650,31 @@ update notifications set status = 'failed', error = 'اتوقفت بإيد ال�
  where template_key = 'broadcast' and status = 'queued'
    and payload->>'broadcast_id' = '<id الحملة>';
 ```
+
+---
+
+## 18. الخروجة المقترحة — «أنا جاي لو اتعملت»
+
+**من اللوحة:** «السبوطات» ← الحالة «مقترحة — بتجمع ناس» ← عمود 🙋 بيعدّ ←
+زرار «افتح الحجز». أول ما الحالة تبقى `open`، المحفّز `t_notify_proposal_opened`
+بيحط إيميل `soon_opened` لكل اللي قالوا جايين (مرة واحدة)، والطابور بيبعته
+في أقل من ٥ دقايق.
+
+### مين قال جاي على خروجة
+```sql
+select p.first_name, p.email, i.created_at
+  from sbota_interest i join profiles p on p.id = i.profile_id
+ where i.sbota_id = '<id السبوطة>' order by i.created_at;
+```
+
+### الحد اللي بيبعت 🎯
+`settings.proposed_min_interest` (افتراضي ٤) — من «الإعدادات» في اللوحة.
+الرسالة بتتبعت **مرة واحدة** لما العدد يساوي الحد بالظبط، مش بتتكرر لو زاد.
+
+### لو المقترحة ما كملتش
+غيّر الحالة لـ«اتلغت». محدش دفع، فمفيش فلوس ترجع ولا إيميل بيتبعت.
+
+### الفحص
+`select * from test_proposed();` — ٩ صفوف، كلهم «نجح». ⚠ لو حد لزق `0078` أو
+`0097` تاني، المقترحات بتختفي من الموقع والاختبار بيقع أحمر — الحل إعادة لزق
+`WORK_MIGRATION_45B`.
