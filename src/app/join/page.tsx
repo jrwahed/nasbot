@@ -367,7 +367,9 @@ function JoinForm() {
       }
     }
     setSession({ phone: digits, firstName, gender: gender!, role: 'member' })
-    router.push(editMode ? '/me' : next)
+    // حساب جديد ← الخطوة التانية على طول: «وصّل تليجرام» (0129). الصفحة دي
+    // بتعدّي لـ`next` لوحدها لو البوت مش متظبط، فالتسجيل ما يتعطّلش.
+    router.push(editMode ? '/me' : `/join/telegram?next=${encodeURIComponent(next)}`)
   }
 
   return (
