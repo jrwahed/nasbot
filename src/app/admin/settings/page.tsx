@@ -171,6 +171,16 @@ const GROUPS: Group[] = [
           { value: 'false', label: 'مقفول' },
         ],
       },
+      {
+        col: 'telegram_members',
+        bool: true,
+        label: 'بوت الأعضاء: إعلان الخروجات الجديدة',
+        hint: 'أول ما خروجة تبقى «مقترحة» أو «مفتوحة» بتوصل رسالة لكل عضو وصّل حسابه بالبوت من صفحته. بوت تاني غير بوتك — محتاج TELEGRAM_MEMBER_BOT_TOKEN في ڤيرسل وزرار «شغّل بوت الأعضاء» تحت.',
+        options: [
+          { value: 'true', label: 'شغّال' },
+          { value: 'false', label: 'مقفول' },
+        ],
+      },
     ],
   },
   {
@@ -1016,6 +1026,8 @@ function NumbersTab({
         </Section>
       ))}
 
+      <MemberBotPanel canEdit={canEdit} />
+
       <Section title="قواعد بصيغة JSON">
         <Card hint="دي مش أرقام عادية — دي جداول قواعد. لو الصيغة غلط مش هنحفظ، وهنقولك.">
           <div className="mt-3 flex flex-col gap-4">
@@ -1308,6 +1320,101 @@ function WordsTab({
             </Table>
           )}
         </div>
+      </Card>
+    </Section>
+  )
+}
+
+/* ============================================================ بوت الأعضاء (0128) */
+
+interface BotStatus {
+  ok?: boolean
+  error?: string
+  configured?: boolean
+  username?: string | null
+  webhook?: string | null
+  webhookOk?: boolean
+  lastError?: string | null
+  linked?: number
+  active?: number
+}
+
+/**
+ * بوت تليجرام للأعضاء — حالته وزرار ربطه بالموقع.
+ * الإعداد: @BotFather ← بوت جديد ← التوكن في ڤيرسل `TELEGRAM_MEMBER_BOT_TOKEN`
+ * ← Redeploy ← «شغّل بوت الأعضاء» هنا (بيعمل setWebhook بسر متشتق).
+ */
+function MemberBotPanel({ canEdit }: { canEdit: boolean }) {
+  const [st, setSt] = useState<BotStatus | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [note, setNote] = useState('')
+
+  const call = useCallback(async (action: 'status' | 'setup') => {
+    const res = await fetch('/api/admin/telegram-members', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ action }),
+    })
+    return (await res.json().catch(() => ({ ok: false, error: `HTTP ${res.status}` }))) as BotStatus
+  }, [])
+
+  const load = useCallback(async () => setSt(await call('status')), [call])
+
+  useEffect(() => {
+    void load()
+  }, [load])
+
+  async function setup() {
+    setBusy(true)
+    setNote('')
+    const r = await call('setup')
+    setBusy(false)
+    setNote(r.ok ? `اتربط ✓ — @${r.username ?? '؟'}` : `ما اتربطش: ${r.error ?? 'غلط'}`)
+    await load()
+  }
+
+  return (
+    <Section title="بوت الأعضاء على تليجرام">
+      <Card hint="بوت تاني غير بوتك: الأعضاء بيوصّلوا حساباتهم بيه من صفحتهم (/me)، وبيوصلهم إعلان أول ما خروجة تنزل.">
+        {!st ? (
+          <div className="mt-3 font-body text-14" style={{ color: 'var(--muted)' }}>ثانية…</div>
+        ) : st.ok === false ? (
+          <div className="mt-3 font-body text-14" style={{ color: '#F2A0A0' }}>{st.error}</div>
+        ) : (
+          <div className="mt-3 flex flex-col gap-2 font-body text-14">
+            {!st.configured ? (
+              <div style={{ color: '#F4632A' }}>
+                مفيش TELEGRAM_MEMBER_BOT_TOKEN في ڤيرسل لسه. اعمل بوت جديد من @BotFather، حط
+                التوكن في ڤيرسل، واعمل Redeploy — وبعدين ارجع هنا.
+              </div>
+            ) : (
+              <>
+                <div>
+                  البوت: <b dir="ltr">@{st.username ?? '؟'}</b> ·{' '}
+                  {st.webhookOk ? (
+                    <span style={{ color: '#9BE38B' }}>متربط بالموقع ✓</span>
+                  ) : (
+                    <span style={{ color: '#F4632A' }}>لسه مش متربط — دوس «شغّل بوت الأعضاء»</span>
+                  )}
+                </div>
+                {st.lastError && (
+                  <div style={{ color: '#F2A0A0' }}>آخر غلط من تليجرام: {st.lastError}</div>
+                )}
+              </>
+            )}
+            <div>
+              متوصّلين: <b>{st.linked ?? 0}</b> · بيستقبلوا: <b>{st.active ?? 0}</b>
+            </div>
+          </div>
+        )}
+        {canEdit && st?.configured && (
+          <div className="mt-3 flex flex-wrap items-center gap-3">
+            <Btn kind="primary" onClick={setup} disabled={busy}>
+              {busy ? 'ثانية…' : 'شغّل بوت الأعضاء'}
+            </Btn>
+            {note && <span className="font-body text-13">{note}</span>}
+          </div>
+        )}
       </Card>
     </Section>
   )

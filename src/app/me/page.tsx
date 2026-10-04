@@ -8,6 +8,7 @@ import { GateCard, InvitesCard } from '@/components/GateCard'
 import { PhotoPlaceholder } from '@/components/PhotoPlaceholder'
 import { Sticker } from '@/components/Sticker'
 import { Footer } from '@/components/Footer'
+import { TelegramCard } from '@/components/TelegramCard'
 import { getMe, getBookings, getMetBefore, signOut, deleteMyAccount } from '@/lib/api'
 import { useTheme } from '@/lib/use-theme'
 import type { Booking, Me, Person } from '@/types'
@@ -92,6 +93,9 @@ export default function MePage() {
             </div>
           </div>
         </div>
+
+        {/* ===== تليجرام: أول ما خروجة تنزل (0128) — بيختفي لو البوت مش متظبط ===== */}
+        <TelegramCard />
 
         {/* ===== الشارات ===== */}
         <div className="mt-5 flex gap-3">

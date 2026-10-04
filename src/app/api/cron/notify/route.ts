@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { runNotify, notifyMailConfigured } from '@/lib/server/notify'
 import { runAdminAlerts } from '@/lib/server/telegram'
+import { runMemberTelegram } from '@/lib/server/telegram-members'
 
 export const runtime = 'nodejs'
 // الإرسال بياخد ثواني — نمدد المهلة زي مسار OTP
@@ -24,6 +25,8 @@ async function handle(req: Request) {
   // احتياطي إشعارات تليجرام (0122): لو النداء الفوري من القاعدة وقع، بتتبعت
   // هنا كل ٥ دقايق. قبل فحص الإيميل — تليجرام مالوش دعوة بمزوّد الإيميل.
   const telegram = await runAdminAlerts().catch((e) => ({ telegram: String(e) }))
+  // واحتياطي بوت الأعضاء (0128): إعلانات الخروجات الجديدة
+  const membersTg = await runMemberTelegram().catch((e) => ({ members_tg: String(e) }))
 
   if (!notifyMailConfigured()) {
     return NextResponse.json(
@@ -33,7 +36,7 @@ async function handle(req: Request) {
   }
 
   const res = await runNotify()
-  return NextResponse.json({ ok: true, at: new Date().toISOString(), ...res, ...telegram })
+  return NextResponse.json({ ok: true, at: new Date().toISOString(), ...res, ...telegram, ...membersTg })
 }
 
 export async function GET(req: Request) {

@@ -2668,3 +2668,50 @@ export async function submitLead(input: LeadInput) {
 }
 
 export { genderFromDb, toPiastres }
+
+/* ---------------------------------------------------------- بوت تليجرام للأعضاء (0128) */
+
+export interface TelegramLink {
+  /** يوزرنيم البوت — null = البوت لسه مش متظبط والكرت بيختفي */
+  bot: string | null
+  linked: boolean
+  news: boolean
+}
+
+/** حالة ربط تليجرام للعضو اللي داخل. null = زائر أو مفيش قاعدة. */
+export async function getTelegramLink(): Promise<TelegramLink | null> {
+  if (!DB) return null
+  const { data: auth } = await supabase().auth.getUser()
+  const uid = auth.user?.id
+  if (!uid) return null
+  const [botRes, rowRes] = await Promise.all([
+    fetch('/api/telegram/member')
+      .then((r) => r.json() as Promise<{ username?: string | null }>)
+      .catch(() => ({ username: null })),
+    supabase()
+      .from('member_telegram')
+      .select('chat_id, news')
+      .eq('profile_id', uid)
+      .maybeSingle(),
+  ])
+  const row = rowRes.data as { chat_id: number | null; news: boolean } | null
+  return {
+    bot: botRes.username ?? null,
+    linked: !!row?.chat_id,
+    news: row?.news ?? true,
+  }
+}
+
+/** لينك `t.me/<البوت>?start=<توكن>` — التوكن بيتعمل مرة واحدة للحساب */
+export async function telegramStartUrl(bot: string): Promise<string | null> {
+  if (!DB) return null
+  const { data, error } = await supabase().rpc('fn_tg_link_token')
+  if (error || typeof data !== 'string') return null
+  return `https://t.me/${encodeURIComponent(bot)}?start=${data}`
+}
+
+export async function setTelegramNews(on: boolean): Promise<boolean> {
+  if (!DB) return true
+  const { data, error } = await supabase().rpc('fn_tg_set_news', { p_on: on })
+  return !error && data === true
+}
