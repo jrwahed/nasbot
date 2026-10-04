@@ -96,6 +96,7 @@ Project ← **Settings ← Environment Variables**. لكل متغير اختار
 | `SMTP_HOST` · `SMTP_PORT` · `SMTP_USER` · `SMTP_PASS` | Production + Preview | **رمز الدخول بيروح على الإيميل.** جيميل: `smtp.gmail.com` · `465` · إيميلك · كلمة مرور تطبيق من myaccount.google.com/apppasswords |
 | `RESEND_API_KEY` | Production + Preview | **المزوّد الأساسي للإيميل من ٢٠٢٦-٠٩-٣٠** — resend.com ← API Keys. الدومين `nasbot.net` متوثّق هناك. الفحص: `/api/health/mail` ← `"provider":"resend"` |
 | `MAIL_FROM` | Production | المرسِل الظاهر: `نسبوط <hello@nasbot.net>` (لازم على الدومين الموثّق عند Resend) |
+| `TELEGRAM_MEMBER_BOT_TOKEN` | Production | بوت **الأعضاء** (`0128`) — بوت تاني من @BotFather، مش بوت المالك. بعد ما يتحط: Redeploy ← `/admin/settings` ← «شغّل بوت الأعضاء» (بيعمل setWebhook). **متبعتوش في أي شات** |
 | `TELEGRAM_BOT_TOKEN` | Production | توكن البوت من **@BotFather** — إشعارات المالك على تليجرام (`0122`). بعد ما يتحط: Redeploy، والمالك يبعت `/start` للبوت. **متبعتوش في أي شات** |
 | `NEXT_PUBLIC_GTM_ID` · `NEXT_PUBLIC_GA_ID` | اختياري | بيغلبوا `GTM-K6JBGMBV` و`G-4PSBZZKRK4` المكتوبين في `src/lib/gtm.ts`. `off` بيقفل الواحد منهم |
 | `WHATSAPP_PROVIDER` | Production | `meta` |

@@ -37,6 +37,8 @@
 
 - **إشعارات المالك: تليجرام** — البوت `@nasbotegbot`، `TELEGRAM_BOT_TOKEN` في ڤيرسل، والمحادثة في `settings.telegram_chat_id`. التفاصيل في §٨ و`RUNBOOK.md` §16.
 
+- **بوت الأعضاء (تليجرام) — بوت تاني** (`0128`): `TELEGRAM_MEMBER_BOT_TOKEN` في ڤيرسل، والـwebhook `/api/telegram/member` بيتربط من زرار في `/admin/settings`. ⚠ **متخلطش البوتين** — بوت المالك بيوصّل بيانات الناس والفلوس. `RUNBOOK.md` §19.
+
 - **التحليلات: Google Tag Manager `GTM-K6JBGMBV` + GA4 `G-4PSBZZKRK4` متركّب مباشرة** (من ٢٠٢٦-٠٩-٣٠) — ⚠ **متضيفش وسم GA4 بنفس الرقم جوه GTM** وإلا كل زيارة تتعدّ مرتين. `src/components/Gtm.tsx` في الـlayout، و`track()` في `src/lib/track.ts` بتبعت لـ`dataLayer`. **مش بيتحمّل في `/admin`** عن قصد (سكريبت طرف تالت جنب بيانات الناس والفلوس). والـCSP في `next.config.mjs` فاتح GTM وGA4 بس — أي وسم لخدمة تانية من لوحة GTM (Meta · TikTok) محتاج نطاقه يتضاف هناك وإلا بيتمنع بالصمت. ومتبعتش في `track()` اسم ولا تليفون.
 
 ```bash
@@ -83,12 +85,13 @@ src/
     admin/       اللوحة (20 قسم — شوف §7)
     admin/_components  مكوّنات مشتركة بين صفحات اللوحة (`sbota-form.tsx` = فورم الخروجة الجديدة)
     api/         otp · pay(create/transfer/pass) · admin · account/ensure ·
-                 copy/revalidate · cron/* (notify · work-notify · admin-alerts) · health/mail
+                 copy/revalidate · cron/* (notify · work-notify · admin-alerts · member-telegram) ·
+                 telegram/member (webhook بوت الأعضاء) · health/mail
   components/    مكوّنات الواجهة + components/work/* لطبقة الشغل + admin-ui.tsx
   data/          نصوص احتياطية + قوايم (⚠ بعضها المفروض في القاعدة — REVIEW)
   lib/           طبقة البيانات والمنطق (§5)
   lib/server/    server-only: admin-auth · mailer · otp · supabase-admin · whatsapp ·
-                 notify (الإيميلات) · telegram (إشعارات المالك)
+                 notify (الإيميلات) · telegram (إشعارات المالك) · telegram-members (بوت الأعضاء)
 supabase/migrations/   كل تغييرات القاعدة، بالترتيب الزمني في الاسم
 scripts/         check-copy · فاحصات · بذور النصوص
 ```
@@ -112,9 +115,9 @@ scripts/         check-copy · فاحصات · بذور النصوص
 
 ## ٥. القاعدة — أهم الجداول والدوال
 
-**الجداول:** `profiles` · `sbotat`(+`sbotat_public`) · `sbota_templates` · `venues` · `bookings` · `payments` · `wallet_ledger` · `coupons` · `pair_affinity` · `matching_runs` · `chat_rooms`/`chat_members` · `notifications`/`notification_templates` · `admin_users`/`admin_roles`/`role_permissions` · `settings`(صف واحد) · `copy_strings` · `safety_links` · `audit_log` · `waitlist` · `template_interest` («قريب») · `sbota_interest` («أنا جاي» على المقترحة) · `admin_alerts` (طابور تليجرام) · `broadcasts` (الإيميل الجماعي). **طبقة الشغل:** `professions` · `work_venues` · `work_passes` · `pass_redemptions` · `recurring_bookings` · `work_affinity` · `venue_reports` · `leads` · `work_metrics`.
+**الجداول:** `profiles` · `sbotat`(+`sbotat_public`) · `sbota_templates` · `venues` · `bookings` · `payments` · `wallet_ledger` · `coupons` · `pair_affinity` · `matching_runs` · `chat_rooms`/`chat_members` · `notifications`/`notification_templates` · `admin_users`/`admin_roles`/`role_permissions` · `settings`(صف واحد) · `copy_strings` · `safety_links` · `audit_log` · `waitlist` · `template_interest` («قريب») · `sbota_interest` («أنا جاي» على المقترحة) · `admin_alerts` (طابور تليجرام) · `broadcasts` (الإيميل الجماعي) · `member_telegram`/`member_tg_outbox` (بوت الأعضاء). **طبقة الشغل:** `professions` · `work_venues` · `work_passes` · `pass_redemptions` · `recurring_bookings` · `work_affinity` · `venue_reports` · `leads` · `work_metrics`.
 
-**دوال مهمة:** `fn_can_book` · `fn_capacity_guard` (قفل السعة) · `fn_booking_paid` · `fn_cancel_booking` · `fn_approve_transfer` · `fn_redeem_pass`/`fn_revert_pass`/`fn_activate_pass` · `fn_build_matching`/`fn_build_work_matching` · `fn_reveal` · `fn_pair_want`/`fn_work_want` (الطريق الصح لكتابة التبادل) · `fn_is_admin`/`fn_has_permission` · `fn_can_see_place`/`fn_sbota_place` (الحارس والبيانات، كل واحد لوحده) · `fn_safety_link`/`fn_safety_my`/`fn_safety_view`/`fn_safety_mark`/`fn_safety_revoke` · `fn_sbota_arrival`/`fn_set_sbota_sign` · `fn_join_waitlist`/`fn_admit_waitlist` · `fn_book_free` (بعلم `nasbot.trusted_booking`) · `fn_want_soon`/`fn_want_sbota` · `fn_admin_alert` · `fn_send_broadcast`.
+**دوال مهمة:** `fn_can_book` · `fn_capacity_guard` (قفل السعة) · `fn_booking_paid` · `fn_cancel_booking` · `fn_approve_transfer` · `fn_redeem_pass`/`fn_revert_pass`/`fn_activate_pass` · `fn_build_matching`/`fn_build_work_matching` · `fn_reveal` · `fn_pair_want`/`fn_work_want` (الطريق الصح لكتابة التبادل) · `fn_is_admin`/`fn_has_permission` · `fn_can_see_place`/`fn_sbota_place` (الحارس والبيانات، كل واحد لوحده) · `fn_safety_link`/`fn_safety_my`/`fn_safety_view`/`fn_safety_mark`/`fn_safety_revoke` · `fn_sbota_arrival`/`fn_set_sbota_sign` · `fn_join_waitlist`/`fn_admit_waitlist` · `fn_book_free` (بعلم `nasbot.trusted_booking`) · `fn_want_soon`/`fn_want_sbota` · `fn_admin_alert` · `fn_send_broadcast` · `fn_tg_link_token`/`fn_tg_member_link` (بوت الأعضاء — الربط بالتوكن بس).
 
 **صفحات المحتوى (0082):** `content_pages` · `content_blocks`. القواعد والأسئلة ومين إحنا والشروط — الفقرات بتتضاف وتتمسح وتترتّب من `/admin/content` ← «صفحات الموقع». الكتابة بـ`content.edit`. والفقرة اللي الكود بيسأل عنها بالاسم ليها `ref` ثابت (`guarantee`).
 
@@ -604,6 +607,25 @@ psql -h 127.0.0.1 -p 5433 -U postgres -d nasbot --single-transaction -f WORK_MIG
     وزرار «أنا جاي لو اتعملت»، و«نديها واحدة؟»/«مين جاي؟» بيستبعدوها.
   - `test_proposed()` ٩/٩.
 
+- 🟢 **بوت تليجرام للأعضاء (٢٠٢٦-١٠-٠٤)** — `WORK_MIGRATION_46` / `0128` — **اتطبّق على الإنتاج** و`test_member_telegram()` ١١/١١ هناك.
+  طلب المالك: «لما حد جديد يسجّل، يبقى فيه بوت تليجرام تاني يجيله فيه إشعار لو فيه خروجة جديدة».
+  - **الربط:** كرت في `/me` (`TelegramCard`) ← `fn_tg_link_token()` (توكن عشوائي ١٢ بايت للحساب)
+    ← `t.me/<البوت>?start=<التوكن>` ← تليجرام بيبعت للـwebhook ← `fn_tg_member_link` **بمفتاح الخدمة بس**.
+    التوكن هو الإثبات الوحيد. مفيش سياسة كتابة على `member_telegram`، والقراية لصاحبه (أو `people.view`).
+  - **الإعلان:** `t_member_tg_announce` على `sbotat` ← `member_tg_outbox` (`unique (sbota_id, kind)`)
+    ← نداء فوري لـ`/api/cron/member-telegram` + احتياطي في مهمة الإيميلات. `proposed` و`open` بس،
+    ومش للغامضة/الشغل/الاختبار/اللي ميعادها عدّى. كاملة ← مفتوحة تاني = مفيش إعلان.
+  - الـwebhook محمي بـ`X-Telegram-Bot-Api-Secret-Token` متشتق من التوكن و`CRON_SECRET`
+    (`webhookSecret()`) — بيتحط بزرار «شغّل بوت الأعضاء» في `/admin/settings`. لو `CRON_SECRET`
+    اتغيّر، **لازم تدوس الزرار تاني** وإلا كل رسايل الأعضاء بترجع 401.
+  - النصوص كلها `copy_strings` (`tg.card.*` للكرت · `tgbot.*` لردود البوت والإعلانات) بـ`{{var}}`.
+  - اتجرّب بتلات فخاخ (الربط مفتوح للعضو · من غير فحص بيانات الاختبار · كاملة←مفتوحة بتعيد الإعلان).
+  - ⚠ **درس — `execute_sql` بتعلّق على `drop`/`delete`.** أداة Supabase MCP بتستنى تأكيد
+    للجمل اللي شكلها هدّام (حتى `drop policy if exists` أو `delete` جوه جسم دالة اختبار)،
+    والتأكيد ما بيظهرش فبتقع بعد ٦٠ ثانية — **وأحيانًا بعد ما جزء اتنفّذ**: الجدول اتعمل
+    من غير RLS لحد ما اتصلّح يدوي. لو هتطبّق بنفسك: قسّم، وابعت جمل `drop` لوحدها أو
+    استبدلها بـ`create or replace trigger`، و**افحص الحالة بعد أي timeout** قبل ما تعيد.
+
 - 🔴🟢 **الحساب الممسوح كان بيرجع نص حساب (٢٠٢٦-٠٩-٣٠) — كود بس، من غير لزق.**
   المالك نفسه: مسح حسابه من «امسح حسابي» يوم ١٢، ورجع سجّل بنفس الإيميل
   يوم ٣٠. سوبابيس دخّله على **نفس** الحساب، و`/join` فتح «تعديل» (الملف
@@ -1000,11 +1022,11 @@ union all select 'WM9 (content_pages)',       to_regclass('content_pages')      
 
 ### ملفات التوثيق
 
-`RUNBOOK.md` فيه التشغيل اليومي: §16 تليجرام · §17 الإيميل الجماعي · §18 الخروجة المقترحة.
+`RUNBOOK.md` فيه التشغيل اليومي: §16 تليجرام · §17 الإيميل الجماعي · §18 الخروجة المقترحة · §19 بوت الأعضاء.
 
 **نقطة البداية: `START_HERE.md`** — الحالة والطريق واللي فاضل، في ملف واحد.
 
-**`AFTER_SBOTA.md`** + **`SBOTAT_LOG.md`** (دورة ما بعد الخروجة) · `CONTENT_BRIEF.md` (المحتوى الناقص) · `CHECK_DB.sql` (فاحص القاعدة الشامل) · `README.md` · `DB_PLAN.md` · `ADMIN_PLAN.md` · `WORK_PLAN.md` · `DESIGN_TOKENS.md` · `COPY.md` · `ADMIN_GUIDE.md` · `RUNBOOK.md` · `DEPLOY_CHECKLIST.md` · **`REVIEW*.md`** (المراجعة) · ملفات `WORK_MIGRATION_*.sql` (لحد `_45B`) و`WORK_CRON.sql` — كلهم في **`db-bundles/`** (تتلزق في SQL Editor).
+**`AFTER_SBOTA.md`** + **`SBOTAT_LOG.md`** (دورة ما بعد الخروجة) · `CONTENT_BRIEF.md` (المحتوى الناقص) · `CHECK_DB.sql` (فاحص القاعدة الشامل) · `README.md` · `DB_PLAN.md` · `ADMIN_PLAN.md` · `WORK_PLAN.md` · `DESIGN_TOKENS.md` · `COPY.md` · `ADMIN_GUIDE.md` · `RUNBOOK.md` · `DEPLOY_CHECKLIST.md` · **`REVIEW*.md`** (المراجعة) · ملفات `WORK_MIGRATION_*.sql` (لحد `_46`) و`WORK_CRON.sql` — كلهم في **`db-bundles/`** (تتلزق في SQL Editor).
 
 ---
 
