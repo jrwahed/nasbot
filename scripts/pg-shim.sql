@@ -37,8 +37,20 @@ create table if not exists auth.users (
   phone_confirmed_at timestamptz, encrypted_password text, created_at timestamptz, updated_at timestamptz,
   raw_app_meta_data jsonb, raw_user_meta_data jsonb, is_sso_user boolean
 );
+-- ⚠ **نفس تعريف سوبابيس بالحرف — متلطّفهوش.**
+--    النسخة القديمة كانت بتلف القيمة في `nullif(…, '')` كمان مرة، يعني
+--    `sub` فاضية بترجّع `null` **بالسكوت**. سوبابيس مش بيعمل كده: بيحاول
+--    يعمل `''::uuid` وبيرمي `invalid input syntax for type uuid: ""`.
+--
+--    الفرق ده خلّى اختبار (`test_case_roles`) يعدّي محليًا ويقع على
+--    الإنتاج: كان بيقرا جدول عليه RLS وهو لابس دور العضو، فرجع فاضي،
+--    والـclaims اتكتبت بـ`sub` فاضية. محليًا عدّت، وعلى الإنتاج وقعت.
+--    نفس عائلة الدرس التمنتاشر: الشيم اللي مش شبه الإنتاج بيكدب بثقة.
 create or replace function auth.uid() returns uuid language sql stable as $$
-  select nullif(coalesce(nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'sub', ''), '')::uuid;
+  select coalesce(
+    nullif(current_setting('request.jwt.claim.sub', true), ''),
+    (nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'sub')
+  )::uuid;
 $$;
 grant execute on function auth.uid() to anon, authenticated, service_role, public;
 

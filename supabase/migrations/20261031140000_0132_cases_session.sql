@@ -591,6 +591,7 @@ declare
   v_opt    uuid;
   v_other  uuid;
   m5       uuid := '33333333-0000-0000-0000-000000000005';
+  v_other2 uuid;
   v_role   case_role_t;
   v_card   text;
   v_code   text;
@@ -733,10 +734,19 @@ begin
     r := r || case when v_code = '1234' then 'نجح'::text else format('فشل — رجّع %s', coalesce(v_code,'null')) end;
     reset role; perform set_config('request.jwt.claims', '', true);
 
+    -- ⚠ **الحاجز التاني بيتقرا هنا، بهوية postgres.** لو قريناه جوه دور
+    --   العضو، RLS على `bookings` بترجّع فاضي، والـclaims تتكتب بـ`sub`
+    --   فاضية — و`auth.uid()` على سوبابيس بترمي
+    --   `invalid input syntax for type uuid: ""`. ده عدّى محليًا ووقع على
+    --   الإنتاج لأن الشيم كان بيرجّع null بالسكوت (اتصلّح في pg-shim.sql).
+    select b.profile_id into v_other2 from bookings b
+     where b.sbota_id = v_s and b.status in ('paid','attended')
+       and b.profile_id <> fn_case_host(v_s)
+     limit 1;
+
     set local role authenticated;
-    perform set_config('request.jwt.claims', format('{"sub":"%s","role":"authenticated"}',
-      (select b.profile_id from bookings b where b.sbota_id = v_s
-        and b.status in ('paid','attended') and b.profile_id <> fn_case_host(v_s) limit 1)), true);
+    perform set_config('request.jwt.claims',
+      format('{"sub":"%s","role":"authenticated"}', v_other2), true);
     v_code := fn_case_code(v_s);
     r := r || case when v_code is null then 'نجح'::text else format('فشل — 🔴 حد تاني شاف الكود %s', v_code) end;
     reset role; perform set_config('request.jwt.claims', '', true);
