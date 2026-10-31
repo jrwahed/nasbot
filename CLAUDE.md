@@ -77,18 +77,22 @@ src/
     join/telegram الخطوة التانية بعد التسجيل: «وصّل تليجرام» (بتعدّي لوحدها لو البوت مش متظبط)
     new          «افتح خروجة» — العضو بيظبّط خروجته (ورا مفتاح member_sbota)
     game         «مين جاي؟» — مدخلها `GameStrip` في الرئيسية + رابط الهيدر
+    play/[sbotaId] «قضية الليلة» — الدخول بالكود · الكارت · الفصل · التصويت · الختام
+                 (+`/host` لصاحب الخروجة) · ورا مفتاح `cases`
+    my/[id]/answers «جاوب قبل بكرة» — ١٢ سؤال يوم الكشف، مدخلها `CaseStrip`
     me/sbotati   «خروجاتي» — اللي أنا فاتحها: الأعداد · السطر · الإلغاء
     captain/[id] لوحة اللي ماسك المجموعة — صاحب الخروجة أو كابتن نسبوط
     s/[slug]     صفحة السبوطة + /pay + /done
     my/[id]      حجزي + /chat + /review
     shoghl/      طبقة الشغل: /  /[slug]  /[slug]/pay  /pass  /amaken
     me/shoghl    شغلي (الكارت + اليوم الثابت + شغالين معاك)
-    admin/       اللوحة (20 قسم — شوف §7)
+    admin/       اللوحة (21 قسم — شوف §7)
     admin/_components  مكوّنات مشتركة بين صفحات اللوحة (`sbota-form.tsx` = فورم الخروجة الجديدة)
     api/         otp · pay(create/transfer/pass) · admin · account/ensure ·
                  copy/revalidate · cron/* (notify · work-notify · admin-alerts · member-telegram) ·
                  telegram/member (webhook بوت الأعضاء) · health/mail
-  components/    مكوّنات الواجهة + components/work/* لطبقة الشغل + admin-ui.tsx
+  components/    مكوّنات الواجهة + components/work/* لطبقة الشغل +
+                 components/case/* لقضية الليلة + admin-ui.tsx
   data/          نصوص احتياطية + قوايم (⚠ بعضها المفروض في القاعدة — REVIEW)
   lib/           طبقة البيانات والمنطق (§5)
   lib/server/    server-only: admin-auth · mailer · otp · supabase-admin · whatsapp ·
@@ -102,6 +106,7 @@ scripts/         check-copy · فاحصات · بذور النصوص
 |---|---|
 | `src/lib/api.ts` | **طبقة البيانات الأساسية** — كل قراءة/كتابة للموقع العام. لو `hasSupabase=false` بترجع `api-mock.ts` |
 | `src/lib/work.ts` · `collab.ts` | طبقة الشغل والتعاون |
+| `src/lib/cases.ts` | **طبقة «قضية الليلة»** — كل نداءات اللعبة. ⚠ مفيش ولا استعلام مباشر على `case_players`/`case_clues`/`case_votes` هنا، كله عبر دوال بترجّع «اللي من حقك بس» |
 | `src/lib/map-db.ts` | تحويل صفوف القاعدة ↔ أنواع الواجهة، والفلوس |
 | `src/lib/copy.ts` | قراءة `copy_strings` بكاش موسوم (`COPY_TAG`) |
 | `src/lib/server/admin-auth.ts` | `requirePermission` — الحد الأمني الحقيقي للوحة |
@@ -116,9 +121,11 @@ scripts/         check-copy · فاحصات · بذور النصوص
 
 ## ٥. القاعدة — أهم الجداول والدوال
 
-**الجداول:** `profiles` · `sbotat`(+`sbotat_public`) · `sbota_templates` · `venues` · `bookings` · `payments` · `wallet_ledger` · `coupons` · `pair_affinity` · `matching_runs` · `chat_rooms`/`chat_members` · `notifications`/`notification_templates` · `admin_users`/`admin_roles`/`role_permissions` · `settings`(صف واحد) · `copy_strings` · `safety_links` · `audit_log` · `waitlist` · `template_interest` («قريب») · `sbota_interest` («أنا جاي» على المقترحة) · `admin_alerts` (طابور تليجرام) · `broadcasts` (الإيميل الجماعي) · `member_telegram`/`member_tg_outbox` (بوت الأعضاء). **طبقة الشغل:** `professions` · `work_venues` · `work_passes` · `pass_redemptions` · `recurring_bookings` · `work_affinity` · `venue_reports` · `leads` · `work_metrics`.
+**الجداول:** `profiles` · `sbotat`(+`sbotat_public`) · `sbota_templates` · `venues` · `bookings` · `payments` · `wallet_ledger` · `coupons` · `pair_affinity` · `matching_runs` · `chat_rooms`/`chat_members` · `notifications`/`notification_templates` · `admin_users`/`admin_roles`/`role_permissions` · `settings`(صف واحد) · `copy_strings` · `safety_links` · `audit_log` · `waitlist` · `template_interest` («قريب») · `sbota_interest` («أنا جاي» على المقترحة) · `admin_alerts` (طابور تليجرام) · `broadcasts` (الإيميل الجماعي) · `member_telegram`/`member_tg_outbox` (بوت الأعضاء). **قضية الليلة:** `case_worlds` · `cases` · `case_questions`/`case_options` · `case_missions` · `case_titles` · `case_clue_templates` · `case_vault_riddles` · `case_sessions` · `case_players` · `case_answers` · `case_clues` · `case_votes` · `case_awards` · `case_points`. **طبقة الشغل:** `professions` · `work_venues` · `work_passes` · `pass_redemptions` · `recurring_bookings` · `work_affinity` · `venue_reports` · `leads` · `work_metrics`.
 
 **دوال مهمة:** `fn_can_book` · `fn_capacity_guard` (قفل السعة) · `fn_booking_paid` · `fn_cancel_booking` · `fn_approve_transfer` · `fn_redeem_pass`/`fn_revert_pass`/`fn_activate_pass` · `fn_build_matching`/`fn_build_work_matching` · `fn_reveal` · `fn_pair_want`/`fn_work_want` (الطريق الصح لكتابة التبادل) · `fn_is_admin`/`fn_has_permission` · `fn_can_see_place`/`fn_sbota_place` (الحارس والبيانات، كل واحد لوحده) · `fn_safety_link`/`fn_safety_my`/`fn_safety_view`/`fn_safety_mark`/`fn_safety_revoke` · `fn_sbota_arrival`/`fn_set_sbota_sign` · `fn_join_waitlist`/`fn_admit_waitlist` · `fn_book_free` (بعلم `nasbot.trusted_booking`) · `fn_want_soon`/`fn_want_sbota` · `fn_admin_alert` · `fn_send_broadcast` · `fn_tg_link_token`/`fn_tg_member_link` (بوت الأعضاء — الربط بالتوكن بس).
+
+**قضية الليلة (0130–0136):** `fn_case_can_host` (المصدر الواحد: المفتاح + `origin='nasbot'` + مش شغل + قضية نشطة) · `fn_case_player_ok` (= `fn_case_can_host` + `fn_can_see_place`، **مركّب مش منسوخ**) · `fn_case_host` (الكابتن، وإلا صاحب الخروجة، وإلا أقدم حجز مدفوع — نفس منطق `fn_sbota_arrival`) · `fn_case_questions`/`fn_case_answer`/`fn_case_observe` · `fn_case_open`/`fn_case_code`/`fn_case_join`/`fn_case_watch` · **`fn_case_my_role`** · `fn_case_pair_for` (بحث التلميحين — بينادوها `fn_case_build` و`fn_case_build_double`) · `fn_case_clue3_for` · `fn_case_build`/`fn_case_build_vault`/`fn_case_build_double` · `fn_case_next_act` · `fn_case_clues` · `fn_case_vote`/`fn_case_vote_state` · `fn_case_finish`/`fn_case_finish_double`/`fn_case_vault_close` · `fn_case_result`/`fn_case_lies`/`fn_case_awards`/`fn_case_my_points` · `fn_case_vault`/`fn_case_vault_try` · `fn_case_players_list` · `job_purge_case_answers` · وبذرة الاختبار `fn_case_fixture_up`/`fn_case_fixture_down`.
 
 **صفحات المحتوى (0082):** `content_pages` · `content_blocks`. القواعد والأسئلة ومين إحنا والشروط — الفقرات بتتضاف وتتمسح وتترتّب من `/admin/content` ← «صفحات الموقع». الكتابة بـ`content.edit`. والفقرة اللي الكود بيسأل عنها بالاسم ليها `ref` ثابت (`guarantee`).
 
@@ -137,6 +144,17 @@ scripts/         check-copy · فاحصات · بذور النصوص
    ونفس المصيدة بالظبط في العكس: **`auth.uid() is not null` مش حارس.** الزائر المجهول `auth.uid()` بتاعه null، فشرط زي `if auth.uid() is not null and not fn_has_permission(...)` **بيعدّي المجهول** بدل ما يمنعه (ده اللي فتح `fn_reveal` للنت كله — `0062`).
 
 4. **لو العضو بيعمل حاجة جديدة، اعملها بدالة مش بسياسة `insert`.** `fn_create_sbota` (0078) مثال: لو سبنا باب كتابة مباشر على `sbotat`، العضو كان هيكتب `price = 0` أو `origin = 'nasbot'` وينتحل صفة الموقع. الدالة أصلًا **مفيهاش parameter للسعر** — بيتحسب جوه من القالب و`settings`. نفس نمط `fn_pair_want` بالظبط.
+
+5. **اللي الواجهة ما تحتاجهوش، ما يكونش ليه سياسة قراية خالص.** جداول
+   «قضية الليلة» (`case_players` · `case_clues` · `case_votes` · `case_sessions`)
+   **مفيهاش ولا سياسة قراية للعضو — ولا لصاحب الصف**. هوية المتهم لو وصلت
+   المتصفح، أي حد يفتح أدوات المطور يعرفها في ثانية، واللعبة تبقى ميتة.
+   الدور بيوصل من `fn_case_my_role` بس — **صف واحد، وبتاعك، ومفيش
+   parameter لشخص تاني**.
+
+   ⚠ وفحص الحارس ده لازم يبقى **سلوكي والعضو له صف فعلًا** في الجدول.
+   أول نسخة من `test_case_roles` كانت بتقرا الجدول بهوية عضو مش موجود
+   فيه، فسياسة «اقرا صفك» رجّعت صفر وعدّت من الفاحص — الفخ ما اتمسكش.
 
 **وكمان:** أي دالة جديدة بتبقى `execute` لـ **PUBLIC** افتراضيًا في بوستجرس. كل دالة حساسة لازم يبقى وراها `revoke execute … from public, anon;` صريح — المنح لـ `authenticated` لوحده **مش** كفاية.
 
@@ -219,7 +237,7 @@ psql -h 127.0.0.1 -p 5433 -U postgres -d nasbot --single-transaction -f WORK_MIG
 
 ## ٧. اللوحة `/admin`
 
-الأقسام: الرئيسية · النصوص · اللعبة · حقول التسجيل · القوالب · السبوطات · الحجوزات · المطابقة · الناس · الكباتن · الفلوس · **الصور** · البلاغات · الرسائل · الخريطة · الإعدادات · **الشغل** · **الفريق** · السجل. الدخول: إيميل + باسورد + تطبيق مصادقة (TOTP). الأدوار: `owner`·`admin`·`ops`·`finance`·`support`.
+الأقسام: الرئيسية · النصوص · اللعبة · **القضايا** · حقول التسجيل · القوالب · السبوطات · الحجوزات · المطابقة · الناس · الكباتن · الفلوس · **الصور** · البلاغات · الرسائل · الخريطة · الإعدادات · **الشغل** · **الفريق** · السجل. الدخول: إيميل + باسورد + تطبيق مصادقة (TOTP). الأدوار: `owner`·`admin`·`ops`·`finance`·`support`.
 
 في `/admin/sbotat` فيه فلتر «مين فاتحها» ووسم «من عضو» وزرار **«اعتمد»** للمسوّدات (بيبان بس لما `member_sbota_auto_open = false`). وفي `/admin/settings` تبويب الأرقام فيه مجموعة «خروجات الأعضاء». وفي نفس الصفحة الحالة **«مقترحة»** وعمود 🙋 (عدد «أنا جاي») وزرار **«افتح الحجز»** (`0127`).
 
@@ -607,6 +625,49 @@ psql -h 127.0.0.1 -p 5433 -U postgres -d nasbot --single-transaction -f WORK_MIG
   - العدد **مش بيتعرض للزوار** (نفس قرار «قريب»). الكارت عليه ستيكر «مقترحة»
     وزرار «أنا جاي لو اتعملت»، و«نديها واحدة؟»/«مين جاي؟» بيستبعدوها.
   - `test_proposed()` ٩/٩.
+
+- 🟡 **«قضية الليلة» — نظام الألعاب الكامل اتبنى (٢٠٢٦-١٠-٣١)، ولسه ما اتلزقش على الإنتاج.**
+  `WORK_MIGRATION_48` لحد `_54` (`0130`–`0136`). طلب المالك: كل سبوطة فيها
+  **قضية** — واحد من المجموعة سرّي هو المتهم، والباقيين فريق محققين لازم
+  يكشفوه، والتلميحات عن المتهم **متبنية من إجاباته هو عن نفسه**: يعني ما
+  تعرفوش المتهم غير لما تعرفوا بعض كلكم.
+  - **تلات عوالم:** «أبيض وأسود» (فيلم مصري قديم · المفتشين/المتهم) ·
+    «المهمة» (جاسوسية · العملاء/العميل المزدوج · **أسماء حركية**) ·
+    «مين عملها؟» (بيت مصري وهزار · العيلة/اللي عملها · مفيش جريمة أصلًا).
+    و**٩ قضايا** بالمقدمة والكروت وحدث الفصل التاني والنهايتين.
+  - **التلميحات محسوبة في القاعدة:** الأول بينطبق على نص المجموعة (٣–٤ في
+    ٦) · التاني بيضيّق (٢–٣) · التالت بيوصل **لواحد**. و🔴 التالت دايمًا
+    من حاجة **ماينفعش يتكدب فيها** — ترتيب الوصول (الموقع عارف مين كتب
+    الكود الأول) · اللبس (الكل شايفه، وباللون بس) · نتيجة الجيم (صاحب
+    الخروجة بيدخّلها). لأن **المتهم بس مسموحله يكدب**.
+  - 🔴 و`fn_case_build` **بتتأكد إن فيه تلميح تالت ممكن قبل ما تثبّت
+    المتهم**، وإلا بتختار متهم تاني. من غير الفحص ده اللعبة ممكن تبدأ وهي
+    مش قابلة للحل خالص.
+  - **شكلين تانيين:** «الخزنة» من غير متهم (٤ أرقام ألغازها عن المجموعة —
+    للمجموعات أقل من ٥، لأن في أربعة المتهم بيبان من أول تلميح) ·
+    «العميلين» لمجموعة ٨+ (متهمين عارفين بعض، ولازم يتقفشوا **الاتنين**).
+  - **الشاشات:** «جاوب قبل بكرة» تحت صفحة الحجز (`/my/<id>/answers`) ·
+    `/play/<sbota>` (الدخول بالكود · الكارت اللي بيتقفل لوحده بعد ٥ ثواني ·
+    الفصل والتلميح · التصويت · الختام مقاس ستوري) · `/play/<sbota>/host`.
+    ومدخلها `CaseStrip` في صفحة الحجز، و`PointsCard` في `/me`.
+  - **قسم «القضايا» في اللوحة** — العوالم والقضايا وبنك الأسئلة ونص
+    التلميح لكل اختيار والمهمات وألغاز الخزنة. ⚠ **مفيش فيه «اختار
+    المتهم» ولا «شوف الأدوار»، ولا هيكون** — ده بيكسر اللعبة مش بيسهّلها.
+  - **قرارات المالك:** اللعبة في **سبوطات نسبوط بس** في الأول ·
+    **النقط أوسمة بس** (بتتجمع كرقم على الحساب، ومفيش ولا سطر بيكتب في
+    `wallet_ledger`، وفيه اختبار صريح بيحرس ده) · ومفيش لوحة ترتيب عامة.
+  - **١١ رقم في `settings`** (الأوقات والنقط والحدود) ومفتاح ميزة `cases`
+    بينزل **مقفول**.
+  - `test_cases_schema` ١١ · `test_cases_content` ١٥ · `test_case_roles` ١٩ ·
+    `test_case_clues` ١٥ · `test_case_vote` ١٧ · `test_case_variants` ١٧ ·
+    `test_case_copy` ٥ = **٩٩ صف · صفر فشل محليًا**، واتجرّبوا بـ**٢٢ فخ
+    متعمّد** كلهم اتمسكوا. وكل ملف اتلزق تلات مرات (عادي · معاملة واحدة ·
+    `\r\n`)، وصفر صفوف سايبة بعد `fn_case_fixture_down`.
+  - 🔴 **تصليحان أمنيان اتكشفوا وإحنا بنختبر** (شوف الدرسين الخمسة
+    وعشرين والستة وعشرين تحت).
+  - ⚠ **اللزق بالترتيب 48←54** — `50` بتنادي حراس من `48` و`53` بتنادي
+    `fn_case_pair_for` من `51`، وبوستجرس ما بيتحققش من النداءات دي وقت
+    إنشاء الدالة. التشغيل في `RUNBOOK.md` §20.
 
 - 🟢 **بوت تليجرام للأعضاء (٢٠٢٦-١٠-٠٤)** — `WORK_MIGRATION_46` / `0128` — **اتطبّق على الإنتاج** و`test_member_telegram()` ١١/١١ هناك.
   طلب المالك: «لما حد جديد يسجّل، يبقى فيه بوت تليجرام تاني يجيله فيه إشعار لو فيه خروجة جديدة».
@@ -1015,6 +1076,73 @@ union all select 'WM9 (content_pages)',       to_regclass('content_pages')      
 ٦ مش متلزقة الدالة **بتتعمل عادي وبتقع وقت الاستعمال**. فلو السطر بتاع WM6
 رجع `false`، الزقها حتى لو ٨ و٩ اتلزقوا.
 
+⚠ **درس خمسة وعشرين — `null` مش `false`، والحارس اللي بيقارن هوية بيعدّي
+المجهول.** §٥.٣ بتقول إن `auth.uid() is not null` مش حارس. والناحية
+التانية من نفس العُقدة ضربت تلات دوال في `0132`/`0133`:
+
+```sql
+if not (v_uid = fn_case_host(s_id) or fn_has_permission('cases.edit')) then
+  raise exception 'صاحب الخروجة بس';
+end if;
+```
+
+شكله سليم. بس لو `v_uid` فاضية (`auth.uid()` بترجّع null للمجهول)،
+`null = <uuid>` بترجّع **`null` مش `false`**، و`null or false` = `null`،
+و`not null` = `null` — و**`if null then` ما بيتنفّذش**. فالمجهول بيعدّي
+الحارس بالصمت ويوزّع الأدوار.
+
+ده مكانش هيتمسك بمراجعة بالعين: الحارس مكتوب وشكله صح. اتمسك لأن الاختبار
+كان بيكتب `sub` فاضية بالغلط، فالرفض المتوقّع ما حصلش.
+
+**القاعدة:** أي دالة بتقارن `auth.uid()` بحد، أول سطر فيها
+`if v_uid is null then raise exception …`. المقارنة مش حارس، والفحص الصريح
+هو الحارس. الحارس: صف «المجهول ما بيوزّعش الأدوار» في `test_case_clues`.
+
+⚠ **درس ستة وعشرين — بذرة الاختبار اللي بره البلوك اللي بيرجع بتتحفظ.**
+دوال الاختبار عندنا بتلف كل الكتابة في `begin … exception` وبترفع استثناء
+في الآخر علشان كله يرجع. `test_case_vote` و`test_case_variants` كانوا
+بينادوا البذرة (`fn_case_fixture_up`) **قبل** البلوك ده، فالنداء كان بره
+الـsavepoint — و**كل تشغيل كان بيسيب ١٢ لاعب و٢ جلسة و١٥٦ إجابة في
+القاعدة**. ومحدش كان هياخد باله: الاختبار بيقول «نجح».
+
+**القاعدتين:** (١) **كل** كتابة جوه البلوك، البذرة قبل أي حاجة تانية —
+والتحقّق من إن الاختبار نضيف يبقى استعلام صريح بعده (`select count(*)`
+على بيانات الاختبار). (٢) ومعاها دالة تنضيف (`fn_case_fixture_down`)
+بتمسح **بالأرقام بالظبط مش بالبادئة** وبحارس على أي صف عليه حساب لوحة
+(الدرس السابع) — شبكة أمان لو اختبار وقع بشكل خلّى الكتابة تتحفظ.
+
+⚠ **درس سبعة وعشرين — الاختبار اللي بيلبس دور العضو وبعدين بيقرا بإيده
+بيقول «فشل» على كود سليم.** ده وقع **أربع مرات** في يوم واحد وإحنا بنكتب
+اختبارات القضايا، وكل مرة ضيّع وقت في تصليح حاجة مش مكسورة:
+
+- `select count(*) from case_answers where …` بعد `fn_case_answer` بهوية
+  العضو → RLS بتمنع الجدول → صفر → «العضو مقدرش يجاوب» وهو جاوب.
+- `v_card = (select detective_card_ar from cases …)` جوه دور العضو →
+  الجدول مقفول → `null` → المقارنة `null` → «المحقق شاف الكارت الغلط».
+- `for i in 1..6 loop if (select act from case_sessions …) = 'act2'` جوه
+  الدور → `null` → الحلقة ما وقفتش → القضية وصلت `done` وكل تصويت بعدها
+  اترفض.
+- و`select … from case_players where profile_id <> v_host` جوه الدور →
+  فاضي → الـclaims اتكتبت بـ`sub` فاضية (ودي اللي كشفت الدرس الخمسة
+  وعشرين بالصدفة).
+
+**القاعدة:** `CHECK_DB` بيقول «رجّع الدور والهوية بين كل دالة والتانية» —
+والقاعدة دي بتنطبق **جوه الدالة كمان، بين كل خطوة والتانية**. القيم
+المتوقّعة تتقرا **قبل** أي تلبيس دور، والتحقّق بعد `reset role`. ولبس
+الدور حوالين **نداء الدالة اللي بتتفحص** بس، مش حوالين الفحص كله.
+
+⚠ **درس تمانية وعشرين — الفاحص اللي بيختار صفوفه من نتيجة الكود بيفحص
+حاجة مختلفة كل مرة الكود يتغيّر.** الدرس العشرين قال إن الاختيار بـ`limit 1`
+من بيانات حقيقية بيختار حاجة مختلفة في كل بيئة. ودي نسخة أسوأ:
+`test_case_clues` كان بيجرّب «لاعب عادي ما بينقلش الفصل» **بهوية المتهم** —
+والمتهم بيتختار من الإجابات. أول ما ظبّطنا إجابات البذرة، المتهم بقى هو
+نفسه **صاحب الخروجة** (أقدم حجز مدفوع)، فالحارس عدّاه **بحق** والفاحص قال
+«فشل» على كود سليم.
+
+**القاعدة:** لو بتفحص «الحارس بيرفض حد مش صاحب الصلاحية»، اختار حد
+**مضمون** إنه كده (`where profile_id <> fn_case_host(...)`) — متستعملش
+حد دوره بيتحدّد من منطق اللعبة.
+
 ### بعد كل خروجة
 
 **`AFTER_SBOTA.md`** — دورة بتلف بعد كل خروجة، مش قايمة مهام مكتوبة مرة.
@@ -1036,7 +1164,7 @@ union all select 'WM9 (content_pages)',       to_regclass('content_pages')      
 
 **نقطة البداية: `START_HERE.md`** — الحالة والطريق واللي فاضل، في ملف واحد.
 
-**`AFTER_SBOTA.md`** + **`SBOTAT_LOG.md`** (دورة ما بعد الخروجة) · `CONTENT_BRIEF.md` (المحتوى الناقص) · `CHECK_DB.sql` (فاحص القاعدة الشامل) · `README.md` · `DB_PLAN.md` · `ADMIN_PLAN.md` · `WORK_PLAN.md` · `DESIGN_TOKENS.md` · `COPY.md` · `ADMIN_GUIDE.md` · `RUNBOOK.md` · `DEPLOY_CHECKLIST.md` · **`REVIEW*.md`** (المراجعة) · ملفات `WORK_MIGRATION_*.sql` (لحد `_47`) و`WORK_CRON.sql` — كلهم في **`db-bundles/`** (تتلزق في SQL Editor).
+**`AFTER_SBOTA.md`** + **`SBOTAT_LOG.md`** (دورة ما بعد الخروجة) · `CONTENT_BRIEF.md` (المحتوى الناقص) · `CHECK_DB.sql` (فاحص القاعدة الشامل) · `README.md` · `DB_PLAN.md` · `ADMIN_PLAN.md` · `WORK_PLAN.md` · `DESIGN_TOKENS.md` · `COPY.md` · `ADMIN_GUIDE.md` · `RUNBOOK.md` · `DEPLOY_CHECKLIST.md` · **`REVIEW*.md`** (المراجعة) · ملفات `WORK_MIGRATION_*.sql` (لحد `_54`) و`WORK_CRON.sql` — كلهم في **`db-bundles/`** (تتلزق في SQL Editor).
 
 ---
 

@@ -9,6 +9,7 @@ import { PhotoPlaceholder } from '@/components/PhotoPlaceholder'
 import { Sticker } from '@/components/Sticker'
 import { Footer } from '@/components/Footer'
 import { TelegramCard } from '@/components/TelegramCard'
+import { PointsCard } from '@/components/case/PointsCard'
 import { getMe, getBookings, getMetBefore, signOut, deleteMyAccount } from '@/lib/api'
 import { useTheme } from '@/lib/use-theme'
 import type { Booking, Me, Person } from '@/types'
@@ -96,6 +97,9 @@ export default function MePage() {
 
         {/* ===== تليجرام: أول ما خروجة تنزل (0128) — بيختفي لو البوت مش متظبط ===== */}
         <TelegramCard />
+
+        {/* ⚠ أوسمة القضايا — بتختفي لو مفيش ولا وسام (لسه محدش لعب) */}
+        <PointsCard />
 
         {/* ===== الشارات ===== */}
         <div className="mt-5 flex gap-3">

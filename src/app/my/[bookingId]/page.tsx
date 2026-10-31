@@ -12,6 +12,7 @@ import { EmergencyCall } from '@/components/EmergencyBlock'
 import { SafetyCard } from '@/components/SafetyCard'
 import { ArrivalCard } from '@/components/ArrivalCard'
 import { GroupAlbum } from '@/components/GroupAlbum'
+import { CaseStrip } from '@/components/case/CaseStrip'
 import { areaFromDb } from '@/lib/map-db'
 import { groupRuleStickers } from '@/data/lists'
 import { getGroup, requestGirlsOnly, type Group } from '@/lib/api'
@@ -113,6 +114,15 @@ export default function GroupPage() {
         </div>
       </div>
       )}
+
+      {/* ===== قضية الليلة =====
+          ⚠ **فوق «أول ربع ساعة» عن قصد.** يوم الكشف أول حاجة لازمة هي
+             «جاوب قبل بكرة» (١٢ سؤال في دقيقتين) — من غيرها التلميحات
+             ما بتتبنيش والقضية ما تقدرش تبدأ. والكرت بيختفي خالص لو
+             الخروجة مفيهاش قضية أو المفتاح مقفول.
+          ⚠ **الدرس التامن**: ده المدخل الوحيد لـ`/my/<id>/answers`
+             و`/play/<sbota>` — من غيره الميزة مبنية ومحدش يقدر يوصلها. */}
+      {booking.paid && !ended && <CaseStrip bookingId={booking.id} sbotaId={sbota.id} />}
 
       {/* ===== أول ربع ساعة =====
           ⚠ **فوق قايمة الأسامي عن قصد.** لحظة الكشف هي اللحظة اللي العضو

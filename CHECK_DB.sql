@@ -61,6 +61,11 @@ begin
   execute 'reset role';
   perform set_config('request.jwt.claims', '', true);
   begin perform fn_test_seed_down(); exception when others then null; end;
+  -- ⚠ وبذرة القضايا كمان: ٦–٨ لاعبين وسبوطة وجلسة وإجابات. اختباراتها
+  --    بترجع لوحدها، بس دي شبكة أمان لو واحد منهم وقع بشكل خلّى الكتابة
+  --    تتحفظ (الدرس الستة وعشرين). بتمسح بالأرقام بالظبط وبحارس على أي
+  --    صف عليه حساب لوحة.
+  begin perform fn_case_fixture_down(); exception when others then null; end;
 end $$;
 
 select

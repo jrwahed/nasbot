@@ -19,6 +19,7 @@ const SECTIONS: { href: string; label: string; perm: string | null }[] = [
   { href: '/admin', label: 'الرئيسية', perm: null },
   { href: '/admin/content', label: 'النصوص', perm: 'content.edit' },
   { href: '/admin/game', label: 'اللعبة', perm: 'game.edit' },
+  { href: '/admin/cases', label: 'القضايا', perm: 'cases.view' },
   { href: '/admin/profile-fields', label: 'حقول التسجيل', perm: 'fields.edit' },
   { href: '/admin/templates', label: 'القوالب', perm: 'sbotat.edit' },
   { href: '/admin/sbotat', label: 'السبوطات', perm: 'sbotat.view' },
