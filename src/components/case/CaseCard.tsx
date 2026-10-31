@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { Em } from '@/components/case/Em'
 import { useT } from '@/components/CopyProvider'
 import type { CaseMyRole } from '@/lib/cases'
 
@@ -83,7 +84,9 @@ export function CaseCard({
         </div>
       ) : null}
 
-      <p className="mt-3 text-[19px] font-bold leading-snug">{role.card}</p>
+      <p className="mt-3 text-[19px] font-bold leading-snug">
+        <Em text={role.card} />
+      </p>
 
       {role.partnerCodename ? (
         <p className="mt-3 text-[15px] opacity-90">
@@ -94,7 +97,9 @@ export function CaseCard({
       {role.mission ? (
         <div className="mt-4 rounded-16 p-4" style={{ background: 'rgba(0,0,0,.25)' }}>
           <div className="text-[13px] opacity-70">{t('case.card.mission')}</div>
-          <p className="mt-1 text-[16px] font-bold">{role.mission}</p>
+          <p className="mt-1 text-[16px] font-bold">
+            <Em text={role.mission} />
+          </p>
           {onMissionDone ? (
             <button
               type="button"

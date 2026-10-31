@@ -1,6 +1,7 @@
 'use client'
 
 import { useT } from '@/components/CopyProvider'
+import { Em } from '@/components/case/Em'
 import type { CaseAward, CaseLie, CaseResult } from '@/lib/cases'
 
 /**
@@ -56,15 +57,21 @@ export function EndingCard({
             )}
       </p>
 
-      <p className="mt-2 text-[15px] leading-snug opacity-90">{result.ending}</p>
+      <p className="mt-2 text-[15px] leading-snug opacity-90">
+        <Em text={result.ending} />
+      </p>
       {result.twist ? (
-        <p className="mt-2 text-[15px] font-bold leading-snug">{result.twist}</p>
+        <p className="mt-2 text-[15px] font-bold leading-snug">
+          <Em text={result.twist} />
+        </p>
       ) : null}
 
       {result.mission ? (
         <div className="mt-4 rounded-16 p-4" style={{ background: 'rgba(0,0,0,.25)' }}>
           <div className="text-[12px] opacity-70">{t('case.end.mission')}</div>
-          <p className="mt-1 text-[15px] font-bold">{result.mission}</p>
+          <p className="mt-1 text-[15px] font-bold">
+            <Em text={result.mission} />
+          </p>
           <p className="mt-1 text-[13px] opacity-80">
             {result.missionDone ? t('case.end.mission.y') : t('case.end.mission.n')}
           </p>

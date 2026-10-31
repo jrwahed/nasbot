@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { Em } from '@/components/case/Em'
 import { useT } from '@/components/CopyProvider'
 import type { CaseVaultRiddle } from '@/lib/cases'
 
@@ -44,7 +45,9 @@ export function VaultBox({
           <ul className="mt-4 space-y-3">
             {riddles.map((r, i) => (
               <li key={r.slot}>
-                <label className="block text-[14px] leading-snug">{r.riddle}</label>
+                <label className="block text-[14px] leading-snug">
+                  <Em text={r.riddle} />
+                </label>
                 <input
                   inputMode="numeric"
                   value={vals[i] ?? ''}
@@ -57,7 +60,7 @@ export function VaultBox({
                 />
                 {r.hintOpen && r.hint ? (
                   <div className="mt-1 text-[13px]" style={{ color: '#F4632A' }}>
-                    {t('case.vault.hint')}: {r.hint}
+                    {t('case.vault.hint')}: <Em text={r.hint} />
                   </div>
                 ) : null}
               </li>

@@ -49,6 +49,7 @@ node scripts/check-notify-vars.mjs     # متغيّرات قوالب الإشع�
 node scripts/check-content-fallback.mjs # مفيش صفحة محتوى بتطلع فاضية
 node scripts/check-migration-bundles.mjs # حزم WORK_MIGRATION = ملفات الهجرة
 node scripts/check-nav-flags.mjs       # مفيش مدخل لصفحة ورا مفتاح من غير نفس المفتاح
+node scripts/check-case-em.mjs         # مفيش نص قضية بيتعرض من غير <Em>
 ```
 البناء على Vercel بيتجاهل `NEXT_DIST_DIR` (شوف `next.config.mjs`). Node مثبّت `22.x`.
 
@@ -1252,6 +1253,23 @@ end if;
 مفتاح (`^(case|qadeya)\.[a-z0-9._]+$`) — السكريبت اللي بيولّد بيانات لازم
 يفحص اللي ولّده. (٤) والدرس التسعتاشر تاني: **افتح الصفحة وصوّرها**.
 
+⚠ **درس واحد وتلاتين — التشديد اللي اتكتب في القاعدة بيوصل الشاشة نجوم.**
+نصوص «قضية الليلة» مكتوبة بـ`**تشديد**` على الجملة المفتاحية — «تطلعوا
+بـ**اسمين**» · «العقد لسه **في الصالون**». عملت عارض `Em` ووصّلته
+بالبلاغ وبـ«إزاي تتحل»… وسبت **مسرح الواقعة والمطلوب وكارت الدور
+والمهمة والنهاية والمفاجأة واللغز ونص الدليل**. فأول ما المالك فتح
+`/qadeya` لقى `**اسمين**` بالنجوم قدامه.
+
+ومفيش فاحص كان هيمسكها: النص موجود، والمفتاح موجود، و`tsc` والبناء
+عدّوا. اتمسكت لأن المالك قرا الصفحة.
+
+**القاعدتين:** (١) لما تعمل عارض لنوع نص، **عدّ كل الحقول اللي من النوع
+ده** — مش اللي قدامك في الصفحة اللي بتشتغل عليها (الدرس التلتاشر تاني).
+(٢) وحطّ حارس يمنع التكرار: `scripts/check-case-em.mjs` بيفشل البناء لو
+أي حقل قصة (`report`/`scene`/`goal`/`card`/`mission`/`ending`/`twist`/
+`riddle`/`hint` …) اتعرض من غير `<Em>`. و`/admin/**` مستثنى عن قصد —
+المالك بيعدّل النص الخام هناك فالمفروض يشوف التشديد.
+
 ### بعد كل خروجة
 
 **`AFTER_SBOTA.md`** — دورة بتلف بعد كل خروجة، مش قايمة مهام مكتوبة مرة.
@@ -1273,7 +1291,7 @@ end if;
 
 **نقطة البداية: `START_HERE.md`** — الحالة والطريق واللي فاضل، في ملف واحد.
 
-**`AFTER_SBOTA.md`** + **`SBOTAT_LOG.md`** (دورة ما بعد الخروجة) · `CONTENT_BRIEF.md` (المحتوى الناقص) · `CHECK_DB.sql` (فاحص القاعدة الشامل) · `README.md` · `DB_PLAN.md` · `ADMIN_PLAN.md` · `WORK_PLAN.md` · `DESIGN_TOKENS.md` · `COPY.md` · `ADMIN_GUIDE.md` · `RUNBOOK.md` · `DEPLOY_CHECKLIST.md` · **`REVIEW*.md`** (المراجعة) · ملفات `WORK_MIGRATION_*.sql` (لحد `_56`) و`WORK_CRON.sql` — كلهم في **`db-bundles/`** (تتلزق في SQL Editor).
+**`AFTER_SBOTA.md`** + **`SBOTAT_LOG.md`** (دورة ما بعد الخروجة) · `CONTENT_BRIEF.md` (المحتوى الناقص) · `CHECK_DB.sql` (فاحص القاعدة الشامل) · `README.md` · `DB_PLAN.md` · `ADMIN_PLAN.md` · `WORK_PLAN.md` · `DESIGN_TOKENS.md` · `COPY.md` · `ADMIN_GUIDE.md` · `RUNBOOK.md` · `DEPLOY_CHECKLIST.md` · **`REVIEW*.md`** (المراجعة) · ملفات `WORK_MIGRATION_*.sql` (لحد `_57`) و`WORK_CRON.sql` — كلهم في **`db-bundles/`** (تتلزق في SQL Editor).
 
 ---
 

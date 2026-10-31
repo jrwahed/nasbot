@@ -95,7 +95,7 @@ export function CaseFile({
         <>
           <Head>{t('case.file.scene')}</Head>
           <p className="mt-2 text-[15px] leading-relaxed" style={{ opacity: 0.9 }}>
-            {doc.scene}
+            <Em text={doc.scene} />
           </p>
         </>
       ) : null}
@@ -108,7 +108,7 @@ export function CaseFile({
             className="mt-2 rounded-16 p-4 text-[16px] font-bold leading-relaxed"
             style={{ background: dark ? 'rgba(244,99,42,.18)' : '#EFE3CF' }}
           >
-            {doc.goal}
+            <Em text={doc.goal} />
           </p>
         </>
       ) : null}
@@ -163,7 +163,9 @@ export function CaseFile({
                 </div>
                 {c ? (
                   <>
-                    <p className="mt-1 text-[17px] font-bold leading-snug">{c.text}</p>
+                    <p className="mt-1 text-[17px] font-bold leading-snug">
+                      <Em text={c.text} />
+                    </p>
                     <div className="mt-1 text-[13px]" style={{ opacity: 0.7 }}>
                       {t('case.clue.applies').replace('{{1}}', String(c.appliesTo))}
                     </div>

@@ -158,7 +158,9 @@ function QadeyaInner() {
                         <div className="mt-3 text-[12px] tracking-[0.18em] opacity-60">
                           {t('qadeya.scene')}
                         </div>
-                        <p className="mt-1 text-[15px] leading-relaxed opacity-90">{c.scene}</p>
+                        <p className="mt-1 text-[15px] leading-relaxed opacity-90">
+                          <Em text={c.scene} />
+                        </p>
                       </>
                     ) : null}
 
@@ -171,7 +173,7 @@ function QadeyaInner() {
                           className="mt-1 rounded-16 p-3 text-[16px] font-bold leading-relaxed"
                           style={{ background: '#FBF7EF' }}
                         >
-                          {c.goal}
+                          <Em text={c.goal} />
                         </p>
                       </>
                     ) : null}
