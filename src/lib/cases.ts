@@ -71,7 +71,10 @@ export interface CaseMyRole {
 /** ملف القضية — الدوسيه اللي المجموعة بتقراه. ⚠ مفيهوش الحل. */
 export interface CaseFileDoc {
   fileNo: string
+  /** مفتاح القضية الثابت — الرسمة بتتاخد بيه (`CaseArt`) مش بالعنوان */
+  caseSlug: string
   caseTitle: string
+  worldSlug: string
   worldName: string
   theme: string
   report: string
@@ -284,7 +287,9 @@ export async function getCaseFile(sbotaId: string): Promise<CaseFileDoc | null> 
   if (!r) return null
   return {
     fileNo: s(r.file_no),
+    caseSlug: s(r.case_slug),
     caseTitle: s(r.case_title_ar),
+    worldSlug: s(r.world_slug),
     worldName: s(r.world_name_ar),
     theme: s(r.theme),
     report: s(r.report_ar),
@@ -308,7 +313,9 @@ export async function getCasePreview(slug: string): Promise<CasePreviewDoc | nul
   const r = row(data)
   if (!r) return null
   return {
+    caseSlug: s(r.case_slug),
     caseTitle: s(r.case_title_ar),
+    worldSlug: s(r.world_slug),
     worldName: s(r.world_name_ar),
     theme: s(r.theme),
     report: s(r.report_ar),

@@ -2,6 +2,7 @@
 
 import { useT } from '@/components/CopyProvider'
 import { Em } from '@/components/case/Em'
+import { CaseArt } from '@/components/case/CaseArt'
 import type { CaseClue, CaseFileDoc, CasePlayer } from '@/lib/cases'
 
 /**
@@ -76,6 +77,17 @@ export function CaseFile({
           <div>{doc.worldName}</div>
           {doc.fileNo ? <div>{t('case.file.no').replace('{{1}}', doc.fileNo)}</div> : null}
         </div>
+      </div>
+
+      {/* رسمة القضية — بتتاخد بالـslug، وألوانها بتورّث ورقة الدوسيه
+          (`currentColor` + `bg`)، مش ألوان الصفحة. */}
+      <div className="mt-4" style={{ color: ink }}>
+        <CaseArt
+          slug={doc.caseSlug}
+          world={doc.worldSlug}
+          bg={dark ? 'rgba(251,247,239,.07)' : 'rgba(20,22,26,.05)'}
+          fill={paper}
+        />
       </div>
 
       {/* ===== البلاغ — الحكاية من أولها ===== */}
