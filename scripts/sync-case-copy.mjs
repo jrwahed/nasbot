@@ -1,5 +1,5 @@
 /**
- * بيولّد مفاتيح `case.*` في `src/data/copy-fallback.ts` من هجرة `0136`.
+ * بيولّد مفاتيح `case.*` و`qadeya.*` في `src/data/copy-fallback.ts` من هجرة `0136`.
  *
  * ليه سكريبت مش تعديل بالإيد: الدرس الخامس — الاحتياطي لازم يملا الناقص،
  * والمصدر الوحيد للنص هو ملف الهجرة. لو زوّدت مفتاح في الهجرة، شغّل:
@@ -21,13 +21,44 @@ const sql = readdirSync(MIG_DIR)
   .sort()
   .map((f) => readFileSync(join(MIG_DIR, f), 'utf8'))
   .join('\n')
-const re = /\(\s*'(case\.[a-z0-9._]+)'\s*,\s*'((?:[^']|'')*)'/g
+/**
+ * ⚠ **بنقرا من كتل `insert into copy_strings` بس.**
+ *
+ * أول نسخة كانت بتعمل regex على الملف كله، فكانت بتمسك كمان قوايم
+ * المفاتيح اللي جوه دوال الاختبار:
+ *
+ *     where key in ('case.how.1','case.how.2', …)
+ *
+ * الشكل ده بيطابق «مفتاح ثم نص»، والاختبار بيجي **بعد** الإدراج في
+ * الملف، فكان بيكتب فوق القيمة الصح: `case.how.1` قيمتها بقت
+ * «case.how.2» حرفيًا. وظهرت على الصفحة كده بالظبط.
+ *
+ * ومحصلش فشل في أي فاحص — البناء عدّى و`tsc` عدّى. اتكشفت لما اتفتحت
+ * الصفحة بالعين (الدرس الخمستاشر: «الكود اتكتب» مش «الصفحة بتشتغل»).
+ */
+const BLOCK = /insert\s+into\s+copy_strings[\s\S]*?on\s+conflict/gi
+const PAIR = /\(\s*'((?:case|qadeya)\.[a-z0-9._]+)'\s*,\s*'((?:[^']|'')*)'/g
+
 const found = new Map()
-let m
-while ((m = re.exec(sql))) found.set(m[1], m[2].replace(/''/g, "'"))
+for (const block of sql.match(BLOCK) ?? []) {
+  let m
+  PAIR.lastIndex = 0
+  while ((m = PAIR.exec(block))) found.set(m[1], m[2].replace(/''/g, "'"))
+}
+
+/**
+ * حارس: أي قيمة شكلها مفتاح معناها إننا مسكنا الحاجة الغلط تاني.
+ * أرخص من فاحص، وبيقع بدل ما يعدّي بالصمت.
+ */
+for (const [k, v] of found) {
+  if (/^(case|qadeya)\.[a-z0-9._]+$/.test(v)) {
+    console.error(`✗ ${k} قيمتها مفتاح تاني (${v}) — الregex مسك حاجة مش إدراج`)
+    process.exit(1)
+  }
+}
 
 if (!found.size) {
-  console.error('✗ مفيش مفاتيح case.* في الهجرة')
+  console.error('✗ مفيش مفاتيح case.*/qadeya.* في الهجرات')
   process.exit(1)
 }
 

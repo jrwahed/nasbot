@@ -79,6 +79,8 @@ src/
     game         «مين جاي؟» — مدخلها `GameStrip` في الرئيسية + رابط الهيدر
     play/[sbotaId] «قضية الليلة» — الدخول بالكود · الكارت · الفصل · التصويت · الختام
                  (+`/host` لصاحب الخروجة) · ورا مفتاح `cases`
+    qadeya       «قضية الليلة» العامة — القضايا التسعة بالبلاغ والمطلوب + «اشترك في
+                 سبوطة». مدخلها في القايمة · ورا مفتاح `cases` · مفتوحة للمجهول
     my/[id]/answers «جاوب قبل بكرة» — ١٢ سؤال يوم الكشف، مدخلها `CaseStrip`
     me/sbotati   «خروجاتي» — اللي أنا فاتحها: الأعداد · السطر · الإلغاء
     captain/[id] لوحة اللي ماسك المجموعة — صاحب الخروجة أو كابتن نسبوط
@@ -125,7 +127,7 @@ scripts/         check-copy · فاحصات · بذور النصوص
 
 **دوال مهمة:** `fn_can_book` · `fn_capacity_guard` (قفل السعة) · `fn_booking_paid` · `fn_cancel_booking` · `fn_approve_transfer` · `fn_redeem_pass`/`fn_revert_pass`/`fn_activate_pass` · `fn_build_matching`/`fn_build_work_matching` · `fn_reveal` · `fn_pair_want`/`fn_work_want` (الطريق الصح لكتابة التبادل) · `fn_is_admin`/`fn_has_permission` · `fn_can_see_place`/`fn_sbota_place` (الحارس والبيانات، كل واحد لوحده) · `fn_safety_link`/`fn_safety_my`/`fn_safety_view`/`fn_safety_mark`/`fn_safety_revoke` · `fn_sbota_arrival`/`fn_set_sbota_sign` · `fn_join_waitlist`/`fn_admit_waitlist` · `fn_book_free` (بعلم `nasbot.trusted_booking`) · `fn_want_soon`/`fn_want_sbota` · `fn_admin_alert` · `fn_send_broadcast` · `fn_tg_link_token`/`fn_tg_member_link` (بوت الأعضاء — الربط بالتوكن بس).
 
-**قضية الليلة (0130–0136):** `fn_case_can_host` (المصدر الواحد: المفتاح + `origin='nasbot'` + مش شغل + قضية نشطة) · `fn_case_player_ok` (= `fn_case_can_host` + `fn_can_see_place`، **مركّب مش منسوخ**) · `fn_case_host` (الكابتن، وإلا صاحب الخروجة، وإلا أقدم حجز مدفوع — نفس منطق `fn_sbota_arrival`) · `fn_case_questions`/`fn_case_answer`/`fn_case_observe` · `fn_case_open`/`fn_case_code`/`fn_case_join`/`fn_case_watch` · **`fn_case_my_role`** · `fn_case_pair_for` (بحث التلميحين — بينادوها `fn_case_build` و`fn_case_build_double`) · `fn_case_clue3_for` · `fn_case_build`/`fn_case_build_vault`/`fn_case_build_double` · `fn_case_next_act` · `fn_case_clues` · `fn_case_vote`/`fn_case_vote_state` · `fn_case_finish`/`fn_case_finish_double`/`fn_case_vault_close` · `fn_case_result`/`fn_case_lies`/`fn_case_awards`/`fn_case_my_points` · `fn_case_vault`/`fn_case_vault_try` · `fn_case_players_list` · `job_purge_case_answers` · وبذرة الاختبار `fn_case_fixture_up`/`fn_case_fixture_down`.
+**قضية الليلة (0130–0138):** `fn_case_can_host` (المصدر الواحد: المفتاح + `origin='nasbot'` + مش شغل + قضية نشطة) · `fn_case_player_ok` (= `fn_case_can_host` + `fn_can_see_place`، **مركّب مش منسوخ**) · `fn_case_host` (الكابتن، وإلا صاحب الخروجة، وإلا أقدم حجز مدفوع — نفس منطق `fn_sbota_arrival`) · `fn_case_questions`/`fn_case_answer`/`fn_case_observe` · `fn_case_open`/`fn_case_code`/`fn_case_join`/`fn_case_watch` · **`fn_case_my_role`** · `fn_case_pair_for` (بحث التلميحين — بينادوها `fn_case_build` و`fn_case_build_double`) · `fn_case_clue3_for` · `fn_case_build`/`fn_case_build_vault`/`fn_case_build_double` · `fn_case_next_act` · `fn_case_clues` · `fn_case_vote`/`fn_case_vote_state` · `fn_case_finish`/`fn_case_finish_double`/`fn_case_vault_close` · `fn_case_result`/`fn_case_lies`/`fn_case_awards`/`fn_case_my_points` · `fn_case_vault`/`fn_case_vault_try` · `fn_case_players_list` · `fn_case_file`/`fn_case_preview` · **`fn_cases_public`** (الوحيدة المفتوحة للمجهول — صفحة `/qadeya`) · `job_purge_case_answers` · وبذرة الاختبار `fn_case_fixture_up`/`fn_case_fixture_down`.
 
 **صفحات المحتوى (0082):** `content_pages` · `content_blocks`. القواعد والأسئلة ومين إحنا والشروط — الفقرات بتتضاف وتتمسح وتترتّب من `/admin/content` ← «صفحات الموقع». الكتابة بـ`content.edit`. والفقرة اللي الكود بيسأل عنها بالاسم ليها `ref` ثابت (`guarantee`).
 
@@ -247,7 +249,7 @@ psql -h 127.0.0.1 -p 5433 -U postgres -d nasbot --single-transaction -f WORK_MIG
 
 ---
 
-## ٨. الحالة الحالية (آخر تحديث ٢٠٢٦-١٠-٠٤ — البنود مرتّبة بالموضوع مش بالتاريخ)
+## ٨. الحالة الحالية (آخر تحديث ٢٠٢٦-١٠-٣١ — البنود مرتّبة بالموضوع مش بالتاريخ)
 
 - ✅ منشور وشغّال · دخول إيميل+باسورد · لوحة كاملة · طبقة الشغل (المراحل ١-٦) · إيميل بجدولة.
 - 🟢 **نقلة المنتج: العضو بيفتح خروجته بنفسه — اتلزقت** (`WORK_MIGRATION_8.sql`: `0078` الأعمدة والدوال والحدود · `0079` اختبارها · `0080` أماكن الفورم · `0081` ٥٢ نص). *(اللزق بكلام المالك ٢٠٢٦-٠٩-١٢ — لو حصل شك، شوف «التأكد إيه اللي اتلزق» تحت.)*
@@ -666,6 +668,22 @@ psql -h 127.0.0.1 -p 5433 -U postgres -d nasbot --single-transaction -f WORK_MIG
       ولا حجز ولا جلسة**. ودي اللي بتحل مشكلة «فتحته ومفيش حاجة».
     - ⚠ وملف اللاعب (`fn_case_file`) **مفيهوش** كارت المتهم ولا النهايات
       ولا المفاجأة — فيه اختبار صريح على ده.
+  - 🔴 **صفحة `/qadeya` العامة (`0138` · `WORK_MIGRATION_56`).** بعد الملف،
+    المالك قال: «عاوز يبقى ليها صفحة هنا [في القايمة] وتقول عشان تشترك في
+    حل القضية اشترك في سبوطة، بس القضية وتفاصيلها كلها مكتوبة».
+    - `fn_cases_public()` هي **الدالة الوحيدة في اللعبة المفتوحة للمجهول**،
+      وبترجّع **سبع حاجات بس**: `slug` · العنوان · الشكل · البلاغ · مسرح
+      الواقعة · المطلوب · اسم العالم وجوه. **مفيهاش** كارت المتهم ولا
+      النهايات ولا المفاجأة ولا الأسئلة ولا نصوص التلميحات — نفس قاعدة
+      `fn_case_file` بالظبط، وفيه اختبار صريح عليها.
+    - وبتحترم مفتاح `cases`: لو مقفول بترجّع **ولا صف**، فالصفحة والمدخل
+      بيختفوا مع بعض (`check-nav-flags` بيحرس ده).
+    - الصفحة `src/app/qadeya/page.tsx`: «إزاي تتحل» (نفس `case.how.1..5` بتاعة
+      الملف — مصدر واحد) · «وبعدين؟» · **صندوقين CTA برتقاليين** «اشترك في
+      سبوطة» → `/` · والقضايا مجمّعة بعوالمها، كل واحدة بالبلاغ ومسرح
+      الواقعة والمطلوب · وتحتها سطر إن التفاصيل الباقية بتتكشف في الخروجة.
+    - `test_cases_public()` ٥ صفوف، واتجرّب بتلات فخاخ (تسريب كارت المتهم ·
+      الدالة بتتجاهل المفتاح · المجهول مش بيقرا).
   - **قسم «القضايا» في اللوحة** — العوالم والقضايا وبنك الأسئلة ونص
     التلميح لكل اختيار والمهمات وألغاز الخزنة. ⚠ **مفيش فيه «اختار
     المتهم» ولا «شوف الأدوار»، ولا هيكون** — ده بيكسر اللعبة مش بيسهّلها.
@@ -676,7 +694,7 @@ psql -h 127.0.0.1 -p 5433 -U postgres -d nasbot --single-transaction -f WORK_MIG
     بينزل **مقفول**.
   - `test_cases_schema` ١١ · `test_cases_content` ١٥ · `test_case_roles` ١٩ ·
     `test_case_clues` ١٥ · `test_case_vote` ١٧ · `test_case_variants` ١٧ ·
-    `test_case_copy` ٥ · `test_case_file` ٧ = **١٠٦ صف · صفر فشل محليًا وعلى الإنتاج**، واتجرّبوا
+    `test_case_copy` ٥ · `test_case_file` ٧ · `test_cases_public` ٥ = **١١١ صف · صفر فشل محليًا وعلى الإنتاج**، واتجرّبوا
     بـ**٢٢ فخ متعمّد** كلهم اتمسكوا. وكل ملف اتلزق تلات مرات (عادي · معاملة
     واحدة · `\r\n`)، وصفر صفوف سايبة بعد `fn_case_fixture_down`.
   - **الفحص الشامل بعد اللزق: ٧١ دالة اختبار · صفر فشل**، وصفر صفوف اختبار
@@ -691,11 +709,11 @@ psql -h 127.0.0.1 -p 5433 -U postgres -d nasbot --single-transaction -f WORK_MIG
     وبتعرض الحالة الفاضية الصح من غير بيانات وهمية). المنطق كله متفحوص
     في القاعدة. الدرس الخمستاشر — فأول خطوة بعد اللزق تجربة كاملة
     بموبايلين على خروجة تجربة.
-  - ⚠ **اللزق بالترتيب 48←55** — `50` بتنادي حراس من `48` و`53` بتنادي
+  - ⚠ **اللزق بالترتيب 48←56** — `50` بتنادي حراس من `48` و`53` بتنادي
     `fn_case_pair_for` من `51`، وبوستجرس ما بيتحققش من النداءات دي وقت
     إنشاء الدالة. التشغيل في `RUNBOOK.md` §20.
-  - ⚠ **المفتاح لسه مقفول** — افتحه من `/admin/settings` ← مفاتيح المزايا
-    لما تكون جاهز. والقوالب الـ٩٢ اتربطت بعوالم افتراضيًا.
+  - ✅ **المفتاح اتفتح** (٢٠٢٦-١٠-٣١) — فصفحة `/qadeya` والمدخل في القايمة
+    شغّالين. والقوالب الـ٩٢ اتربطت بعوالم افتراضيًا.
 
 - 🟢 **بوت تليجرام للأعضاء (٢٠٢٦-١٠-٠٤)** — `WORK_MIGRATION_46` / `0128` — **اتطبّق على الإنتاج** و`test_member_telegram()` ١١/١١ هناك.
   طلب المالك: «لما حد جديد يسجّل، يبقى فيه بوت تليجرام تاني يجيله فيه إشعار لو فيه خروجة جديدة».
@@ -1212,6 +1230,28 @@ end if;
 اختبار بيعدّي محليًا وبيقع على الإنتاج. `scripts/pg-shim.sql` بقى فيه
 تعريف سوبابيس بالحرف، واتجرّب إنه بيرمي نفس الاستثناء.
 
+⚠ **درس تلاتين — السكريبت اللي بيولّد الاحتياطي من الهجرة بيقرا اللي مش
+المقصود.** `scripts/sync-case-copy.mjs` بيسحب مفاتيح `copy_strings` من ملفات
+الهجرة ويملا `src/data/copy-fallback.ts`. وقع **تلات مرات ورا بعض**، وفي كل
+مرة كان بيطبع «✓ كله موجود»:
+
+1. كان بيقرا ملف `0136` **بالاسم**، فمفاتيح `0137` الـ٢٠ ضاعت بالصمت.
+2. الـregex كان `case\.` بس، فمفاتيح `qadeya.*` بتاعة `0138` ضاعت.
+3. والأسوأ: الـregex كان بيمسك **قوايم المفاتيح جوه دوال الاختبار** كمان
+   (`where key in ('case.how.1','case.how.2', …)`) — ودوال الاختبار بعد
+   الـ`insert` في نفس الملف، فـ`Map.set` كتبت فوق القيم الصح بأسماء مفاتيح:
+   `"case.how.1": "case.how.2"`. يعني الصفحة كانت بتعرض **أسامي المفاتيح**
+   للزائر.
+
+التالت ده **ما اتمسكش بأي فاحص** — لا `check-copy` (المفتاح موجود فعلًا)
+ولا `tsc` ولا `next build`. اتمسك لأني فتحت الصفحة وصوّرتها.
+
+**القواعد:** (١) السكريبت يلف على **كل** ملفات الهجرة مش على اسم ملف.
+(٢) يسحب من **بلوكات `insert into copy_strings … on conflict` بس**، مش من
+الملف كله. (٣) وفيه حارس بيوقع (`process.exit(1)`) لو أي **قيمة** شكلها
+مفتاح (`^(case|qadeya)\.[a-z0-9._]+$`) — السكريبت اللي بيولّد بيانات لازم
+يفحص اللي ولّده. (٤) والدرس التسعتاشر تاني: **افتح الصفحة وصوّرها**.
+
 ### بعد كل خروجة
 
 **`AFTER_SBOTA.md`** — دورة بتلف بعد كل خروجة، مش قايمة مهام مكتوبة مرة.
@@ -1233,7 +1273,7 @@ end if;
 
 **نقطة البداية: `START_HERE.md`** — الحالة والطريق واللي فاضل، في ملف واحد.
 
-**`AFTER_SBOTA.md`** + **`SBOTAT_LOG.md`** (دورة ما بعد الخروجة) · `CONTENT_BRIEF.md` (المحتوى الناقص) · `CHECK_DB.sql` (فاحص القاعدة الشامل) · `README.md` · `DB_PLAN.md` · `ADMIN_PLAN.md` · `WORK_PLAN.md` · `DESIGN_TOKENS.md` · `COPY.md` · `ADMIN_GUIDE.md` · `RUNBOOK.md` · `DEPLOY_CHECKLIST.md` · **`REVIEW*.md`** (المراجعة) · ملفات `WORK_MIGRATION_*.sql` (لحد `_55`) و`WORK_CRON.sql` — كلهم في **`db-bundles/`** (تتلزق في SQL Editor).
+**`AFTER_SBOTA.md`** + **`SBOTAT_LOG.md`** (دورة ما بعد الخروجة) · `CONTENT_BRIEF.md` (المحتوى الناقص) · `CHECK_DB.sql` (فاحص القاعدة الشامل) · `README.md` · `DB_PLAN.md` · `ADMIN_PLAN.md` · `WORK_PLAN.md` · `DESIGN_TOKENS.md` · `COPY.md` · `ADMIN_GUIDE.md` · `RUNBOOK.md` · `DEPLOY_CHECKLIST.md` · **`REVIEW*.md`** (المراجعة) · ملفات `WORK_MIGRATION_*.sql` (لحد `_56`) و`WORK_CRON.sql` — كلهم في **`db-bundles/`** (تتلزق في SQL Editor).
 
 ---
 

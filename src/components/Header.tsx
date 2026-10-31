@@ -48,6 +48,7 @@ const NAV: ReadonlyArray<{
   { href: '/rules', key: 'shared.text.16' },
   { href: '/captains', key: 'shared.text.15', flag: 'captains' },
   { href: '/game', key: 'game.nav', flag: 'game' },
+  { href: '/qadeya', key: 'qadeya.nav', flag: 'cases' },
 ]
 
 export function Header({

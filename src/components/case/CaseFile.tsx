@@ -1,6 +1,7 @@
 'use client'
 
 import { useT } from '@/components/CopyProvider'
+import { Em } from '@/components/case/Em'
 import type { CaseClue, CaseFileDoc, CasePlayer } from '@/lib/cases'
 
 /**
@@ -83,7 +84,7 @@ export function CaseFile({
           <Head>{t('case.file.report')}</Head>
           <div className="mt-2 space-y-2 text-[16px] leading-relaxed">
             {doc.report.split('\n').filter(Boolean).map((line, i) => (
-              <p key={i}>{line}</p>
+              <p key={i}><Em text={line} /></p>
             ))}
           </div>
         </>
@@ -123,7 +124,7 @@ export function CaseFile({
             <span className="shrink-0 font-bold" style={{ color: '#F4632A' }}>
               {i + 1}
             </span>
-            <span>{t(k)}</span>
+            <span><Em text={t(k)} /></span>
           </li>
         ))}
       </ol>

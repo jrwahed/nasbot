@@ -86,6 +86,23 @@ export interface CaseFileDoc {
   suspectName: string
 }
 
+/** قضية في الصفحة العامة — القصة بس، من غير أي حل. */
+export interface PublicCase {
+  slug: string
+  title: string
+  shape: CaseShape
+  report: string
+  scene: string
+  goal: string
+  worldSlug: string
+  worldName: string
+  worldMood: string
+  theme: string
+  detectiveName: string
+  suspectName: string
+  minPlayers: number
+}
+
 /** الملف الكامل للوحة — فيه كارت المتهم والنهايتين. `cases.view` بس. */
 export interface CasePreviewDoc extends Omit<CaseFileDoc, 'fileNo' | 'act' | 'started' | 'ended'> {
   detectiveCard: string
@@ -216,6 +233,38 @@ export async function getCaseState(sbotaId: string): Promise<CaseState | null> {
     hintAfterMin: n(r.hint_after_min, 10),
     talkMin: n(r.talk_min, 5),
   }
+}
+
+/* =================================================== الصفحة العامة */
+
+/**
+ * القضايا للصفحة العامة `/qadeya`.
+ *
+ * 🔴 **دي الوحيدة المفتوحة للمجهول في النظام كله.** بترجّع القصة بس:
+ *    البلاغ ومسرح الواقعة والمطلوب. مفيش كارت متهم ولا نهايات ولا
+ *    تلميحات — ولو حد زوّدهم، `test_cases_public` بيقع.
+ *
+ * ⚠ وبترجّع فاضي لو المفتاح مقفول — الفلترة في القاعدة مش هنا.
+ */
+export async function getPublicCases(): Promise<PublicCase[]> {
+  if (!DB) return []
+  const { data, error } = await supabase().rpc('fn_cases_public')
+  if (error) return []
+  return rows(data).map((r) => ({
+    slug: s(r.case_slug),
+    title: s(r.case_title_ar),
+    shape: (s(r.shape) || 'single') as CaseShape,
+    report: s(r.report_ar),
+    scene: s(r.scene_ar),
+    goal: s(r.goal_ar),
+    worldSlug: s(r.world_slug),
+    worldName: s(r.world_name_ar),
+    worldMood: s(r.world_mood_ar),
+    theme: s(r.theme),
+    detectiveName: s(r.detective_name_ar),
+    suspectName: s(r.suspect_name_ar),
+    minPlayers: n(r.min_players),
+  }))
 }
 
 /* ======================================================== ملف القضية */
