@@ -68,6 +68,36 @@ export interface CaseMyRole {
   partnerCodename: string | null
 }
 
+/** ملف القضية — الدوسيه اللي المجموعة بتقراه. ⚠ مفيهوش الحل. */
+export interface CaseFileDoc {
+  fileNo: string
+  caseTitle: string
+  worldName: string
+  theme: string
+  report: string
+  scene: string
+  goal: string
+  intro: string
+  shape: CaseShape
+  act: CaseAct
+  started: boolean
+  ended: boolean
+  detectiveName: string
+  suspectName: string
+}
+
+/** الملف الكامل للوحة — فيه كارت المتهم والنهايتين. `cases.view` بس. */
+export interface CasePreviewDoc extends Omit<CaseFileDoc, 'fileNo' | 'act' | 'started' | 'ended'> {
+  detectiveCard: string
+  suspectCard: string
+  act2Event: string | null
+  winEnding: string
+  escapeEnding: string
+  twist: string | null
+  minPlayers: number
+  hasAct2Event: boolean
+}
+
 export interface CaseQuestion {
   questionId: string
   question: string
@@ -185,6 +215,68 @@ export async function getCaseState(sbotaId: string): Promise<CaseState | null> {
     cardSeconds: n(r.card_seconds, 5),
     hintAfterMin: n(r.hint_after_min, 10),
     talkMin: n(r.talk_min, 5),
+  }
+}
+
+/* ======================================================== ملف القضية */
+
+/**
+ * الدوسيه للاعب: البلاغ ومسرح الواقعة والمطلوب.
+ *
+ * ⚠ **الأدلة مش هنا** — بتيجي من `getCaseClues` اللي بترجّع المفتوح لحد
+ *   الفصل الحالي بس. لو اتجمّعوا في دالة واحدة، أول واحد ينسى الحارس
+ *   هيبعت التلاتة مع بعض.
+ */
+export async function getCaseFile(sbotaId: string): Promise<CaseFileDoc | null> {
+  if (!DB) return null
+  const { data, error } = await supabase().rpc('fn_case_file', { s_id: sbotaId })
+  if (error) return null
+  const r = row(data)
+  if (!r) return null
+  return {
+    fileNo: s(r.file_no),
+    caseTitle: s(r.case_title_ar),
+    worldName: s(r.world_name_ar),
+    theme: s(r.theme),
+    report: s(r.report_ar),
+    scene: s(r.scene_ar),
+    goal: s(r.goal_ar),
+    intro: s(r.intro_ar),
+    shape: (s(r.shape) || 'single') as CaseShape,
+    act: s(r.act) as CaseAct,
+    started: Boolean(r.started),
+    ended: Boolean(r.ended),
+    detectiveName: s(r.detective_name_ar),
+    suspectName: s(r.suspect_name_ar),
+  }
+}
+
+/** معاينة الملف الكامل — للوحة بس (`cases.view`). بترجّع null لأي حد تاني. */
+export async function getCasePreview(slug: string): Promise<CasePreviewDoc | null> {
+  if (!DB) return null
+  const { data, error } = await supabase().rpc('fn_case_preview', { p_slug: slug })
+  if (error) return null
+  const r = row(data)
+  if (!r) return null
+  return {
+    caseTitle: s(r.case_title_ar),
+    worldName: s(r.world_name_ar),
+    theme: s(r.theme),
+    report: s(r.report_ar),
+    scene: s(r.scene_ar),
+    goal: s(r.goal_ar),
+    intro: s(r.intro_ar),
+    shape: (s(r.shape) || 'single') as CaseShape,
+    detectiveName: s(r.detective_name_ar),
+    suspectName: s(r.suspect_name_ar),
+    detectiveCard: s(r.detective_card_ar),
+    suspectCard: s(r.suspect_card_ar),
+    act2Event: sOrNull(r.act2_event_ar),
+    winEnding: s(r.win_ending_ar),
+    escapeEnding: s(r.escape_ending_ar),
+    twist: sOrNull(r.twist_ar),
+    minPlayers: n(r.min_players),
+    hasAct2Event: Boolean(r.has_act2_event),
   }
 }
 

@@ -5,12 +5,22 @@
  * والمصدر الوحيد للنص هو ملف الهجرة. لو زوّدت مفتاح في الهجرة، شغّل:
  *   node scripts/sync-case-copy.mjs
  */
-import { readFileSync, writeFileSync } from 'node:fs'
+import { readFileSync, readdirSync, writeFileSync } from 'node:fs'
+import { join } from 'node:path'
 
-const MIG = 'supabase/migrations/20261031180000_0136_cases_copy.sql'
+/**
+ * ⚠ بيقرا من **كل** ملفات الهجرة مش من ملف واحد. أول نسخة كانت مربوطة
+ *   بـ`0136` بالاسم، فأول ما `0137` زوّدت مفاتيح `case.file.*` السكريبت
+ *   قال «كله موجود» وهو مش شايفها أصلًا — فاحص بيقول «تمام» على غلط.
+ */
+const MIG_DIR = 'supabase/migrations'
 const FB = 'src/data/copy-fallback.ts'
 
-const sql = readFileSync(MIG, 'utf8')
+const sql = readdirSync(MIG_DIR)
+  .filter((f) => f.endsWith('.sql'))
+  .sort()
+  .map((f) => readFileSync(join(MIG_DIR, f), 'utf8'))
+  .join('\n')
 const re = /\(\s*'(case\.[a-z0-9._]+)'\s*,\s*'((?:[^']|'')*)'/g
 const found = new Map()
 let m

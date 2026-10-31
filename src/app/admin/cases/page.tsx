@@ -19,6 +19,7 @@ import {
   when,
 } from '@/components/admin-ui'
 import type { AdminMe } from '@/lib/admin'
+import { getCasePreview, type CasePreviewDoc } from '@/lib/cases'
 
 /**
  * «القضايا» — العوالم والقضايا وبنك الأسئلة والمهمات وألغاز الخزنة.
@@ -69,6 +70,9 @@ interface CaseRow {
   max_players: number | null
   sort: number
   is_active: boolean
+  report_ar: string | null
+  scene_ar: string | null
+  goal_ar: string | null
 }
 
 interface QRow {
@@ -169,6 +173,9 @@ function Body({ me }: { me: AdminMe }) {
   const [riddles, setRiddles] = useState<RiddleRow[]>([])
   const [live, setLive] = useState<SessionRow[]>([])
   const [banned, setBanned] = useState<string[]>([])
+  /** الملف اللي المالك فاتحه دلوقتي للقراية — slug القضية */
+  const [openFile, setOpenFile] = useState<string | null>(null)
+  const [fileDoc, setFileDoc] = useState<CasePreviewDoc | null>(null)
   const [loading, setLoading] = useState(true)
   const { msg, flash } = useFlash()
 
@@ -227,6 +234,27 @@ function Body({ me }: { me: AdminMe }) {
     flash('اتحفظ ✓')
   }
 
+  /**
+   * «اقرا الملف» — المعاينة.
+   *
+   * ⚠ دي اللي كانت ناقصة: المالك كتب ٩ قضايا وما كانش يقدر يقرا ولا
+   *   واحدة من غير ما يعمل سبوطة ويحجز فيها ويفتح جلسة. فتح الموقع
+   *   ولقى مفيش حاجة — وبحق. ميزة تتكتب وما تتشافش = ميزة مش موجودة
+   *   (الدرس التامن).
+   */
+  const readFile = async (slug: string) => {
+    if (openFile === slug) {
+      setOpenFile(null)
+      setFileDoc(null)
+      return
+    }
+    setOpenFile(slug)
+    setFileDoc(null)
+    const d = await getCasePreview(slug)
+    if (!d) return flash('مقدرناش نجيب الملف — محتاج صلاحية cases.view')
+    setFileDoc(d)
+  }
+
   if (loading) return <Loading />
 
   const tabs: { id: Tab; label: string }[] = [
@@ -255,6 +283,11 @@ function Body({ me }: { me: AdminMe }) {
         اختيار المتهم وحساب التلميحات جوه القاعدة — مفيش حاجة هنا بتختار متهم ولا
         بتعرض الأدوار، وده مقصود.
       </p>
+      <p className="mt-2 font-body text-13" style={{ color: 'var(--muted)' }}>
+        «اقرا الملف» بيوريك القضية كاملة زي ما المجموعة هتقراها — ومعاها كارت المتهم
+        والنهايتين. وطريقة الحل («إزاي تتحل») واحدة لكل اللعبة وبتتعدّل من «النصوص»
+        بمفاتيح <code>case.how.*</code>، مش من هنا.
+      </p>
 
       <Tabs tabs={tabs} value={tab} onChange={setTab} />
 
@@ -273,11 +306,67 @@ function Body({ me }: { me: AdminMe }) {
                 </span>
               </div>
 
+              <div className="mt-3">
+                <Btn onClick={() => readFile(c.slug)}>
+                  {openFile === c.slug ? 'اقفل الملف' : 'اقرا الملف 🔍'}
+                </Btn>
+              </div>
+
+              {openFile === c.slug && fileDoc ? (
+                <div
+                  className="mt-3 rounded-12 p-4 font-body text-14"
+                  style={{ background: 'var(--sand)', whiteSpace: 'pre-wrap', lineHeight: 1.8 }}
+                >
+                  <strong>البلاغ</strong>
+                  {'\n'}{fileDoc.report || '— فاضي —'}
+                  {'\n\n'}<strong>مسرح الواقعة</strong>
+                  {'\n'}{fileDoc.scene || '— فاضي —'}
+                  {'\n\n'}<strong>المطلوب</strong>
+                  {'\n'}{fileDoc.goal || '— فاضي —'}
+                  {'\n\n'}<strong>كارت {fileDoc.detectiveName}</strong>
+                  {'\n'}{fileDoc.detectiveCard}
+                  {'\n\n'}<strong>كارت {fileDoc.suspectName} (سري)</strong>
+                  {'\n'}{fileDoc.suspectCard}
+                  {fileDoc.act2Event ? (
+                    <>
+                      {'\n\n'}<strong>حدث الفصل التاني</strong>
+                      {'\n'}{fileDoc.act2Event}
+                    </>
+                  ) : null}
+                  {'\n\n'}<strong>لو اتقفش</strong>
+                  {'\n'}{fileDoc.winEnding}
+                  {fileDoc.twist ? `\n(مفاجأة) ${fileDoc.twist}` : ''}
+                  {'\n\n'}<strong>لو هرب</strong>
+                  {'\n'}{fileDoc.escapeEnding}
+                </div>
+              ) : null}
+
               <div className="mt-3 flex flex-col gap-3">
                 <TextField
                   label="العنوان"
                   value={c.title_ar}
                   onSave={(v) => save('cases', { id: c.id }, { title_ar: v })}
+                />
+                <TextField
+                  label="البلاغ — الحكاية من أولها"
+                  value={c.report_ar ?? ''}
+                  multiline
+                  hint="مين ومتى وإيه اللي حصل. ده أول حاجة المجموعة بتقراها — خليه يتقرا زي بلاغ مباحث."
+                  onSave={(v) => save('cases', { id: c.id }, { report_ar: v || null })}
+                />
+                <TextField
+                  label="مسرح الواقعة"
+                  value={c.scene_ar ?? ''}
+                  multiline
+                  hint="اللي قدامهم لما يبصّوا حواليهم. بيدّيهم حاجة يتكلموا عنها."
+                  onSave={(v) => save('cases', { id: c.id }, { scene_ar: v || null })}
+                />
+                <TextField
+                  label="المطلوب"
+                  value={c.goal_ar ?? ''}
+                  multiline
+                  hint="إيه اللي لازم يطلعوا بيه آخر الليلة."
+                  onSave={(v) => save('cases', { id: c.id }, { goal_ar: v || null })}
                 />
                 <TextField
                   label="المقدمة على الشاشة"

@@ -8,13 +8,14 @@ import { EmergencyCall } from '@/components/EmergencyBlock'
 import { useT } from '@/components/CopyProvider'
 import { FeatureGate } from '@/components/FlagsProvider'
 import { CaseCard } from '@/components/case/CaseCard'
-import { ClueBox } from '@/components/case/ClueBox'
+import { CaseFile } from '@/components/case/CaseFile'
 import { VotePanel } from '@/components/case/VotePanel'
 import { EndingCard } from '@/components/case/EndingCard'
 import { VaultBox } from '@/components/case/VaultBox'
 import {
   getCaseAwards,
   getCaseClues,
+  getCaseFile,
   getCaseLies,
   getCaseObserveQ,
   getCasePlayers,
@@ -31,6 +32,7 @@ import {
   watchCase,
   type CaseAward,
   type CaseClue,
+  type CaseFileDoc,
   type CaseLie,
   type CaseMyRole,
   type CasePlayer,
@@ -72,6 +74,7 @@ function PlayInner() {
   const [lies, setLies] = useState<CaseLie[]>([])
   const [awards, setAwards] = useState<CaseAward[]>([])
   const [outfit, setOutfit] = useState<CaseQuestion | null>(null)
+  const [doc, setDoc] = useState<CaseFileDoc | null>(null)
 
   const [code, setCode] = useState('')
   const [msg, setMsg] = useState<string | null>(null)
@@ -85,6 +88,11 @@ function PlayInner() {
       setLoading(false)
       return
     }
+
+    // ⚠ الملف بيتحمّل **دايمًا** — قبل ما الأدوار تتوزّع كمان. ده المقصود:
+    //   المجموعة بتقرا البلاغ والمطلوب وإزاي تتحل وهي لسه بتستنى، مش بعد
+    //   ما تبدأ. من غير كده الشاشة بتبقى «مستنيين الباقي» وبس.
+    setDoc(await getCaseFile(sbotaId))
 
     if (!s.started) {
       setOutfit(await getCaseObserveQ(sbotaId))
@@ -216,7 +224,6 @@ function PlayInner() {
       {/* ===== المقدمة + سؤال اللبس (قبل توزيع الأدوار) ===== */}
       {st.iAmIn && !st.started ? (
         <>
-          <p className="mt-4 text-[17px] leading-relaxed">{st.intro}</p>
           <p className="mt-3 text-[14px] opacity-70">
             {t('case.join.waiting')
               .replace('{{1}}', String(st.joined))
@@ -250,6 +257,14 @@ function PlayInner() {
         </>
       ) : null}
 
+      {/* ===== 🔴 ملف القضية =====
+          البلاغ ومسرح الواقعة والمطلوب وإزاي تتحل والأدلة — كله في ورقة
+          واحدة زي دوسيه التحقيق. والأدلة المقفولة بتبان كخانة فاضية
+          بختم، علشان المجموعة تعرف إن فاضل كام من غير ما تاخد حرف. */}
+      {st.iAmIn && doc ? (
+        <CaseFile doc={doc} clues={clues} players={players} />
+      ) : null}
+
       {/* ===== كارتك ===== */}
       {role ? (
         <CaseCard
@@ -272,9 +287,6 @@ function PlayInner() {
           <p className="mt-1 text-[15px]">{t('case.act.break.body')}</p>
         </section>
       ) : null}
-
-      {/* ===== التلميحات ===== */}
-      <ClueBox clues={clues} />
 
       {/* ===== الخزنة ===== */}
       {st.shape === 'vault' && st.started ? (
