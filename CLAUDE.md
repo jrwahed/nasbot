@@ -781,6 +781,30 @@ psql -h 127.0.0.1 -p 5433 -U postgres -d nasbot --single-transaction -f WORK_MIG
   - `activityToDb` بقى بحث حقيقي من `skill_activities` (`setActivityMap` في `map-db.ts` + `loadActivityMap` في `api.ts`)، والمجهول بيرجّع `null` وبيتخطّى بدل ما يتحفظ «سباحة».
   - ترقيم من القاعدة (`.range()` + `{ count: 'exact' }`) في `/admin/matching` · `captains` · `templates` · `shoghl`، والعدّادات فوق الجداول بقت `head: true` counts.
 
+⚠ **الإيجنت لما بيلزق بنفسه، التعليقات بتضيع — والمنطق لأ.**
+القضايا (`0130`–`0136`) اتطبّقت على الإنتاج عبر Supabase MCP، ولزقها
+اتقسّم لأجزاء وبعض التعليقات العربي اتشالت علشان الحجم. يعني
+`prosrc` على الإنتاج **مش حرف بحرف** زي ملف الهجرة.
+
+**ده مش باج، بس لازم تعرفه قبل ما تقارن:** المقارنة الصح بتشيل التعليقات
+وبتوحّد المسافات على الجنبين. الاستعلام ده بيدّي بصمة لكل دالة، شغّله
+على الإنتاج وعلى البوستجرس المحلي وقارن:
+
+```sql
+select p.proname, md5(btrim(regexp_replace(
+         regexp_replace(p.prosrc, '--[^\n]*', '', 'g'), '\s+', ' ', 'g')))
+  from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+ where n.nspname = 'public' and p.proname like 'fn\_case%'
+ order by p.proname;
+```
+
+اتعمل فعلًا بعد اللزق: **٤٩ دالة، البصمات كلها متطابقة** — يعني الفرق
+تعليقات بس. و`comment on function` (الوصف السطر الواحد) موجود على
+الـ٤٩ كلهم على الإنتاج.
+
+**والقاعدة:** ملفات `supabase/migrations/` هي مصدر الشرح والسبب، مش
+القاعدة. لو محتاج تعرف «ليه الحارس مكتوب كده»، اقرا الملف في جيتهب.
+
 ### التأكد إيه اللي اتلزق فعلًا
 
 **الفحص الكامل: الزق `CHECK_DB.sql` في SQL Editor.** بيشغّل كل دوال
