@@ -61,6 +61,18 @@ on conflict (key) do update set
   updated_at   = now();
 
 
+-- ===== 1ب) «الشروق» تطلع من مرادفات «العبور» =====
+-- ⚠ **ده مش تحسين — ده شرط.** `test_map_blocks` (0099) بيفشل لو اسم مرادف
+--   في كتلتين، ونصّه: «الترتيب هو اللي بيقرر وده هش». وكان معاه حق: أول
+--   نسخة من الملف ده سابت المرادف في العبور واعتمدت على `sort` بس، والفحص
+--   الشامل على الإنتاج طلّعها حمرا.
+--
+-- ⚠ ونفس السطر اتحط في `0099` نفسها **مشروط بوجود كتلة الشروق** — فإعادة
+--   لزق أي واحد من الملفين ما بترجّعش التكرار (الدرس التالت).
+update map_areas set match_labels = array_remove(match_labels, 'الشروق')
+ where key = 'obour';
+
+
 -- ===== 2) الكلمات الممنوعة =====
 insert into banned_words (word) values ('نفر'), ('الكابتن')
 on conflict do nothing;
@@ -128,6 +140,16 @@ begin
    where key = '3asher' and is_far and coalesce(btrim(note_ar), '') <> '';
   result := case when n = 1 then 'نجح'
                  else 'فشل — العاشر مش معلّمة «بعيدة» أو من غير وقت' end;
+  return next;
+
+  -- ⚠ الصف ده هو اللي كان ناقص: `test_map_blocks` مسك التكرار على الإنتاج
+  --   بعد ما الملف ده اتلزق. دلوقتي بيتمسك هنا كمان.
+  test := '0141 · 🔴 «الشروق» في كتلة واحدة بس';
+  select count(distinct key) into n from (
+    select key, unnest(match_labels) as lbl from map_areas where is_active
+  ) q where lbl = 'الشروق';
+  result := case when n = 1 then 'نجح'
+                 else format('فشل — 🔴 «الشروق» في %s كتلة — الترتيب هو اللي بيقرر وده هش', n) end;
   return next;
 
   test := '0141 · «نفر» و«الكابتن» في الكلمات الممنوعة';

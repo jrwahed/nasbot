@@ -149,3 +149,15 @@ begin
 end $body$;
 
 revoke execute on function test_map_blocks() from public, anon, authenticated;
+
+-- ⚠ **(0141) «الشروق» بقت كتلة لوحدها.** قبل كده كانت مرادف جوه «العبور».
+--    السطر ده بيشيلها من مرادفات العبور **لو** الكتلة الجديدة موجودة —
+--    فإعادة لزق الملف ده ما بترجّعش التكرار.
+--
+--    الدرس التالت: لو هجرة جديدة بتلغي أثر هجرة قديمة، **ارجع للقديمة
+--    وخلّيها مشروطة**. من غير السطر ده الاسم بيبقى في كتلتين، واللي بيكسب
+--    هو ترتيب `sort` — و`test_map_blocks` بيقول صريح إن ده هش، وبيقع أحمر.
+--    (وقع فعلًا على الإنتاج ٢٠٢٦-١١-١٥.)
+update map_areas set match_labels = array_remove(match_labels, 'الشروق')
+ where key = 'obour'
+   and exists (select 1 from map_areas where key = 'shorouk');
