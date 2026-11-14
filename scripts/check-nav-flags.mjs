@@ -19,6 +19,50 @@
 import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 
+/**
+ * ⚠ **التعليقات بتتشال قبل أي فحص.**
+ *
+ *   الغلطة اللي السطر ده اتكتب بسببها (٢٠٢٦-١١-١٥): مكوّن `YallaStrip`
+ *   كان مكتوب في تعليقه «بيقرا `useFlag('yalla')` بنفسه» — فالحارس شاف
+ *   الجملة دي، وافتكر إن الملف بيقرا المفتاح فعلًا، وعدّى. وقت الفخ
+ *   المتعمّد شيلنا **النداء الحقيقي** وسيبنا التعليق، والحارس قال «سليم».
+ *
+ *   يعني أي مكوّن بيشرح نفسه صح في تعليقه كان بيعفي نفسه من الفحص. دي نفس
+ *   غلطة الدرس التامن بالظبط (`prosrc` فيها التعليقات كمان) في ملف تاني.
+ *
+ *   بناخد بالنا من `//` اللي جوه نص (زي `https://`) — بنعدّي على الحروف
+ *   ونتجاهل اللي جوه علامات تنصيص، زي `check-copy.mjs`.
+ */
+function stripComments(src) {
+  let out = ''
+  let q = null       // علامة التنصيص الحالية
+  let i = 0
+  while (i < src.length) {
+    const c = src[i]
+    if (q) {
+      if (c === '\\') { out += c + (src[i + 1] ?? ''); i += 2; continue }
+      if (c === q) q = null
+      out += c
+      i++
+      continue
+    }
+    if (c === "'" || c === '"' || c === '`') { q = c; out += c; i++; continue }
+    if (c === '/' && src[i + 1] === '/') {
+      while (i < src.length && src[i] !== '\n') i++
+      continue
+    }
+    if (c === '/' && src[i + 1] === '*') {
+      i += 2
+      while (i < src.length && !(src[i] === '*' && src[i + 1] === '/')) i++
+      i += 2
+      continue
+    }
+    out += c
+    i++
+  }
+  return out
+}
+
 const APP = 'src/app'
 /** الملفات اللي فيها قوايم روابط — كل واحد فيه مصفوفة فيها { href, flag? } */
 const NAV_FILES = ['src/components/Header.tsx', 'src/components/Footer.tsx']
@@ -37,7 +81,7 @@ function walk(dir) {
       continue
     }
     if (name !== 'page.tsx' && name !== 'layout.tsx') continue
-    const src = readFileSync(p, 'utf8')
+    const src = stripComments(readFileSync(p, 'utf8'))
     const m = src.match(/<FeatureGate\s+flag="([a-z_]+)"/)
     if (!m) continue
     // `src/app/shoghl/layout.tsx` → `/shoghl` (والـlayout بيغطي كل اللي تحته)
@@ -60,7 +104,7 @@ const flagFor = (href) => {
 /* ٢) كل رابط في القوايم لازم يبقى ورا نفس المفتاح */
 
 for (const file of NAV_FILES) {
-  const src = readFileSync(file, 'utf8')
+  const src = stripComments(readFileSync(file, 'utf8'))
 
   // `{ href: '/shoghl', key: '…', flag: 'work_sbota', … }`
   const entries = [...src.matchAll(/\{\s*href:\s*'([^']+)'([^}]*)\}/g)]
@@ -140,7 +184,7 @@ function walkAll(dir, out = []) {
 }
 
 for (const file of [...walkAll('src/components'), ...walkAll(APP)]) {
-  const src = readFileSync(file, 'utf8')
+  const src = stripComments(readFileSync(file, 'utf8'))
   // المفتاح اللي الملف ده نفسه واقع وراه (لو صفحة جوه قسم مقفول)
   const ownRoute = file.startsWith(APP)
     ? file.slice(APP.length).replace(/\/[^/]+\.tsx$/, '') || '/'

@@ -544,3 +544,150 @@ export async function getFeed(limit = 30) {
     },
   ].slice(0, limit)
 }
+
+/* ============================================================ «يلا» (0142) */
+
+/**
+ * ⚠ **دي بتشتغل بس لما مفيش Supabase متظبط** (`if (!DB)` في `api.ts`) —
+ *   يعني في التطوير واللقطات. على الموقع الحقيقي الفيد بيجي من
+ *   `fn_yalla_feed`، ولو مفيش نداء الصفحة بتوري الحالة الفاضية الصح.
+ *   القاعدة في CLAUDE.md §٨: `mock.*` مسموح **ورا `if (!DB)`** بس.
+ *
+ * ⚠ وموجودة علشان سبب محدد: من غيرها الشاشة ما تتشافش **غير فاضية**، وده
+ *   بالظبط اللي حصل في «قضية الليلة» (الدرس الخمستاشر — «الكود اتكتب» مش
+ *   «الصفحة بتشتغل»). بالبيانات دي بناخد لقطات للبوست وهو مليان.
+ */
+const hoursFromNow = (h: number) => new Date(Date.now() + h * 3_600_000).toISOString()
+
+const demoAreas = [
+  { key: 'tagamo3', label: 'التجمع' },
+  { key: '3asher', label: 'العاشر من رمضان' },
+  { key: 'shorouk', label: 'الشروق' },
+]
+
+const demoYalla = [
+  {
+    callId: '11111111-1111-1111-1111-111111111111',
+    slug: 'padel',
+    link: 'padel-11111111',
+    createdAt: hoursFromNow(-2),
+    status: 'open' as const,
+    line: 'يلا نسبوط — بادل. إمتى وفين؟',
+    what: 'بادل',
+    imgSrc: null,
+    photoAlt: null,
+    costNote: 'التكلفة تقريبًا ١٥٠ جنيه للواحد، بتتدفع في المكان.',
+    groupSize: 6,
+    deadline: hoursFromNow(40),
+    totalN: 5,
+    topN: 4,
+    topWhen: hoursFromNow(80),
+    topArea: 'العاشر من رمضان',
+    wonWhen: null,
+    wonArea: null,
+    slots: [
+      { id: 's1', at: hoursFromNow(80) },
+      { id: 's2', at: hoursFromNow(104) },
+      { id: 's3', at: hoursFromNow(128) },
+    ],
+    areas: demoAreas,
+    mySlots: [] as string[],
+    myArea: null,
+    myN: null,
+    myWhen: null,
+    myAreaLabel: null,
+    myBooking: null,
+    myWaiting: false,
+  },
+  {
+    callId: '22222222-2222-2222-2222-222222222222',
+    slug: 'kayak',
+    link: 'kayak-22222222',
+    createdAt: hoursFromNow(-26),
+    status: 'open' as const,
+    line: 'كاياك على النيل قبل الشغل. مين معانا؟',
+    what: 'كاياك الصبح',
+    imgSrc: null,
+    photoAlt: null,
+    costNote: null,
+    groupSize: 6,
+    deadline: hoursFromNow(18),
+    totalN: 2,
+    topN: 2,
+    topWhen: hoursFromNow(60),
+    topArea: 'التجمع',
+    wonWhen: null,
+    wonArea: null,
+    slots: [
+      { id: 'k1', at: hoursFromNow(60) },
+      { id: 'k2', at: hoursFromNow(84) },
+    ],
+    areas: demoAreas.slice(0, 2),
+    mySlots: ['k1'],
+    myArea: 'tagamo3',
+    myN: 2,
+    myWhen: hoursFromNow(60),
+    myAreaLabel: 'التجمع',
+    myBooking: null,
+    myWaiting: false,
+  },
+  {
+    callId: '33333333-3333-3333-3333-333333333333',
+    slug: 'bowling',
+    link: 'bowling-33333333',
+    createdAt: hoursFromNow(-50),
+    status: 'locked' as const,
+    line: 'بولينج الخميس. اللي جاي يقول.',
+    what: 'بولينج',
+    imgSrc: null,
+    photoAlt: null,
+    costNote: null,
+    groupSize: 6,
+    deadline: hoursFromNow(-4),
+    totalN: 7,
+    topN: 6,
+    topWhen: hoursFromNow(30),
+    topArea: 'الشروق',
+    wonWhen: hoursFromNow(30),
+    wonArea: 'الشروق',
+    slots: [{ id: 'b1', at: hoursFromNow(30) }],
+    areas: demoAreas.slice(2),
+    mySlots: ['b1'],
+    myArea: 'shorouk',
+    myN: 6,
+    myWhen: hoursFromNow(30),
+    myAreaLabel: 'الشروق',
+    myBooking: 'b1',
+    myWaiting: false,
+  },
+]
+
+export async function getYallaFeed(limit = 20) {
+  return demoYalla.slice(0, limit)
+}
+
+export async function chooseYalla(callId: string, slotIds: string[], areaKey: string) {
+  const post = demoYalla.find((p) => p.callId === callId)
+  const area = post?.areas.find((a) => a.key === areaKey)
+  const slot = post?.slots.find((s) => s.id === slotIds[0])
+  if (post) {
+    post.mySlots = slotIds
+    post.myArea = areaKey
+    post.myN = (post.topN ?? 0) + 1
+    post.myWhen = slot?.at ?? null
+    post.myAreaLabel = area?.label ?? null
+    post.totalN += 1
+  }
+  return {
+    n: (post?.topN ?? 0) + 1,
+    when: slot?.at ?? null,
+    area: area?.label ?? null,
+    locked: false,
+  }
+}
+
+export async function joinYallaWinner(callId: string) {
+  const post = demoYalla.find((p) => p.callId === callId)
+  if (post) post.myBooking = 'b1'
+  return { seated: true, booking: 'b1', waiting: false }
+}

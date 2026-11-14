@@ -50,6 +50,7 @@ node scripts/check-content-fallback.mjs # مفيش صفحة محتوى بتطل�
 node scripts/check-migration-bundles.mjs # حزم WORK_MIGRATION = ملفات الهجرة
 node scripts/check-nav-flags.mjs       # مفيش مدخل لصفحة ورا مفتاح من غير نفس المفتاح
 node scripts/check-case-em.mjs         # مفيش نص قضية بيتعرض من غير <Em>
+node scripts/sync-case-copy.mjs        # نصوص case/qadeya/yalla في الاحتياطي (⚠ بره verify — بيكتب)
 ```
 البناء على Vercel بيتجاهل `NEXT_DIST_DIR` (شوف `next.config.mjs`). Node مثبّت `22.x`.
 
@@ -77,6 +78,7 @@ src/
     tamenny/[token] «معايا حد يعرف» — الصفحة الوحيدة اللي بتدّي معلومة لحد مش مسجّل
     join/telegram الخطوة التانية بعد التسجيل: «وصّل تليجرام» (بتعدّي لوحدها لو البوت مش متظبط)
     new          «افتح خروجة» — العضو بيظبّط خروجته (ورا مفتاح member_sbota)
+    yalla        «يلا» — فيد النداءات + /[link] للبوست لوحده (ورا مفتاح yalla)
     game         «مين جاي؟» — مدخلها `GameStrip` في الرئيسية + رابط الهيدر
     play/[sbotaId] «قضية الليلة» — الدخول بالكود · الكارت · الفصل · التصويت · الختام
                  (+`/host` لصاحب الخروجة) · ورا مفتاح `cases`
@@ -95,7 +97,8 @@ src/
                  copy/revalidate · cron/* (notify · work-notify · admin-alerts · member-telegram) ·
                  telegram/member (webhook بوت الأعضاء) · health/mail
   components/    مكوّنات الواجهة + components/work/* لطبقة الشغل +
-                 components/case/* لقضية الليلة + admin-ui.tsx
+                 components/case/* لقضية الليلة + components/yalla/* للنداءات +
+                 admin-ui.tsx
   data/          نصوص احتياطية + قوايم (⚠ بعضها المفروض في القاعدة — REVIEW)
   lib/           طبقة البيانات والمنطق (§5)
   lib/server/    server-only: admin-auth · mailer · otp · supabase-admin · whatsapp ·
@@ -112,6 +115,7 @@ scripts/         check-copy · فاحصات · بذور النصوص
 | `src/lib/cases.ts` | **طبقة «قضية الليلة»** — كل نداءات اللعبة. ⚠ مفيش ولا استعلام مباشر على `case_players`/`case_clues`/`case_votes` هنا، كله عبر دوال بترجّع «اللي من حقك بس» |
 | `src/lib/map-db.ts` | تحويل صفوف القاعدة ↔ أنواع الواجهة، والفلوس |
 | `src/lib/copy.ts` | قراءة `copy_strings` بكاش موسوم (`COPY_TAG`) |
+| `src/lib/yalla-link.ts` | رابط النداء — نفس نمط `sbota-link.ts`. **متبنيش `/yalla/…` بإيدك** |
 | `src/lib/server/admin-auth.ts` | `requirePermission` — الحد الأمني الحقيقي للوحة |
 | `src/lib/supabase.ts` | عميل المتصفح (anon). `hasSupabase` بيتأكد إن المتغيرين موجودين |
 | `src/middleware.ts` | حارس `/admin/*` على الحافة (طبقة أولى مش الحد الأمني) |
@@ -124,7 +128,7 @@ scripts/         check-copy · فاحصات · بذور النصوص
 
 ## ٥. القاعدة — أهم الجداول والدوال
 
-**الجداول:** `profiles` · `sbotat`(+`sbotat_public`) · `sbota_templates` · `venues` · `bookings` · `payments` · `wallet_ledger` · `coupons` · `pair_affinity` · `matching_runs` · `chat_rooms`/`chat_members` · `notifications`/`notification_templates` · `admin_users`/`admin_roles`/`role_permissions` · `settings`(صف واحد) · `copy_strings` · `safety_links` · `audit_log` · `waitlist` · `template_interest` («قريب») · `sbota_interest` («أنا جاي» على المقترحة) · `admin_alerts` (طابور تليجرام) · `broadcasts` (الإيميل الجماعي) · `member_telegram`/`member_tg_outbox` (بوت الأعضاء). **قضية الليلة:** `case_worlds` · `cases` · `case_questions`/`case_options` · `case_missions` · `case_titles` · `case_clue_templates` · `case_vault_riddles` · `case_sessions` · `case_players` · `case_answers` · `case_clues` · `case_votes` · `case_awards` · `case_points`. **طبقة الشغل:** `professions` · `work_venues` · `work_passes` · `pass_redemptions` · `recurring_bookings` · `work_affinity` · `venue_reports` · `leads` · `work_metrics`.
+**الجداول:** `profiles` · `sbotat`(+`sbotat_public`) · `sbota_templates` · `venues` · `bookings` · `payments` · `wallet_ledger` · `coupons` · `pair_affinity` · `matching_runs` · `chat_rooms`/`chat_members` · `notifications`/`notification_templates` · `admin_users`/`admin_roles`/`role_permissions` · `settings`(صف واحد) · `copy_strings` · `safety_links` · `audit_log` · `waitlist` · `template_interest` («قريب») · `sbota_interest` («أنا جاي» على المقترحة) · `admin_alerts` (طابور تليجرام) · `broadcasts` (الإيميل الجماعي) · `member_telegram`/`member_tg_outbox`/`member_tg_queue` (بوت الأعضاء). **«يلا»:** `yalla_calls` · `yalla_slots` · `yalla_call_areas` · `yalla_choices` · `yalla_choice_slots` · `yalla_priority`. **قضية الليلة:** `case_worlds` · `cases` · `case_questions`/`case_options` · `case_missions` · `case_titles` · `case_clue_templates` · `case_vault_riddles` · `case_sessions` · `case_players` · `case_answers` · `case_clues` · `case_votes` · `case_awards` · `case_points`. **طبقة الشغل:** `professions` · `work_venues` · `work_passes` · `pass_redemptions` · `recurring_bookings` · `work_affinity` · `venue_reports` · `leads` · `work_metrics`.
 
 **دوال مهمة:** `fn_can_book` · `fn_capacity_guard` (قفل السعة) · `fn_booking_paid` · `fn_cancel_booking` · `fn_approve_transfer` · `fn_redeem_pass`/`fn_revert_pass`/`fn_activate_pass` · `fn_build_matching`/`fn_build_work_matching` · `fn_reveal` · `fn_pair_want`/`fn_work_want` (الطريق الصح لكتابة التبادل) · `fn_is_admin`/`fn_has_permission` · `fn_can_see_place`/`fn_sbota_place` (الحارس والبيانات، كل واحد لوحده) · `fn_safety_link`/`fn_safety_my`/`fn_safety_view`/`fn_safety_mark`/`fn_safety_revoke` · `fn_sbota_arrival`/`fn_set_sbota_sign` · `fn_join_waitlist`/`fn_admit_waitlist` · `fn_book_free` (بعلم `nasbot.trusted_booking`) · `fn_want_soon`/`fn_want_sbota` · `fn_admin_alert` · `fn_send_broadcast` · `fn_tg_link_token`/`fn_tg_member_link` (بوت الأعضاء — الربط بالتوكن بس).
 
@@ -161,7 +165,7 @@ scripts/         check-copy · فاحصات · بذور النصوص
 
 **وكمان:** أي دالة جديدة بتبقى `execute` لـ **PUBLIC** افتراضيًا في بوستجرس. كل دالة حساسة لازم يبقى وراها `revoke execute … from public, anon;` صريح — المنح لـ `authenticated` لوحده **مش** كفاية.
 
-**المهام المجدولة (pg_cron جوه Supabase، مش Vercel Cron):** الكشف · التذكير · قفل الشات · المقاييس · التنضيف · مهام الشغل الأربعة · إشعارات الشغل. الجدولة في `RUNBOOK.md` و`WORK_CRON.sql`.
+**المهام المجدولة (pg_cron جوه Supabase، مش Vercel Cron):** الكشف · التذكير · قفل الشات · المقاييس · التنضيف · مهام الشغل الأربعة · إشعارات الشغل · تنضيف إجابات القضايا · **قفل نداءات «يلا» اللي مهلتها خلصت** (`nasbot-yalla-due`، كل ٥ دقايق). الجدولة في `RUNBOOK.md` و`WORK_CRON.sql`.
 
 ⚠ **١٢ مهمة منهم بيكتبوا في `notifications` بس — والمهمة رقم ١٣
 (`nasbot-work-notify`) هي الوحيدة اللي بتبعت فعلًا.** يعني أي رسالة
@@ -240,7 +244,7 @@ psql -h 127.0.0.1 -p 5433 -U postgres -d nasbot --single-transaction -f WORK_MIG
 
 ## ٧. اللوحة `/admin`
 
-الأقسام: الرئيسية · النصوص · اللعبة · **القضايا** · حقول التسجيل · القوالب · السبوطات · الحجوزات · المطابقة · الناس · الكباتن · الفلوس · **الصور** · البلاغات · الرسائل · الخريطة · الإعدادات · التسعير · **الشغل** · **الفريق** · السجل. الدخول: إيميل + باسورد + تطبيق مصادقة (TOTP). الأدوار: `owner`·`admin`·`ops`·`finance`·`support`.
+الأقسام: الرئيسية · النصوص · اللعبة · **القضايا** · حقول التسجيل · القوالب · السبوطات · **يلا** · الحجوزات · المطابقة · الناس · الكباتن · الفلوس · **الصور** · البلاغات · الرسائل · الخريطة · الإعدادات · التسعير · **الشغل** · **الفريق** · السجل. الدخول: إيميل + باسورد + تطبيق مصادقة (TOTP). الأدوار: `owner`·`admin`·`ops`·`finance`·`support`.
 
 في `/admin/sbotat` فيه فلتر «مين فاتحها» ووسم «من عضو» وزرار **«اعتمد»** للمسوّدات (بيبان بس لما `member_sbota_auto_open = false`). وفي `/admin/settings` تبويب الأرقام فيه مجموعة «خروجات الأعضاء». وفي نفس الصفحة الحالة **«مقترحة»** وعمود 🙋 (عدد «أنا جاي») وزرار **«افتح الحجز»** (`0127`).
 
@@ -629,6 +633,59 @@ psql -h 127.0.0.1 -p 5433 -U postgres -d nasbot --single-transaction -f WORK_MIG
     وزرار «أنا جاي لو اتعملت»، و«نديها واحدة؟»/«مين جاي؟» بيستبعدوها.
   - `test_proposed()` ٩/٩.
 
+- 🟡 **«يلا» — النداء اللي الناس بتقرر ميعاده ومنطقته (٢٠٢٦-١١-١٥). اتكتب واتفحص، ولسه ما اتلزقش.**
+  `WORK_MIGRATION_59`–`62` (`0141`–`0144`). قرار المالك: «نداء بشكل بوست،
+  والناس هي اللي بتقرر الميعاد والمنطقة». **والقاعدة اللي فوق كل حاجة:
+  محدش يتساب برّه، ومحدش يوصله «لأ».**
+  - **المعمار: جداول للنداء، وسبوطة حقيقية عند القفل.** النداء ميعاده مش
+    معروف و`sbotat.starts_at` عمود `not null` عليه الفيو العام والخريطة
+    وحراس الحجز — فلو قعد في `sbotat` من الأول كنا هنملا الميعاد بكدبة
+    ونستثنيه من كل قايمة على إيدينا (الدرس التسعتاشر). وبعد القفل العكس:
+    اللي عندنا مجموعة ليها سعة وحجوزات وقايمة انتظار وكشف وحارس مكان —
+    يعني سبوطة بالحرف، وبناؤها من جديد = نسخة تانية من كل حارس (الدرس
+    الستاشر). **`sbotat.yalla_id`** هو المفتاح اللي كل استثناء بيترد عليه.
+  - **٦ جداول**: `yalla_calls` · `yalla_slots` · `yalla_call_areas` ·
+    `yalla_choices` · `yalla_choice_slots` · `yalla_priority`.
+    🔴 **التلاتة الأخيرة مفيهاش ولا سياسة قراية — ولا لصاحب الصف** (نفس
+    قاعدة «قضية الليلة» §٥.٥): العضو بياخد اختياره من `fn_my_yalla_choice`،
+    والعامة **أعداد بس** من `fn_yalla_feed`، واللوحة التفاصيل من
+    `fn_yalla_admin`/`fn_yalla_counts` بصلاحية.
+  - **الدوال:** `fn_yalla_create` · `fn_yalla_choose`/`fn_yalla_unchoose` ·
+    `fn_yalla_feed` (الوحيدة المفتوحة للمجهول) · `fn_yalla_lock` (داخلية)
+    و`fn_yalla_lock_now` (الغلاف بالصلاحية) و`job_yalla_due` (الكرون) ·
+    `fn_yalla_join_winner` («تيجي معاهم؟») · `fn_yalla_bench` («بدّل») ·
+    `fn_yalla_reveal` («اكشف») · `fn_yalla_seat`/`fn_yalla_wait`/
+    `fn_yalla_tell`/`fn_yalla_top` (كلها داخلية ومقفولة على الكل).
+  - ⚠ **تسع تعديلات على حاجات موجودة، كل واحد سطر مشروط بـ`yalla_id`**:
+    `sbotat_public` (مش بتبان في القايمة العامة — وإلا أي حد يحجز من غير ما
+    يختار) · `fn_sbota_timings` (مفيش قفل ٣٦ ساعة ولا كشف تلقائي) ·
+    `fn_can_see_place` (المكان والأسامي بعد «اكشف» بس) · `fn_admit_waitlist`
+    (المجانية بتتأكد على طول) · `fn_notify_soon_opened` و
+    `fn_notify_proposal_opened` (مفيش إيميل «اتفتحت») · `fn_member_tg_announce`
+    (مفيش إعلان لكل الأعضاء) · `fn_booking_paid` (مفيش «مكانك محجوز»).
+    **والسبوطات العادية والمقترحة ما اتغيّرش فيها حرف** — وفيه صف اختبار
+    بيثبت ده.
+  - ⚠ **`fn_book_free` ما اتلمستش عن قصد**: حارسها (`origin = 'member'`)
+    بيرفض سبوطة «يلا» أصلًا — ومن غير كده أي حد عنده رقم السبوطة كان يقدر
+    يدخل المجموعة **من غير ما يختار**. القعدة من `fn_yalla_seat` بس.
+  - **نص ولاد ونص بنات محترم عند القفل**: الزيادة بتروح الانتظار ومعاها
+    **أولوية في النداء الجاي** (`yalla_priority`)، والمالك بيبدّل من اللوحة.
+  - **الواجهة**: `/yalla` فيد بوستات (موبايل الأول) · `/yalla/[link]` البوست
+    لوحده · `YallaStrip` في الرئيسية · الاختيار في **نافذة سفلية** من غير
+    نقل صفحة · والبوست بيتحدّث في مكانه · والفيد بيعمل poll كل
+    `settings.yalla_poll_seconds`. مفيش لايكات ولا كومنتات ولا صور ولا
+    أسامي أعضاء ولا بروفايلات.
+  - **٥ أرقام في `settings`** ومفتاح ميزة `yalla` بينزل **مقفول**.
+  - `test_yalla_areas()` ٧ · `test_yalla_schema()` ١٠ · `test_yalla()` **٤٤**
+    = **٦١ صف · صفر فشل**، واتجرّبوا بـ**١٥ فخ متعمّد** (منهم ٧ إعادة لزق
+    للهجرات القديمة) — **تلاتة منهم كشفوا ضعف في الاختبار نفسه واتصلّح**.
+    وكل ملف اتلزق مرتين وبـ`\r\n` على قاعدة نضيفة، وصفر صفوف سايبة.
+  - ⚠ **اللزق بالترتيب 59 → 60 → 61 → 62**، وبعدهم مهمة الكرون من
+    `WORK_CRON.sql` (القسم الأخير). التشغيل في `RUNBOOK.md` §21.
+  - ⚠ **شاشة اللوحة `/admin/yalla` لسه ما اتشافتش بعين** — محتاجة جلسة أدمن
+    وقاعدة حقيقية، والبيئة مفيهاش. الواجهة العامة اتصوّرت على ٣٩٠ و٧٦٨
+    و١٤٤٠ في الوضعين.
+
 - 🟢 **«قضية الليلة» — نظام الألعاب الكامل، واتطبّق على الإنتاج (٢٠٢٦-١٠-٣١).**
   `WORK_MIGRATION_48` لحد `_54` (`0130`–`0136`). طلب المالك: كل سبوطة فيها
   **قضية** — واحد من المجموعة سرّي هو المتهم، والباقيين فريق محققين لازم
@@ -882,7 +939,7 @@ select p.proname, md5(btrim(regexp_replace(
 > متسلسل (فيه أرقام ما اتكتبتش وأرقام اتدمجت)، وكل اسم بقى **مرجع ثابت**
 > بيتشاور عليه من أماكن تانية في الملف ده ومن التعليقات في الكود. فلو
 > ضفت درس جديد، خد الرقم اللي بعد **آخر واحد مكتوب** ومتعيدش ترقيم حاجة.
-> العدد الفعلي دلوقتي **٣٠ درس**، وآخر اسم «اتنين وتلاتين».
+> العدد الفعلي دلوقتي **٣١ درس**، وآخر اسم «تلاتة وتلاتين».
 
 ⚠ **درس تالت — هجرتين بيكتبوا على نفس الصف = قنبلة موقوتة.** أول تشغيل
 للفاحص على الإنتاج لقى `cycling` مقفولة: `0065` بتقفلها (حل مؤقت قديم)
@@ -1314,6 +1371,23 @@ end if;
 حسب عالم القضية، ولو الرسمة اتعلّقت بـ`--fg` كانت هتختفي هناك.
 (٤) **صوّر الوضعين** — واحد بس مش فحص (الدرس التسعتاشر).
 
+⚠ **درس تلاتة وتلاتين — الدالة اللي الواجهة بتناديها ومفيش عندها صلاحيتها
+بتفضل فاضية، من غير ولا رسالة.** صفحة `/admin/yalla` اتكتبت بتنادي
+`fn_yalla_top` على طول — وهي **مقفولة على الكل** عن قصد (داخلية). يعني
+قسم «الأعداد» في اللوحة كان هيطلع «لسه محدش اختار» أول مرة المالك يفتحه،
+والنداء مليان ناس. مفيش استثناء بيظهر للمستخدم: `supabase-js` بيرجّع
+`error` والكود بيعمل `data ?? []`.
+
+ومحصلش فشل في أي فاحص: `tsc` ما بيعرفش صلاحيات القاعدة، و`npm run verify`
+كمان، ودوال الاختبار كانت بتنادي الدالة من `postgres` (اللي بيعدّي دايمًا).
+اتكشف بمراجعة **قايمة كل دالة بتتنادى من الواجهة مقابل منحها** قبل التسليم.
+
+**القواعد:** (١) بعد ما تخلص أي شاشة، اعمل `grep` على `rpc('` فيها وقارن
+كل اسم بالـ`grant` بتاعه في الهجرة. (٢) الدالة الداخلية تفضل مقفولة،
+ويتعملها **غلاف بصلاحية** (`fn_yalla_counts`) — مش تتفتح. (٣) ولكل غلاف
+صف اختبار بهوية **عضو عادي** (مرفوض) وهوية **حساب لوحة** (بينجح) —
+الدرس الأربعة وعشرين.
+
 ### بعد كل خروجة
 
 **`AFTER_SBOTA.md`** — دورة بتلف بعد كل خروجة، مش قايمة مهام مكتوبة مرة.
@@ -1331,11 +1405,11 @@ end if;
 
 ### ملفات التوثيق
 
-`RUNBOOK.md` فيه التشغيل اليومي: §16 تليجرام · §17 الإيميل الجماعي · §18 الخروجة المقترحة · §19 بوت الأعضاء.
+`RUNBOOK.md` فيه التشغيل اليومي: §16 تليجرام · §17 الإيميل الجماعي · §18 الخروجة المقترحة · §19 بوت الأعضاء · §20 «قضية الليلة» · §21 **«يلا»**.
 
 **نقطة البداية: `START_HERE.md`** — الحالة والطريق واللي فاضل، في ملف واحد.
 
-**`AFTER_SBOTA.md`** + **`SBOTAT_LOG.md`** (دورة ما بعد الخروجة) · `CONTENT_BRIEF.md` (المحتوى الناقص) · `CHECK_DB.sql` (فاحص القاعدة الشامل) · `README.md` · `DB_PLAN.md` · `ADMIN_PLAN.md` · `WORK_PLAN.md` · `DESIGN_TOKENS.md` · `COPY.md` · `ADMIN_GUIDE.md` · `RUNBOOK.md` · `DEPLOY_CHECKLIST.md` · **`REVIEW*.md`** (المراجعة) · ملفات `WORK_MIGRATION_*.sql` (لحد `_58`) و`WORK_CRON.sql` — كلهم في **`db-bundles/`** (تتلزق في SQL Editor).
+**`AFTER_SBOTA.md`** + **`SBOTAT_LOG.md`** (دورة ما بعد الخروجة) · `CONTENT_BRIEF.md` (المحتوى الناقص) · `CHECK_DB.sql` (فاحص القاعدة الشامل) · `README.md` · `DB_PLAN.md` · `ADMIN_PLAN.md` · `WORK_PLAN.md` · `DESIGN_TOKENS.md` · `COPY.md` · `ADMIN_GUIDE.md` · `RUNBOOK.md` · `DEPLOY_CHECKLIST.md` · **`REVIEW*.md`** (المراجعة) · ملفات `WORK_MIGRATION_*.sql` (لحد `_62`) و`WORK_CRON.sql` — كلهم في **`db-bundles/`** (تتلزق في SQL Editor).
 
 ---
 

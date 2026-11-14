@@ -39,6 +39,11 @@ const ROUTES: { name: string; path: string; theme?: 'day' | 'night' }[] = [
   { name: '19-captains', path: '/captains' },
   { name: '20-captain-board', path: '/captain/ehna-el-rabe3' },
   { name: '21-not-found', path: '/not-found' },
+  /* «يلا» (0142) — الفيد والبوست لوحده، في الوضعين */
+  { name: '22-yalla-night', path: '/yalla', theme: 'night' },
+  { name: '23-yalla-day', path: '/yalla', theme: 'day' },
+  { name: '24-yalla-post-night', path: '/yalla/padel-11111111', theme: 'night' },
+  { name: '25-yalla-post-day', path: '/yalla/padel-11111111', theme: 'day' },
 ]
 
 async function settle(page: Page) {
@@ -49,7 +54,16 @@ async function settle(page: Page) {
 
 async function main() {
   await mkdir(OUT, { recursive: true })
-  const browser = await chromium.launch()
+  /**
+   * ⚠ `CHROME_PATH` اختياري: في البيئات اللي متنزّل فيها كروميوم بره
+   *   Playwright (الساندبوكس مثلًا)، `playwright install` مش بيشتغل والمتصفح
+   *   المتاح مساره مختلف. من غير المتغيّر ده اللقطات ما بتتاخدش خالص —
+   *   وساعتها الشاشة بتتسلّم من غير ما حد شافها (الدرس الخمستاشر).
+   *     CHROME_PATH=/opt/pw-browsers/chromium npm run shots
+   */
+  const browser = await chromium.launch(
+    process.env.CHROME_PATH ? { executablePath: process.env.CHROME_PATH } : {}
+  )
   let failed = 0
 
   for (const size of SIZES) {

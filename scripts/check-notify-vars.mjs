@@ -28,6 +28,9 @@ const MIGRATIONS = 'supabase/migrations'
 /** الأسماء اللي `named` بيحطها دايمًا أو من الـpayload */
 const NAMED_OK = new Set([
   'name', 'link', 'day', 'days', 'venue', 'n', 'other', 'code', 'amount', 'price',
+  // «يلا» (0142): القاعدة بتحطهم في الـpayload، و`notify.ts` بينسّق `when`
+  // من ISO لعربي زي `day` بالظبط.
+  'when', 'area', 'what',
 ])
 
 const src = readFileSync(NOTIFY, 'utf8')

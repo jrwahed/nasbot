@@ -219,6 +219,109 @@ function niceWhen(iso: string): string {
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
+/**
+ * الرسايل الموجّهة لشخص بعينه — طابور `member_tg_queue` (0143).
+ *
+ * ⚠ **جدول تاني غير `member_tg_outbox`** عن قصد: القديم إعلان لكل
+ *   المتوصّلين (`unique (sbota_id, kind)`)، وده رسالة لواحد. التفصيل في
+ *   ترويسة `0143`.
+ *
+ * ⚠ النص كله من `copy_strings` (`tgbot.yalla.*`) — المفتاح جاي من القاعدة
+ *   مع المتغيّرات، والكود ما بيكتبش ولا كلمة.
+ * ⚠ و`{{when}}` بيوصل ISO وبيتنسّق هنا — نفس قاعدة `notify.ts` بالظبط
+ *   (مفيش تنسيق تواريخ عربي في SQL).
+ */
+async function runMemberQueue(token: string): Promise<{ sent: number; failed: number }> {
+  const db = admin()
+  const { data: rows, error } = await db.rpc('fn_claim_member_tg_queue', { p_limit: 20 })
+  if (error) return { sent: 0, failed: 0 }
+  const jobs = (rows ?? []) as {
+    id: number
+    profile_id: string
+    copy_key: string
+    vars: Record<string, string> | null
+    link_url: string | null
+  }[]
+  if (!jobs.length) return { sent: 0, failed: 0 }
+
+  const ids = [...new Set(jobs.map((j) => j.profile_id))]
+  const { data: subs } = await db
+    .from('member_telegram')
+    .select('profile_id, chat_id')
+    .in('profile_id', ids)
+    .not('chat_id', 'is', null)
+    .eq('news', true)
+  const chatOf = new Map(
+    ((subs ?? []) as { profile_id: string; chat_id: number }[]).map((s) => [s.profile_id, s.chat_id])
+  )
+
+  const site = siteUrl()
+  const btn = (await copyOf('tgbot.btn.yalla')) || '↗'
+  let sent = 0
+  let failed = 0
+
+  for (const job of jobs) {
+    const chat = chatOf.get(job.profile_id)
+    if (!chat) {
+      // وقّف الرسايل أو مسح حسابه بعد ما الصف اتحط — مش فشل
+      await db
+        .from('member_tg_queue')
+        .update({ sent_at: new Date().toISOString(), last_error: 'مش متوصّل' })
+        .eq('id', job.id)
+      continue
+    }
+
+    const vars = { ...(job.vars ?? {}) }
+    if (vars.when && /^\d{4}-\d{2}-\d{2}T/.test(vars.when)) vars.when = niceWhen(vars.when)
+    const text = await copyOf(job.copy_key, vars)
+    if (!text.trim()) {
+      await db
+        .from('member_tg_queue')
+        .update({ sent_at: new Date().toISOString(), last_error: `مفيش نص للمفتاح ${job.copy_key}` })
+        .eq('id', job.id)
+      continue
+    }
+
+    // ⚠ `booking:<id>` معناها «صفحة حجزه» — القاعدة ما بتعرفش دومين الموقع
+    const raw = job.link_url ?? ''
+    const url = raw.startsWith('booking:')
+      ? `${site}/my/${raw.slice('booking:'.length)}`
+      : raw
+        ? `${site}/yalla/${raw}`
+        : `${site}/yalla`
+
+    try {
+      await tg(token, 'sendMessage', {
+        chat_id: chat,
+        text,
+        disable_web_page_preview: true,
+        reply_markup: { inline_keyboard: [[{ text: btn, url }]] },
+      })
+      sent++
+      await db
+        .from('member_tg_queue')
+        .update({ sent_at: new Date().toISOString(), last_error: null })
+        .eq('id', job.id)
+    } catch (e) {
+      failed++
+      if (e instanceof TgError && e.code === 403) {
+        await db.rpc('fn_tg_member_news', { p_chat: chat, p_on: false })
+        await db
+          .from('member_tg_queue')
+          .update({ sent_at: new Date().toISOString(), last_error: 'العضو بلّك البوت' })
+          .eq('id', job.id)
+      } else {
+        await db
+          .from('member_tg_queue')
+          .update({ last_error: e instanceof Error ? e.message : 'فشل الإرسال' })
+          .eq('id', job.id)
+      }
+    }
+    await sleep(40)
+  }
+  return { sent, failed }
+}
+
 export async function runMemberTelegram(): Promise<Record<string, unknown>> {
   const token = memberBotToken()
   if (!token) return { members_tg: 'مفيش TELEGRAM_MEMBER_BOT_TOKEN' }
@@ -229,10 +332,13 @@ export async function runMemberTelegram(): Promise<Record<string, unknown>> {
   if (!settings) return { members_tg: 'الهجرة 0128 لسه ما اتلزقتش' }
   if (!settings.telegram_members) return { members_tg: 'مقفول من اللوحة' }
 
+  // الرسايل الموجّهة الأول (رسايل «يلا») — أسرع وأهم من الإعلان العام
+  const direct = await runMemberQueue(token)
+
   const { data: rows, error } = await db.rpc('fn_claim_member_tg', { p_limit: 3 })
-  if (error) return { members_tg: `مقدرناش نسحب الطابور: ${error.message}` }
+  if (error) return { members_tg: `مقدرناش نسحب الطابور: ${error.message}`, yalla_tg: direct }
   const jobs = (rows ?? []) as { id: number; sbota_id: string; kind: 'proposed' | 'open' }[]
-  if (!jobs.length) return { members_tg: { sent: 0 } }
+  if (!jobs.length) return { members_tg: { sent: 0 }, yalla_tg: direct }
 
   // كل المتوصّلين اللي ما وقّفوش — من غير الممسوحين والمحظورين
   const { data: subs } = await db
@@ -305,5 +411,5 @@ export async function runMemberTelegram(): Promise<Record<string, unknown>> {
       .update({ sent_at: new Date().toISOString(), sent_count: ok, last_error: null })
       .eq('id', job.id)
   }
-  return { members_tg: { sent, failed, jobs: jobs.length } }
+  return { members_tg: { sent, failed, jobs: jobs.length }, yalla_tg: direct }
 }

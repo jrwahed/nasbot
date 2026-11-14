@@ -35,6 +35,7 @@ import type {
   NewSbotaInput,
 } from '@/types'
 import { supabase, hasSupabase, publicMediaUrl } from '@/lib/supabase'
+import { yallaLink, findByLink } from '@/lib/yalla-link'
 import * as mock from '@/lib/api-mock'
 import { resolveSbotaLink, sbotaLink, type LinkRow } from '@/lib/sbota-link'
 import {
@@ -2714,4 +2715,195 @@ export async function setTelegramNews(on: boolean): Promise<boolean> {
   if (!DB) return true
   const { data, error } = await supabase().rpc('fn_tg_set_news', { p_on: on })
   return !error && data === true
+}
+
+/* ============================================================ «يلا» (0142) */
+
+/** ميعاد معروض في النداء */
+export interface YallaSlot {
+  id: string
+  /** ISO */
+  at: string
+}
+
+/** منطقة معروضة — الاسم من `map_areas` (بيتعدّل من /admin/map) */
+export interface YallaArea {
+  key: string
+  label: string
+}
+
+/**
+ * نداء «يلا» زي ما الواجهة بتشوفه.
+ *
+ * ⚠ **أعداد بس.** مفيش فيه مين اختار إيه، ومفيش اسم المكان اللي عضو كتبه —
+ *   `fn_yalla_feed` نفسها مش بترجّعهم (وفيه صف اختبار بنيوي بيقع لو حد
+ *   زوّد عمود بيكشف هوية).
+ */
+export interface YallaPost {
+  callId: string
+  slug: string
+  /** رابط البوست — من `yallaLink()` */
+  link: string
+  createdAt: string
+  status: 'open' | 'locked' | 'closed'
+  /** سطر المالك */
+  line: string
+  /** اسم النشاط من القالب */
+  what: string
+  imgSrc: string | null
+  photoAlt: string | null
+  costNote: string | null
+  groupSize: number
+  deadline: string
+  /** كل اللي قالوا جايين في النداء كله */
+  totalN: number
+  /** الاتجاه: أكتر (ميعاد + منطقة) */
+  topN: number
+  topWhen: string | null
+  topArea: string | null
+  /** بعد القفل */
+  wonWhen: string | null
+  wonArea: string | null
+  slots: YallaSlot[]
+  areas: YallaArea[]
+  /** اختياري أنا */
+  mySlots: string[]
+  myArea: string | null
+  myN: number | null
+  myWhen: string | null
+  myAreaLabel: string | null
+  /** بعد القفل: حجزي لو قعدت، وهل أنا في الانتظار */
+  myBooking: string | null
+  myWaiting: boolean
+}
+
+function yallaFromDb(r: Record<string, unknown>): YallaPost {
+  const slug = String(r.slug ?? '')
+  const callId = String(r.call_id)
+  const raw = (r.slots ?? []) as { id: string; at: string }[]
+  const areas = (r.areas ?? []) as { key: string; label: string }[]
+  return {
+    callId,
+    slug,
+    link: yallaLink(slug, callId),
+    createdAt: String(r.created_at ?? ''),
+    status: (String(r.status ?? 'open') as YallaPost['status']) ?? 'open',
+    line: String(r.line_ar ?? ''),
+    what: String(r.what_ar ?? ''),
+    imgSrc: publicMediaUrl(r.photo ? String(r.photo) : null),
+    photoAlt: r.photo_alt_ar ? String(r.photo_alt_ar) : null,
+    costNote: r.cost_note_ar ? String(r.cost_note_ar) : null,
+    groupSize: Number(r.group_size ?? 0),
+    deadline: String(r.deadline ?? ''),
+    totalN: Number(r.total_n ?? 0),
+    topN: Number(r.top_n ?? 0),
+    topWhen: r.top_when ? String(r.top_when) : null,
+    topArea: r.top_area ? String(r.top_area) : null,
+    wonWhen: r.won_when ? String(r.won_when) : null,
+    wonArea: r.won_area ? String(r.won_area) : null,
+    slots: raw.map((s) => ({ id: String(s.id), at: String(s.at) })),
+    areas: areas.map((a) => ({ key: String(a.key), label: String(a.label) })),
+    mySlots: ((r.my_slots ?? []) as string[]).map(String),
+    myArea: r.my_area ? String(r.my_area) : null,
+    myN: r.my_n === null || r.my_n === undefined ? null : Number(r.my_n),
+    myWhen: r.my_when ? String(r.my_when) : null,
+    myAreaLabel: r.my_area_label ? String(r.my_area_label) : null,
+    myBooking: r.my_booking ? String(r.my_booking) : null,
+    myWaiting: r.my_waiting === true,
+  }
+}
+
+/**
+ * كل كام ثانية الفيد بيسأل عن الأعداد الجديدة — من `settings` مش من الكود
+ * (§٣.٢). نفس نمط `getRevealHour()` بالظبط.
+ */
+export async function getYallaPollSeconds(): Promise<number> {
+  if (!DB) return 20
+  return safeWork(
+    'getYallaPollSeconds',
+    async () => {
+      const { data, error } = await supabase()
+        .from('settings')
+        .select('yalla_poll_seconds')
+        .limit(1)
+        .maybeSingle()
+      if (error || !data) return 20
+      const n = Number((data as { yalla_poll_seconds?: number | null }).yalla_poll_seconds)
+      // حد أدنى ٥ ثواني — رقم أقل بيضرب القاعدة من غير فايدة
+      return Number.isFinite(n) && n >= 5 ? n : 20
+    },
+    20
+  )
+}
+
+/** الفيد — مفتوح للمجهول، ومقفول مع مفتاح الميزة (الدالة بترجّع ولا صف) */
+export async function getYallaFeed(limit = 20): Promise<YallaPost[]> {
+  if (!DB) return mock.getYallaFeed(limit)
+  return safeWork(
+    'getYallaFeed',
+    async () => {
+      const { data, error } = await supabase().rpc('fn_yalla_feed', { p_limit: limit })
+      if (error || !data) return []
+      return (data as Record<string, unknown>[]).map(yallaFromDb)
+    },
+    [] as YallaPost[]
+  )
+}
+
+/**
+ * نداء واحد بالرابط.
+ *
+ * ⚠ بيجيب الفيد كله وبيطابق في المتصفح — النداءات الشغّالة قليلة بطبيعتها
+ *   (نداء أو اتنين)، والفيد أصلًا متحمّل في الصفحة. ومفيش «أقرب نداء»
+ *   احتياطي: لينك نداء خلص بيقول «مش موجود».
+ */
+export async function getYallaPost(link: string): Promise<YallaPost | null> {
+  const list = await getYallaFeed(50)
+  return findByLink(link, list)
+}
+
+/** «أنا جاي» — بترجّع الأعداد الجديدة، أو null لو فشلت */
+export async function chooseYalla(
+  callId: string,
+  slotIds: string[],
+  areaKey: string,
+  venueNote?: string
+): Promise<{ n: number; when: string | null; area: string | null; locked: boolean } | null> {
+  if (!DB) return mock.chooseYalla(callId, slotIds, areaKey)
+  const { data, error } = await supabase().rpc('fn_yalla_choose', {
+    p_call: callId,
+    p_slots: slotIds,
+    p_area: areaKey,
+    p_note: venueNote?.trim() || null,
+  })
+  if (error) return null
+  const d = (data ?? {}) as Record<string, unknown>
+  return {
+    n: Number(d.n ?? 1),
+    when: d.when ? String(d.when) : null,
+    area: d.area ? String(d.area) : null,
+    locked: d.locked === true,
+  }
+}
+
+/** «مش جاي» */
+export async function unchooseYalla(callId: string): Promise<boolean> {
+  if (!DB) return true
+  const { data, error } = await supabase().rpc('fn_yalla_unchoose', { p_call: callId })
+  return !error && data === true
+}
+
+/** «تيجي معاهم؟» — مكان لو فيه، وإلا قايمة الانتظار. **مفيش رفض.** */
+export async function joinYallaWinner(
+  callId: string
+): Promise<{ seated: boolean; booking: string | null; waiting: boolean } | null> {
+  if (!DB) return mock.joinYallaWinner(callId)
+  const { data, error } = await supabase().rpc('fn_yalla_join_winner', { p_call: callId })
+  if (error) return null
+  const d = (data ?? {}) as Record<string, unknown>
+  return {
+    seated: d.seated === true,
+    booking: d.booking ? String(d.booking) : null,
+    waiting: d.waiting === true,
+  }
 }

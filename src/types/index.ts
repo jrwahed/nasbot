@@ -304,6 +304,11 @@ export type TrackEvent =
   | 'share_type_card'
   | 'use_referral'
   | 'create_sbota'
+  // «يلا» (0142) — النداء اللي الناس بتقرر ميعاده
+  | 'view_yalla'
+  | 'yalla_choose'
+  | 'yalla_locked'
+  | 'yalla_switch'
 
 /* ============================================================ الشغل */
 

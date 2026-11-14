@@ -23,6 +23,7 @@ const SECTIONS: { href: string; label: string; perm: string | null }[] = [
   { href: '/admin/profile-fields', label: 'حقول التسجيل', perm: 'fields.edit' },
   { href: '/admin/templates', label: 'القوالب', perm: 'sbotat.edit' },
   { href: '/admin/sbotat', label: 'السبوطات', perm: 'sbotat.view' },
+  { href: '/admin/yalla', label: 'يلا', perm: 'sbotat.view' },
   { href: '/admin/bookings', label: 'الحجوزات', perm: 'bookings.view' },
   { href: '/admin/matching', label: 'المطابقة', perm: 'matching.view' },
   { href: '/admin/people', label: 'الناس', perm: 'people.view' },

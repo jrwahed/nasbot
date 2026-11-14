@@ -311,6 +311,24 @@ const WORK_SUBJECT: Record<string, string> = {
   work_first_time_offer: 'سبوطة شغل — أول مرة بـ 60',
 }
 
+/**
+ * مواضيع رسايل «يلا» (0142).
+ *
+ * ⚠ القوالب دي **متغيّراتها مسمّاة بس** (`{name}` · `{when}` · `{area}` ·
+ *   `{what}` · `{link}`) ومش في `CORE` — يعني مفيش ترتيب مرقّم يتكسر
+ *   (الدرس الرابع). و`check-notify-vars.mjs` بيتأكد إن كل اسم فيهم معروف.
+ *
+ * ⚠ وممنوع أي صياغة فيها رفض — قرار المالك. والنص نفسه في القاعدة
+ *   (`notification_templates`) وبيتعدّل من «الرسايل» في اللوحة، وفيه صف
+ *   اختبار في `test_yalla()` بيقع لو حد حط كلمة رفض فيه.
+ */
+const YALLA_SUBJECT: Record<string, string> = {
+  yalla_won: 'الميعاد اللي اخترته كسب',
+  yalla_switch: 'المجموعة اتلمّت — تيجي معاهم؟',
+  yalla_waiting: 'إنت الأول في الانتظار',
+  yalla_closed: 'النداء مكمّلش العدد',
+}
+
 /** القوالب اللي بتتبعت بمسار تاني — مش من المصرف (رمز الدخول) */
 const SKIP_TEMPLATES = new Set(['auth_code'])
 
@@ -710,6 +728,11 @@ export async function runNotify(limit = BATCH): Promise<NotifyResult> {
       }
     }
     if (named.day && /^\d{4}-\d{2}-\d{2}$/.test(named.day)) named.day = formatDay(named.day)
+    // ⚠ «يلا» (0142): الميعاد بيوصل من الـpayload **ISO**، والتنسيق العربي
+    //   هنا — مفيش تنسيق تواريخ عربي في SQL، والقاعدة ما تكتبش نص معروض.
+    if (named.when && /^\d{4}-\d{2}-\d{2}T/.test(named.when)) {
+      named.when = formatWhen(named.when)
+    }
     if (!named.name && key !== 'mutual_match') named.name = ctx.name
     if (key === 'work_collab_match') named.name = otherName
 
@@ -732,6 +755,11 @@ export async function runNotify(limit = BATCH): Promise<NotifyResult> {
       path = `/s/${sb.slug}`
     } else if (key === 'soon_opened' && sb?.slug) {
       path = `/s/${sb.slug}`
+    } else if (typeof payload.yalla_link === 'string' && payload.yalla_link) {
+      // «يلا» (0142): الرابط من `yallaLink()` — القاعدة بتحط الجزء النسبي
+      // والموقع بيكمّله، علشان ما يكونش فيه دومين مكتوب في SQL (الدرس
+      // الواحد وعشرين: الاحتياطي المخترع وَدّى كل اللينكات لدومين حد تاني).
+      path = `/yalla/${payload.yalla_link}`
     }
     const link = typeof payload.link === 'string' && payload.link ? payload.link : `${SITE}${path}`
     ctx.link = link
@@ -746,7 +774,7 @@ export async function runNotify(limit = BATCH): Promise<NotifyResult> {
     const real = missing.filter((m) => !optional.includes(m))
     if (real.length) out.errors.push(`${row.id}: نقص (${real.join('، ')})`)
 
-    const subject = CORE[key]?.subject ?? WORK_SUBJECT[key] ?? 'نسبوط'
+    const subject = CORE[key]?.subject ?? WORK_SUBJECT[key] ?? YALLA_SUBJECT[key] ?? 'نسبوط'
     const res = await sendEmail(smtp, email, subject, text, htmlShell(text, link))
 
     if (res.ok) {

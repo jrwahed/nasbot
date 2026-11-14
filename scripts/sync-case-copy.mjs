@@ -1,11 +1,12 @@
 /**
- * بيولّد مفاتيح `case.*` و`qadeya.*` في `src/data/copy-fallback.ts` من هجرة `0136`.
+ * بيولّد مفاتيح `case.*` و`qadeya.*` و`yalla.*` في `src/data/copy-fallback.ts`
+ * من ملفات الهجرة.
  *
  * ليه سكريبت مش تعديل بالإيد: الدرس الخامس — الاحتياطي لازم يملا الناقص،
  * والمصدر الوحيد للنص هو ملف الهجرة. لو زوّدت مفتاح في الهجرة، شغّل:
  *   node scripts/sync-case-copy.mjs
  */
-import { readFileSync, readdirSync, writeFileSync } from 'node:fs'
+import { readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 /**
@@ -37,7 +38,18 @@ const sql = readdirSync(MIG_DIR)
  * الصفحة بالعين (الدرس الخمستاشر: «الكود اتكتب» مش «الصفحة بتشتغل»).
  */
 const BLOCK = /insert\s+into\s+copy_strings[\s\S]*?on\s+conflict/gi
-const PAIR = /\(\s*'((?:case|qadeya)\.[a-z0-9._]+)'\s*,\s*'((?:[^']|'')*)'/g
+/**
+ * ⚠ **`A-Z` في المفتاح مش غلط مطبعي.** المشروع فيه مفاتيح camelCase من
+ *   زمان (`join.err.areaOther` · `profile.edit.phoneLocked`)، وأول نسخة من
+ *   الـregex كانت `[a-z0-9._]` بس — فتلات مفاتيح في «يلا»
+ *   (`sheet.whenHint` · `sheet.areaHint` · `sheet.venuePh`) اتخطّوا
+ *   **بالصمت**، والسكريبت قال «✓ كله موجود».
+ *
+ *   ومحصلش فشل في أي فاحص: `check-copy` شايف المفتاح في الكود مش نص عربي،
+ *   و`tsc` والبناء مالهمش دعوة. اتكشفت لما فتحنا الشاشة وصوّرناها ولقينا
+ *   **اسم المفتاح نفسه معروض للزائر** (الدرس التلاتين بالحرف، والخمستاشر).
+ */
+const PAIR = /\(\s*'((?:case|qadeya|yalla)\.[A-Za-z0-9._]+)'\s*,\s*'((?:[^']|'')*)'/g
 
 const found = new Map()
 for (const block of sql.match(BLOCK) ?? []) {
@@ -51,21 +63,53 @@ for (const block of sql.match(BLOCK) ?? []) {
  * أرخص من فاحص، وبيقع بدل ما يعدّي بالصمت.
  */
 for (const [k, v] of found) {
-  if (/^(case|qadeya)\.[a-z0-9._]+$/.test(v)) {
+  if (/^(case|qadeya|yalla)\.[A-Za-z0-9._]+$/.test(v)) {
     console.error(`✗ ${k} قيمتها مفتاح تاني (${v}) — الregex مسك حاجة مش إدراج`)
     process.exit(1)
   }
 }
 
 if (!found.size) {
-  console.error('✗ مفيش مفاتيح case.*/qadeya.* في الهجرات')
+  console.error('✗ مفيش مفاتيح case.*/qadeya.*/yalla.* في الهجرات')
   process.exit(1)
+}
+
+/**
+ * ⚠ **الحارس اللي كان ناقص:** كل مفتاح مستعمل في الكود لازم يكون في
+ *   الاحتياطي. من غيره، مفتاح بيتخطّى من الـregex بيوصل الشاشة كاسمه،
+ *   والسكريبت بيقول «كله موجود» — وده اللي حصل فعلًا.
+ */
+function usedKeys(dir, out = new Set()) {
+  for (const name of readdirSync(dir)) {
+    const p = join(dir, name)
+    if (statSync(p).isDirectory()) {
+      usedKeys(p, out)
+    } else if (p.endsWith('.tsx') || p.endsWith('.ts')) {
+      const src = readFileSync(p, 'utf8')
+      for (const m of src.matchAll(/\bt\(\s*['`]((?:case|qadeya|yalla)\.[A-Za-z0-9._]+)['`]/g)) {
+        out.add(m[1])
+      }
+    }
+  }
+  return out
 }
 
 let fb = readFileSync(FB, 'utf8')
 const already = [...found.keys()].filter((k) => fb.includes(`"${k}"`))
+function checkUsed(text) {
+  const missing = [...usedKeys('src')].filter((k) => !text.includes(`"${k}"`))
+  if (missing.length) {
+    console.error(`✗ ${missing.length} مفتاح مستعمل في الكود ومش في الاحتياطي:`)
+    for (const k of missing) console.error('   ' + k)
+    console.error('\n  المفتاح الناقص بيتعرض للزائر **باسمه** — افتح الصفحة وشوف.')
+    process.exit(1)
+  }
+  console.log(`✓ وكل مفتاح مستعمل في الكود موجود في الاحتياطي`)
+}
+
 if (already.length === found.size) {
   console.log(`✓ الاحتياطي فيه الـ${found.size} مفتاح كلهم`)
+  checkUsed(fb)
   process.exit(0)
 }
 
@@ -77,3 +121,4 @@ const at = fb.lastIndexOf('}')
 fb = fb.slice(0, at) + lines.join('\n') + '\n' + fb.slice(at)
 writeFileSync(FB, fb)
 console.log(`✓ اتضاف ${lines.length} مفتاح للاحتياطي (الموجود قبلهم ${already.length})`)
+checkUsed(fb)

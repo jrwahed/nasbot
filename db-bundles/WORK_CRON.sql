@@ -98,3 +98,34 @@ select net.http_post(
 -- واللي لسه واقف في الطابور:
 --   select template_key, status, count(*) from notifications
 --   where template_key like 'work\_%' group by 1, 2 order by 1;
+
+
+/* ==================================================== 5) «يلا» (0143) */
+
+-- النداء اللي مهلته خلصت بيتقفل لوحده: الأعلى يكسب لو وصل الحد الأدنى،
+-- وإلا النداء يتقفل وكل اللي شاركوا يوصلهم الخبر ومعاهم أولوية.
+--
+-- ⚠ **من غير المهمة دي النداء مش بيتقفل لوحده** — بتضطر تدوس «اقفل دلوقتي»
+--   من `/admin/yalla`. اللوحة بتوريك تحذير برتقالي على أي نداء مهلته عدّت
+--   وهو لسه مفتوح، فمش هتتوه — بس الأوتوماتيك أحسن.
+--
+-- ⚠ كل ٥ دقايق زي مهمة الإشعارات بالظبط: الناس بتختار على الموبايل
+--   والقفل لحظة حسّاسة، فتأخير نص ساعة مش مقبول (الدرس بتاع «١٢ مهمة
+--   بيكتبوا وواحدة بتبعت»).
+--
+-- ⚠ ودي **مش** بتنده الموقع — بتشتغل جوه القاعدة، فمفيش سر ولا 401.
+select cron.schedule(
+  'nasbot-yalla-due',
+  '*/5 * * * *',
+  $job$ select job_yalla_due(); $job$
+);
+
+-- التأكيد:
+--   select jobname, schedule, active from cron.job where jobname = 'nasbot-yalla-due';
+--   select status, return_message, start_time from cron.job_run_details
+--    where jobid = (select jobid from cron.job where jobname = 'nasbot-yalla-due')
+--    order by start_time desc limit 3;
+--
+-- واللي مستني القفل دلوقتي:
+--   select id, line_ar, deadline from yalla_calls
+--    where status = 'open' and deadline <= now();
