@@ -47,9 +47,20 @@ alter table yalla_calls add column if not exists kind yalla_kind_t not null defa
 comment on column yalla_calls.kind is
   '0147 — post: بوست بالويك اند وكومنتات (الافتراضي). choice: النداء القديم اللي الناس بتختار فيه من مواعيد ومناطق.';
 
--- النداءات اللي كانت موجودة قبل الملف ده اتعملت بالفورم القديم.
-update yalla_calls set kind = 'choice'
- where created_at < '2026-11-15 14:00:00+00' and kind = 'post';
+-- 🔴 **النداءات القديمة بتتعلّم بالشكل مش بالوقت.** أول نسخة كانت بتقول
+--   `created_at < '2026-11-15 14:00:00+00'` — واتضح على الإنتاج إن المالك
+--   نزّل **تلات نداءات الساعة ٦ مساءً** بفورم `0146`، يعني بعد الحد ده.
+--   فكانوا هياخدوا `post`، والواجهة كانت هتعرضلهم «أنا جاي» بدوسة واحدة،
+--   و`fn_yalla_im_in` كانت هتحجز العضو على **أول ميعاد في الـ٢١** — ميعاد
+--   عشوائي محدش اختاره.
+--
+--   الشكل بيقول الحقيقة: البوست **ميعاد واحد ومنطقة واحدة**، والقديم أكتر.
+--   (نفس الدرسين العاشر والتمانية وعشرين: اتفحص على الثابت الحقيقي مش على
+--   تخمين بيتغيّر مع البيئة.)
+update yalla_calls c set kind = 'choice'
+ where c.kind = 'post'
+   and ((select count(*) from yalla_slots s      where s.call_id = c.id) > 1
+     or (select count(*) from yalla_call_areas a where a.call_id = c.id) > 1);
 
 
 -- ===== 2) الكومنتات =====
@@ -629,6 +640,20 @@ begin
 
   -- ⚠ الدرس التلاتين: النص اللي مش في القاعدة ولا في الاحتياطي بيطلّع
   --   **اسم المفتاح** على الشاشة للزائر.
+  -- 🔴 الصف ده اتكتب بعد ما شُفت الإنتاج: المالك نزّل ٣ نداءات بفورم
+  --   `0146` **بعد** الحد الزمني اللي كان مكتوب هنا، فكانوا هياخدوا
+  --   `post` وهم فيهم ٢١ ميعاد — والدوسة الواحدة كانت هتحجز على أول
+  --   ميعاد فيهم. دلوقتي الشكل هو اللي بيحكم، والصف ده بيحرسه.
+  test := '0147 · 🔴 مفيش نداء «بوست» وفيه أكتر من ميعاد أو منطقة';
+  select count(*) into n
+    from yalla_calls c
+   where c.kind = 'post'
+     and ((select count(*) from yalla_slots s      where s.call_id = c.id) > 1
+       or (select count(*) from yalla_call_areas a where a.call_id = c.id) > 1);
+  result := case when n = 0 then 'نجح'
+                 else format('فشل — 🔴 %s نداء هيعرض «أنا جاي» وهو فيه اختيارات، والدوسة هتحجز على ميعاد عشوائي', n) end;
+  return next;
+
   test := '0147 · النصوص الـ١٩ موجودة';
   select count(*) into n from copy_strings
    where key like 'yalla.talk.%' or key like 'yalla.post.%' or key = 'yalla.weekend';
