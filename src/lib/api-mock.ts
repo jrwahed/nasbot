@@ -585,11 +585,17 @@ const demoYalla = [
     topArea: 'العاشر من رمضان',
     wonWhen: null,
     wonArea: null,
-    slots: [
-      { id: 's1', at: hoursFromNow(80) },
-      { id: 's2', at: hoursFromNow(104) },
-      { id: 's3', at: hoursFromNow(128) },
-    ],
+    /**
+     * ⚠ **٢١ ميعاد مش ٣ — ده الشكل الحقيقي.** النداء اللي بينزل من
+     * `fn_yalla_post` (`0146`) بيولّد **أيام `yalla_days_ahead` × تلات
+     * فترات** = ٢١ افتراضيًا. المحاكاة كانت ٣ بس، فنافذة الاختيار عمرها
+     * ما اتجرّبت وهي مليانة — وده بالظبط اللي خلّى كاتالوج القوالب يطلع
+     * «كتير أوي» على الشاشة وهو شكله تمام في الاستعلام.
+     */
+    slots: Array.from({ length: 21 }, (_, i) => ({
+      id: `s${i + 1}`,
+      at: hoursFromNow(24 * (1 + Math.floor(i / 3)) + [11, 16, 20][i % 3] - 12),
+    })),
     areas: demoAreas,
     mySlots: [] as string[],
     myArea: null,

@@ -188,8 +188,6 @@ function Body({
 
       {tab === 'new' ? (
         <NewCall
-          tpls={tpls}
-          areaList={areaList}
           canEdit={canEdit}
           say={flash}
           onDone={() => {
@@ -239,88 +237,55 @@ function Body({
 
 /* ============================================================ نداء جديد */
 
+/**
+ * «+ نداء جديد» — **خانة واحدة** (قرار المالك ٢٠٢٦-١١-١٥).
+ *
+ * كان بيطلب ٧ حاجات: القالب · السطر · العدد · الحد الأدنى · المهلة ·
+ * المواعيد · المناطق. والمالك قال: «أنا بنزّل بوست أو اقتراح، **والناس
+ * اللي تحدد معايا** — ده اللي هو يلا».
+ *
+ * فكله اتشال، و`fn_yalla_post` (`0146`) بتحسبه:
+ *   · القالب   → القالب العام `nedaa-yalla`، واسم الخروجة بعد القفل
+ *                بيتاخد من **سطر البوست** نفسه.
+ *   · المواعيد → أيام `settings.yalla_days_ahead` الجاية × تلات فترات.
+ *   · المناطق  → كل كتل الخريطة النشطة.
+ *   · الأرقام  → `settings` (العدد · الحد الأدنى · المهلة).
+ *
+ * ⚠ **الكلمات الممنوعة بتتفحص هنا كمان** — مش علشان الأمان (القاعدة
+ *   بترفض برضه في `fn_guard_sbota_text`) لكن علشان المالك يشوف الرسالة
+ *   قبل ما يدوس، بدل ما القاعدة ترميله استثناء.
+ */
 function NewCall({
-  tpls,
-  areaList,
   canEdit,
   say,
   onDone,
 }: {
-  tpls: Tpl[]
-  areaList: AreaRow[]
   canEdit: boolean
   say: (m: string) => void
   onDone: () => void
 }) {
-  const [tpl, setTpl] = useState('')
   const [line, setLine] = useState('')
-  const [size, setSize] = useState(6)
-  const [min, setMin] = useState(4)
-  const [lockHours, setLockHours] = useState(48)
-  const [cost, setCost] = useState('')
-  const [dur, setDur] = useState(120)
-  /** كل ميعاد: يوم + ساعة بتوقيت القاهرة */
-  const [when1, setWhen1] = useState<{ d: string; t: string }[]>([
-    { d: todayCairo(), t: '20:00' },
-  ])
-  const [picked, setPicked] = useState<string[]>([])
-  const [words, setWords] = useState<string[]>([])
   const [busy, setBusy] = useState(false)
+  const [words, setWords] = useState<string[]>([])
 
   useEffect(() => {
     loadBannedWords().then(setWords)
-    // ⚠ الافتراضيات من `settings` مش من الكود (§٣.٢) — المالك بيغيّرهم من
-    //   «الإعدادات ← الأرقام» والفورم بيبدأ منهم.
-    const boot = async () => {
-      const { data } = await supabase()
-        .from('settings')
-        .select('yalla_group_size, yalla_min_group, yalla_lock_hours')
-        .maybeSingle()
-      const d = data as {
-        yalla_group_size?: number
-        yalla_min_group?: number
-        yalla_lock_hours?: number
-      } | null
-      if (!d) return
-      setSize(d.yalla_group_size ?? 6)
-      setMin(d.yalla_min_group ?? 4)
-      setLockHours(d.yalla_lock_hours ?? 48)
-    }
-    boot()
   }, [])
-
-  const toggleArea = (k: string) =>
-    setPicked((p) => (p.includes(k) ? p.filter((x) => x !== k) : [...p, k]))
 
   const save = async () => {
     if (!canEdit) return
-    if (!tpl) return say('اختار النشاط')
-    if (!line.trim()) return say('اكتب سطر النداء')
-    const bad = bannedIn(`${line} ${cost}`, words)
+    if (!line.trim()) return say('اكتب البوست')
+    const bad = bannedIn(line, words)
     if (bad.length) return say(`في كلمات ممنوعة: ${bad.join('، ')}`)
-    if (min < 2 || min > size) return say('الحد الأدنى لازم يكون بين ٢ وعدد المجموعة')
-    if (picked.length === 0) return say('اختار منطقة واحدة على الأقل')
-    const iso = when1
-      .filter((w) => w.d && w.t)
-      .map((w) => cairoToIso(w.d, w.t))
-      .filter((x) => new Date(x).getTime() > Date.now())
-    if (iso.length === 0) return say('حط ميعاد واحد على الأقل في المستقبل')
 
     setBusy(true)
-    const { data, error } = await supabase().rpc('fn_yalla_create', {
-      p_template: tpl,
+    const { data, error } = await supabase().rpc('fn_yalla_post', {
       p_line: line.trim(),
-      p_group_size: size,
-      p_min_group: min,
-      p_deadline: new Date(Date.now() + lockHours * 3_600_000).toISOString(),
-      p_slots: iso,
-      p_areas: picked,
-      p_cost_note: cost.trim() || null,
-      p_duration: dur,
     })
     setBusy(false)
     if (error || !data) return say(error?.message ?? 'القاعدة رفضت')
-    say('النداء نزل ✓ — الناس تقدر تختار دلوقتي')
+    setLine('')
+    say('النداء نزل ✓ — الناس تقدر تحدد دلوقتي')
     onDone()
   }
 
@@ -328,144 +293,32 @@ function NewCall({
     <div className="mt-6 flex flex-col gap-4">
       <Card
         title="نداء جديد"
-        hint="النداء بينزل على طول وبيبان في «يلا» — لو المفتاح مفتوح من الإعدادات."
+        hint="اكتب البوست وبس. المواعيد والمناطق بتتعرض للناس لوحدها، وهم اللي يحددوا."
       >
-        <div className="mt-3 grid gap-4 md:grid-cols-2">
-          <label className="flex flex-col gap-1">
-            <span className="font-body text-13" style={{ color: 'var(--muted)' }}>
-              النشاط (قالب)
-            </span>
-            <select
-              value={tpl}
-              onChange={(e) => setTpl(e.target.value)}
-              className="rounded-14 px-3 py-2 font-body text-16"
-              style={{
-                background: 'var(--bg)',
-                color: 'var(--fg)',
-                border: '2px solid var(--line)',
-              }}
-            >
-              <option value="">— اختار —</option>
-              {tpls.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name_ar}
-                </option>
-              ))}
-            </select>
-            <span className="font-body text-12" style={{ color: 'var(--muted)' }}>
-              صورة القالب هي صورة البوست. من غير صورة البوست بيبان كلام بس — وده تمام.
-            </span>
-          </label>
-
-          <TextField
-            label="سطر النداء"
-            value={line}
-            onSave={setLine}
-            hint="كلام بوست مش عنوان إعلان. مثال: «يلا نسبوط — بادل. إمتى وفين؟»"
-          />
+        <textarea
+          value={line}
+          onChange={(e) => setLine(e.target.value)}
+          rows={3}
+          placeholder="يلا نعمل حاجة الأسبوع ده… إمتى وفين؟"
+          className="w-full rounded-12 border p-3 text-16 leading-[1.6]"
+          style={{ borderColor: 'var(--line)', background: 'var(--bg)', color: 'var(--fg)' }}
+        />
+        <div className="mt-2 text-13" style={{ color: 'var(--muted)' }}>
+          الأرقام (عدد المجموعة · الحد الأدنى · مهلة القفل · كام يوم بيتعرضوا)
+          بتتظبط من «الإعدادات» ← «يلا».
         </div>
-
-        <div className="mt-4 grid gap-4 md:grid-cols-4">
-          <NumberField label="عدد المجموعة" value={size} onSave={setSize} min={2} suffix="شخص" />
-          <NumberField
-            label="الحد الأدنى"
-            value={min}
-            onSave={setMin}
-            min={2}
-            suffix="شخص"
-            hint="تحته النداء يتقفل من غير مجموعة"
-          />
-          <NumberField label="مهلة القفل" value={lockHours} onSave={setLockHours} min={1} suffix="ساعة" />
-          <NumberField label="مدة الخروجة" value={dur} onSave={setDur} min={30} suffix="دقيقة" />
-        </div>
-
-        <div className="mt-4">
-          <TextField
-            label="سطر التكلفة (اختياري)"
-            value={cost}
-            onSave={setCost}
-            hint="معلومة مش مبلغ بنحصّله — مفيش دفع في «يلا» خالص."
-          />
+        <div className="mt-3 flex justify-end">
+          <button
+            type="button"
+            onClick={save}
+            disabled={busy || !canEdit || !line.trim()}
+            className="min-h-[44px] cursor-pointer rounded-12 px-5 text-15 font-bold"
+            style={{ background: '#F4632A', color: '#FBF7EF', border: 0, opacity: busy ? 0.6 : 1 }}
+          >
+            {busy ? 'بينزل…' : 'نزّل النداء'}
+          </button>
         </div>
       </Card>
-
-      <Card title="المواعيد المعروضة" hint="بتوقيت القاهرة. العضو يقدر يختار أكتر من واحد.">
-        <div className="mt-3 flex flex-col gap-2">
-          {when1.map((w, i) => (
-            <div key={i} className="flex flex-wrap items-center gap-2">
-              <input
-                type="date"
-                value={w.d}
-                onChange={(e) =>
-                  setWhen1((p) => p.map((x, j) => (j === i ? { ...x, d: e.target.value } : x)))
-                }
-                className="rounded-14 px-3 py-2 font-body text-16"
-                style={{
-                  background: 'var(--bg)',
-                  color: 'var(--fg)',
-                  border: '2px solid var(--line)',
-                }}
-              />
-              <input
-                type="time"
-                value={w.t}
-                onChange={(e) =>
-                  setWhen1((p) => p.map((x, j) => (j === i ? { ...x, t: e.target.value } : x)))
-                }
-                className="rounded-14 px-3 py-2 font-body text-16"
-                style={{
-                  background: 'var(--bg)',
-                  color: 'var(--fg)',
-                  border: '2px solid var(--line)',
-                }}
-              />
-              {when1.length > 1 && (
-                <Btn kind="danger" onClick={() => setWhen1((p) => p.filter((_, j) => j !== i))}>
-                  شيل
-                </Btn>
-              )}
-            </div>
-          ))}
-          <div>
-            <Btn onClick={() => setWhen1((p) => [...p, { d: todayCairo(), t: '20:00' }])}>
-              + ميعاد
-            </Btn>
-          </div>
-        </div>
-      </Card>
-
-      <Card
-        title="المناطق المعروضة"
-        hint="من قايمة المناطق الموجودة — الأسامي بتتعدّل من «الخريطة»."
-      >
-        <div className="mt-3 flex flex-wrap gap-2">
-          {areaList.map((a) => {
-            const on = picked.includes(a.key)
-            return (
-              <button
-                key={a.key}
-                type="button"
-                onClick={() => toggleArea(a.key)}
-                aria-pressed={on}
-                className="cursor-pointer rounded-pill px-4 py-2 font-display text-15 font-black"
-                style={{
-                  background: on ? 'var(--fg)' : 'transparent',
-                  color: on ? 'var(--bg)' : 'var(--fg)',
-                  border: `2px solid ${on ? 'var(--fg)' : 'var(--chip-idle-border)'}`,
-                }}
-              >
-                {a.label_ar}
-              </button>
-            )
-          })}
-        </div>
-      </Card>
-
-      <div>
-        <Btn kind="primary" onClick={save} disabled={!canEdit || busy}>
-          {busy ? 'ثانية واحدة…' : 'نزّل النداء'}
-        </Btn>
-      </div>
     </div>
   )
 }
