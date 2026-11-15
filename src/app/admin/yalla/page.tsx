@@ -151,7 +151,13 @@ function Body({
       db.from('yalla_calls').select('*').order('created_at', { ascending: false }).limit(60),
       db.from('yalla_slots').select('*').order('sort'),
       db.from('yalla_call_areas').select('*').order('sort'),
-      db.from('sbota_templates').select('id, slug, name_ar').eq('is_active', true).order('name_ar'),
+      // ⚠ **مفيش عمود `is_active` في `sbota_templates`** — كان مكتوب هنا
+      //   `.eq('is_active', true)` وPostgREST بيرفض الاستعلام كله، فقايمة
+      //   القوالب كانت بترجع **فاضية** ومفيش طريقة تنزّل نداء أصلًا.
+      //   الدرس الخمستاشر: الاستعلام بيتبني وقت التشغيل، فلا `tsc` ولا
+      //   البناء بيشوفوه. الفلتر الصح هنا هو **قوالب الشغل بره** — نداء
+      //   «يلا» خروجة عادية، مش يوم شغل.
+      db.from('sbota_templates').select('id, slug, name_ar').eq('is_work', false).order('name_ar'),
       db.from('map_areas').select('key, label_ar, sort').eq('is_active', true).order('sort'),
       db.from('sbotat').select('id, yalla_id, venue_name_ar, address_ar, reveal_at, status, capacity').not('yalla_id', 'is', null),
     ])
