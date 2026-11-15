@@ -62,6 +62,19 @@ export default function Home() {
     <main className="mx-auto w-full lg:max-w-[1600px]">
       <Header />
 
+      {/*
+        «يلا» — **أول حاجة في الصفحة** (قرار المالك ٢٠٢٦-١١-١٥: «خلي صفحة
+        يلا الافتراضية»). النداء هو اللي الزائر بيشوفه أول ما يفتح الموقع.
+
+        🔴 **ومش `redirect` على `/yalla`** عن قصد: المفتاح ممكن يكون مقفول،
+           وساعتها كانت الرئيسية هتبقى شاشة «مقفول» — يعني الموقع كله ميت.
+           المكوّن ده بيخفي نفسه لو المفتاح مقفول أو مفيش ولا نداء، والرئيسية
+           بترجع زي ما هي بالحرف.
+      */}
+      <div className="mx-auto w-full lg:max-w-[1100px]">
+        <YallaStrip className="px-5 pt-6" />
+      </div>
+
       {/* الزر الكبير — على الكمبيوتر بيروح فوق الخريطة */}
       <div className="px-5 pt-2 lg:hidden">
         <OneButton />
@@ -74,9 +87,6 @@ export default function Home() {
         <div className="min-w-0 lg:w-[40%] lg:order-2">
           {/* شريط الشغل — نهاري بس، فوق البطاقات */}
           <WorkStrip className="mx-5 mt-6 lg:mx-0" />
-          {/* «يلا» — النداء اللي الناس بتقرر ميعاده (0142). بيختفي لو المفتاح
-              مقفول أو مفيش ولا نداء. */}
-          <YallaStrip className="mx-5 mt-7 lg:mx-0" />
           <div className="px-5 pt-7 lg:px-0">
             <h2 className="m-0 font-display text-30 font-black leading-[1.15]">{t('home.text.3')}</h2>
             <div className="mt-1" style={{ color: 'var(--sbt-sub)' }}>{t('home.text.2')}</div>
