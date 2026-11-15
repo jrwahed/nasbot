@@ -568,11 +568,12 @@ const demoAreas = [
 const demoYalla = [
   {
     callId: '11111111-1111-1111-1111-111111111111',
+    kind: 'post' as const,
     slug: 'padel',
     link: 'padel-11111111',
     createdAt: hoursFromNow(-2),
     status: 'open' as const,
-    line: 'يلا نسبوط — بادل. إمتى وفين؟',
+    line: 'يلا نلعب بادل الويك اند الجاي. مين معانا؟',
     what: 'بادل',
     imgSrc: null,
     photoAlt: null,
@@ -586,17 +587,13 @@ const demoYalla = [
     wonWhen: null,
     wonArea: null,
     /**
-     * ⚠ **٢١ ميعاد مش ٣ — ده الشكل الحقيقي.** النداء اللي بينزل من
-     * `fn_yalla_post` (`0146`) بيولّد **أيام `yalla_days_ahead` × تلات
-     * فترات** = ٢١ افتراضيًا. المحاكاة كانت ٣ بس، فنافذة الاختيار عمرها
-     * ما اتجرّبت وهي مليانة — وده بالظبط اللي خلّى كاتالوج القوالب يطلع
-     * «كتير أوي» على الشاشة وهو شكله تمام في الاستعلام.
+     * ⚠ **ميعاد واحد ومنطقة واحدة — ده الشكل الحقيقي بعد `0147`.** كان ٢١
+     * ميعاد × ١٦ منطقة (`0146`)، والمالك شاف النافذة وقال «مش عاوز
+     * الاقتراحات دي كلها». دلوقتي الاتنين **سباكة مخفية** للقفل التلقائي
+     * والواجهة ما بتعرضهمش خالص.
      */
-    slots: Array.from({ length: 21 }, (_, i) => ({
-      id: `s${i + 1}`,
-      at: hoursFromNow(24 * (1 + Math.floor(i / 3)) + [11, 16, 20][i % 3] - 12),
-    })),
-    areas: demoAreas,
+    slots: [{ id: 's1', at: hoursFromNow(84) }],
+    areas: demoAreas.slice(0, 1),
     mySlots: [] as string[],
     myArea: null,
     myN: null,
@@ -607,6 +604,7 @@ const demoYalla = [
   },
   {
     callId: '22222222-2222-2222-2222-222222222222',
+    kind: 'post' as const,
     slug: 'kayak',
     link: 'kayak-22222222',
     createdAt: hoursFromNow(-26),
@@ -624,11 +622,8 @@ const demoYalla = [
     topArea: 'التجمع',
     wonWhen: null,
     wonArea: null,
-    slots: [
-      { id: 'k1', at: hoursFromNow(60) },
-      { id: 'k2', at: hoursFromNow(84) },
-    ],
-    areas: demoAreas.slice(0, 2),
+    slots: [{ id: 'k1', at: hoursFromNow(60) }],
+    areas: demoAreas.slice(0, 1),
     mySlots: ['k1'],
     myArea: 'tagamo3',
     myN: 2,
@@ -638,7 +633,10 @@ const demoYalla = [
     myWaiting: false,
   },
   {
+    // ⚠ النداء القديم — بيتعرض بنافذة الاختيار. سايبينه في المحاكاة علشان
+    //   الطريق القديم يتجرّب في التطوير (المالك عنده نداء واحد `choice`).
     callId: '33333333-3333-3333-3333-333333333333',
+    kind: 'choice' as const,
     slug: 'bowling',
     link: 'bowling-33333333',
     createdAt: hoursFromNow(-50),
@@ -667,6 +665,59 @@ const demoYalla = [
     myWaiting: false,
   },
 ]
+
+/**
+ * كلام المحاكاة — **الاسم الأول وبس**، زي اللي بيرجع من القاعدة بالظبط.
+ * مفيش `profileId` ومفيش صورة، علشان المحاكاة ما تورّيش شكل مش موجود.
+ */
+const demoTalk: Record<string, { id: string; name: string; body: string; createdAt: string; mine: boolean }[]> = {
+  '11111111-1111-1111-1111-111111111111': [
+    {
+      id: 'c1',
+      name: 'نور',
+      body: 'أنا فاضية الجمعة بالليل والسبت الصبح. التجمع أقرب ليا.',
+      createdAt: hoursFromNow(-1),
+      mine: false,
+    },
+    {
+      id: 'c2',
+      name: 'كريم',
+      body: 'الجمعة بالليل تمام. فيه ملعب حلو في المعادي لو حد يعرفه.',
+      createdAt: hoursFromNow(-0.5),
+      mine: false,
+    },
+  ],
+}
+
+export async function getYallaComments(callId: string) {
+  return demoTalk[callId] ?? []
+}
+
+export async function sayYalla(callId: string, body: string): Promise<'ok'> {
+  const list = demoTalk[callId] ?? (demoTalk[callId] = [])
+  list.push({
+    id: `c${list.length + 1}`,
+    name: 'إنت',
+    body,
+    createdAt: new Date().toISOString(),
+    mine: true,
+  })
+  return 'ok'
+}
+
+export async function imInYalla(callId: string) {
+  const post = demoYalla.find((p) => p.callId === callId)
+  if (post) {
+    post.mySlots = post.slots.map((x) => x.id)
+    post.myArea = post.areas[0]?.key ?? null
+    post.myN = (post.topN ?? 0) + 1
+    post.myWhen = post.slots[0]?.at ?? null
+    post.myAreaLabel = post.areas[0]?.label ?? null
+    post.totalN += 1
+    post.topN += 1
+  }
+  return { n: (post?.totalN ?? 1), locked: false }
+}
 
 export async function getYallaFeed(limit = 20) {
   return demoYalla.slice(0, limit)

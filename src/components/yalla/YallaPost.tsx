@@ -7,20 +7,29 @@ import { QIcon } from '@/components/QIcon'
 import { Sticker } from '@/components/Sticker'
 import { PrimaryButton, SecondaryButton } from '@/components/Buttons'
 import { YallaSheet } from '@/components/yalla/YallaSheet'
+import { YallaTalk } from '@/components/yalla/YallaTalk'
 import { useT } from '@/components/CopyProvider'
 import { isLoggedIn } from '@/lib/session'
-import { joinYallaWinner, type YallaPost as Post } from '@/lib/api'
+import { imInYalla, joinYallaWinner, type YallaPost as Post } from '@/lib/api'
 import { arDigits, yallaWhen } from '@/lib/map-db'
 import { track } from '@/lib/track'
 
 /**
  * بوست «يلا» — نداء، والناس هي اللي بتقرر الميعاد والمنطقة.
  *
- * الشكل من السوشيال ميديا، والمحتوى لأ:
- *   ✓ علامة الموقع + الاسم + «من ساعتين» + الحالة · سطر بخط كبير · صورة
- *     النشاط · سطر الاتجاه · صف أزرار
- *   ✗ مفيش لايكات · مفيش كومنتات · مفيش عدد متابعين · مفيش صور ولا أسامي
- *     أعضاء · مفيش بروفايل يتفتح لأي حد
+ * **شكلين:**
+ *   · `kind = 'post'` (كل نداء جديد) — **الويك اند، ودوسة واحدة.** مفيش
+ *     نافذة اختيار خالص: العضو يدوس «أنا جاي»، ويكتب في «الكلام» إمتى
+ *     فاضي وإيه المكان. قرار المالك ٢٠٢٦-١١-١٥ بعد ما شاف ٢١ ميعاد و١٦
+ *     منطقة في النافذة: «مش عاوز الاقتراحات دي كلها».
+ *   · `kind = 'choice'` — النداء القديم بنافذة الاختيار. لسه موجود علشان
+ *     النداء اللي المالك نزّله بالفورم القديم ما يبوظش.
+ *
+ * الشكل من السوشيال ميديا، والمحتوى **نص الطريق**:
+ *   ✓ علامة الموقع + «من ساعتين» + الحالة · سطر بخط كبير · صورة النشاط ·
+ *     عدد اللي جايين · كلام الأعضاء · صف أزرار
+ *   ✗ مفيش صور أعضاء · مفيش بروفايل يتفتح لأي حد · مفيش عدد متابعين ·
+ *     والدوسة **مجهولة** (رقم مش أسامي) — اللي بيكتب هو اللي بيختار يبان
  *
  * ⚠ **من غير صورة البوست كلام بس** — مش مربع رملي فاضي ولا صورة بديلة
  *   (قرار المالك). الـ٨٥ قالب في الدليل مفيهمش صور، فالحالة دي هي الأغلب
@@ -47,6 +56,7 @@ export function YallaPost({
   const [err, setErr] = useState(false)
   const [copied, setCopied] = useState(false)
 
+  const isPost = post.kind === 'post'
   const mine = post.mySlots.length > 0 && !!post.myArea
   const locked = post.status === 'locked'
   const closed = post.status === 'closed'
@@ -62,7 +72,33 @@ export function YallaPost({
       router.push(`/join?next=${encodeURIComponent(`/yalla/${post.link}`)}`)
       return
     }
-    setSheet(true)
+    // النداء القديم: نافذة اختيار. البوست: دوسة واحدة وخلاص.
+    if (!isPost) {
+      setSheet(true)
+      return
+    }
+    void onImIn()
+  }
+
+  /** «أنا جاي» في بوست — الميعاد والمنطقة مخفيين والقاعدة بتاخدهم لوحدها */
+  const onImIn = async () => {
+    setBusy(true)
+    setErr(false)
+    const res = await imInYalla(post.callId)
+    setBusy(false)
+    if (!res) {
+      setErr(true)
+      return
+    }
+    track('yalla_choose', { slug: post.slug })
+    onChanged({
+      ...post,
+      // ⚠ الواجهة ما بتعرضهمش — بس لازم تتعلّم إني دوست، علشان الزرار
+      //   يقلب لـ«قلت إنك جاي ✓» من غير ما ننتظر دورة الـpoll.
+      mySlots: post.slots.map((x) => x.id),
+      myArea: post.areas[0]?.key ?? null,
+      totalN: res.n,
+    })
   }
 
   const onShare = async () => {
@@ -157,6 +193,23 @@ export function YallaPost({
           <div className="font-body text-17" style={{ color: 'var(--muted)' }}>
             {t('yalla.closed.line')}
           </div>
+        ) : isPost ? (
+          /* ⚠ **البوست: عدد وبس.** مفيش «أكتر ناس قالت الجمعة في التجمع» —
+             مفيش اقتراحات أصلًا، والميعاد والمكان بيتكتبوا في الكلام تحت.
+             والعدد **رقم مش أسامي**: الدوسة مجهولة عن قصد. */
+          <div className="flex flex-col gap-1">
+            <div className="font-body text-17">
+              {post.totalN > 0
+                ? t('yalla.post.n', { n: arDigits(post.totalN) })
+                : t('yalla.post.none')}
+            </div>
+            {/* ⚠ الشرح بيختفي بعد ما يدوس — بقى كلام زيادة، والكارت بيقصر.
+                اتشاف في اللقطة: سطرين شرح في كل كارت حتى اللي خلص. */}
+            <div className="font-body text-14" style={{ color: 'var(--muted)' }}>
+              {t('yalla.weekend')}
+              {!mine && ` · ${t('yalla.post.hint')}`}
+            </div>
+          </div>
         ) : post.topN > 0 && post.topWhen ? (
           <div className="font-body text-17">
             {t('yalla.trend', {
@@ -173,7 +226,7 @@ export function YallaPost({
         )}
 
         {/* ===== اختياري أنا ===== */}
-        {!locked && !closed && mine && post.myN !== null && post.myWhen && (
+        {!locked && !closed && !isPost && mine && post.myN !== null && post.myWhen && (
           <div
             className="font-body text-16 font-semibold"
             style={{ color: 'var(--accent-text)' }}
@@ -219,16 +272,34 @@ export function YallaPost({
               </PrimaryButton>
             )
           ) : closed ? null : mine ? (
-            <button
-              type="button"
-              onClick={onTap}
-              className="min-h-[48px] cursor-pointer rounded-14 px-[14px] font-display text-15 font-black leading-none"
-              style={{ background: 'var(--fg)', color: 'var(--bg)', border: 0 }}
-            >
-              {t('yalla.cta.mine')}
-            </button>
+            /* ⚠ في البوست الزرار **مش بيفتح حاجة** — العضو دوس خلاص.
+               وفي النداء القديم بيفتح النافذة علشان يغيّر اختياره. */
+            isPost ? (
+              <span
+                className="min-h-[48px] rounded-14 px-[14px] font-display text-15 font-black leading-none"
+                style={{
+                  background: 'var(--fg)',
+                  color: 'var(--bg)',
+                  display: 'grid',
+                  placeItems: 'center',
+                }}
+              >
+                {t('yalla.post.mine')}
+              </span>
+            ) : (
+              <button
+                type="button"
+                onClick={onTap}
+                className="min-h-[48px] cursor-pointer rounded-14 px-[14px] font-display text-15 font-black leading-none"
+                style={{ background: 'var(--fg)', color: 'var(--bg)', border: 0 }}
+              >
+                {t('yalla.cta.mine')}
+              </button>
+            )
           ) : (
-            <PrimaryButton onClick={onTap}>{t('yalla.cta')}</PrimaryButton>
+            <PrimaryButton onClick={onTap} loading={isPost && busy}>
+              {isPost ? t('yalla.post.cta') : t('yalla.cta')}
+            </PrimaryButton>
           )}
 
           <SecondaryButton onClick={onShare}>{t('yalla.share')}</SecondaryButton>
@@ -250,14 +321,19 @@ export function YallaPost({
             {t('yalla.switch.err')}
           </div>
         )}
+        {/* ===== الكلام — في البوست بس، وللأعضاء بس ===== */}
+        {isPost && !closed && <YallaTalk post={post} />}
       </div>
 
-      <YallaSheet
-        post={post}
-        open={sheet}
-        onClose={() => setSheet(false)}
-        onChanged={onChanged}
-      />
+      {/* ⚠ النافذة للنداء القديم بس — البوست مفيهوش اختيار خالص */}
+      {!isPost && (
+        <YallaSheet
+          post={post}
+          open={sheet}
+          onClose={() => setSheet(false)}
+          onChanged={onChanged}
+        />
+      )}
     </article>
   )
 }

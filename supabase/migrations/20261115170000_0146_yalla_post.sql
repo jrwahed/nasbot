@@ -25,6 +25,15 @@
 --   الدرس السادس). **إعادة لزق `0143` بترجّع القديمة**، و`test_yalla_post()`
 --   بيقع أحمر — فيه صف صريح على ده.
 --
+-- 🔴 **اتحدّثت في نفس اليوم — `0147` حلّ محل الاقتراحات.** المالك شاف
+--   النافذة وفيها ٢١ ميعاد و١٦ منطقة وقال: «مش عاوز الاقتراحات دي كلها،
+--   عاوز الويك اند وهو يكتب الميعاد والأوقات اللي فاضي فيها والمكان».
+--   فـ`0147` بيعيد `fn_yalla_post` بـ**ميعاد واحد مخفي (الجمعة الجاية)
+--   ومنطقة واحدة مخفية** — سباكة للقفل التلقائي، والعضو ما بيختارش حاجة.
+--   السطرين بتاعين «المواعيد» و«المناطق» فوق **بيوصفوا النسخة القديمة**.
+--   ⚠ وإعادة لزق الملف ده **بترجّع الاقتراحات الـ٢١**، و`test_yalla_social()`
+--   (`0147`) بيقع أحمر — فيه صف صريح على ده. لو حصل، الزق `0147` بعده.
+--
 -- آمنة تتكرر.
 -- ============================================================================
 
@@ -322,7 +331,6 @@ declare
   v_call  uuid;
   n       int;
   n_areas int;
-  v_days  int;
   v_title text;
   v_err   text;
 begin
@@ -372,18 +380,32 @@ begin
     result := case when v_call is not null then 'نجح' else 'فشل — ما اتعملش' end;
     return next;
 
-    test := '0146 · المواعيد اتولّدت (أيام × ٣ فترات)';
+    -- ⚠ **العدد نفسه بقى شغل `0147`.** لحد ٢٠٢٦-١١-١٥ الصفّين دول كانوا
+    --   بيفحصوا `n = الأيام × ٣` و`n = كل كتل الخريطة` — يعني ٢١ ميعاد و١٦
+    --   منطقة. وبعدها المالك قال: «مش عاوز الاقتراحات دي كلها، عاوز الويك
+    --   اند وهو يكتب الميعاد والمكان»، فـ`0147` خلّى النداء **ميعاد واحد
+    --   مخفي ومنطقة واحدة مخفية** (سباكة للقفل التلقائي، مش اختيار).
+    --
+    --   فالصفّين اتحوّلوا للـ**ثابت اللي لسه صح في النسختين**: النداء لازم
+    --   يبقى ليه ميعاد ومنطقة، والمنطقة لازم تبقى كتلة نشطة. والعدد المظبوط
+    --   بيتفحص في `test_yalla_social()` (`0147`) — مصدر واحد، والدرس التالت:
+    --   الهجرة القديمة اتعدّلت علشان ما تتعاركش مع الجديدة بدل ما نكتب فوقها.
+    test := '0146 · النداء ليه ميعاد (العدد في 0147)';
     select count(*) into n from yalla_slots where call_id = v_call;
-    select coalesce(yalla_days_ahead, 7) into v_days from settings limit 1;
-    result := case when n = v_days * 3 then format('نجح (%s ميعاد)', n)
-                   else format('فشل — %s ميعاد والمتوقّع %s', n, v_days * 3) end;
+    result := case when n >= 1 then format('نجح (%s ميعاد)', n)
+                   else 'فشل — نداء من غير ولا ميعاد، القفل التلقائي مش هيلاقي حاجة' end;
     return next;
 
-    test := '0146 · كل كتل الخريطة النشطة اتعرضت';
-    select count(*) into n      from yalla_call_areas where call_id = v_call;
-    select count(*) into n_areas from map_areas where is_active;
-    result := case when n = n_areas then format('نجح (%s منطقة)', n)
-                   else format('فشل — %s من %s', n, n_areas) end;
+    test := '0146 · النداء ليه منطقة، وكلها كتل نشطة';
+    select count(*) into n from yalla_call_areas where call_id = v_call;
+    select count(*) into n_areas
+      from yalla_call_areas a
+     where a.call_id = v_call
+       and not exists (select 1 from map_areas m
+                        where m.key = a.area_key and m.is_active);
+    result := case when n >= 1 and n_areas = 0 then format('نجح (%s منطقة)', n)
+                   when n = 0 then 'فشل — نداء من غير ولا منطقة'
+                   else format('فشل — %s منطقة مش كتلة نشطة', n_areas) end;
     return next;
 
     test := '0146 · 🔴 مفيش ميعاد في الماضي';

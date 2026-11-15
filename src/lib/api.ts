@@ -2739,9 +2739,33 @@ export interface YallaArea {
  *   `fn_yalla_feed` نفسها مش بترجّعهم (وفيه صف اختبار بنيوي بيقع لو حد
  *   زوّد عمود بيكشف هوية).
  */
+/**
+ * كومنت على نداء — **الاسم الأول وبس**.
+ *
+ * ⚠ مفيش `profileId` ومفيش صورة ومفيش رابط بروفايل — `fn_yalla_comments`
+ *   نفسها مش بترجّعهم (وفيه صف اختبار بنيوي بيقع لو حد زوّد عمود). قرار
+ *   المالك ٢٠٢٦-١١-١٥: «الاسم الأول بس، من غير صورة».
+ */
+export interface YallaComment {
+  id: string
+  /** الاسم الأول — مش قابل للدوس */
+  name: string
+  body: string
+  createdAt: string
+  /** ده كلامي؟ (علشان زرار «امسح») */
+  mine: boolean
+}
+
 export interface YallaPost {
   callId: string
   slug: string
+  /**
+   * `post` = بوست الويك اند (دوسة واحدة + كلام) · `choice` = النداء القديم
+   * اللي الناس بتختار فيه من مواعيد ومناطق.
+   *
+   * ⚠ جاي من `fn_yalla_kinds()` مش من الفيد — شوف `0147` §٨.
+   */
+  kind: 'post' | 'choice'
   /** رابط البوست — من `yallaLink()` */
   link: string
   createdAt: string
@@ -2785,6 +2809,9 @@ function yallaFromDb(r: Record<string, unknown>): YallaPost {
   return {
     callId,
     slug,
+    // الافتراضي `post` — كل نداء جديد بوست. والنوع الحقيقي بيتحط في
+    // `getYallaFeed` من `fn_yalla_kinds()`.
+    kind: 'post',
     link: yallaLink(slug, callId),
     createdAt: String(r.created_at ?? ''),
     status: (String(r.status ?? 'open') as YallaPost['status']) ?? 'open',
@@ -2844,7 +2871,23 @@ export async function getYallaFeed(limit = 20): Promise<YallaPost[]> {
     async () => {
       const { data, error } = await supabase().rpc('fn_yalla_feed', { p_limit: limit })
       if (error || !data) return []
-      return (data as Record<string, unknown>[]).map(yallaFromDb)
+      const list = (data as Record<string, unknown>[]).map(yallaFromDb)
+      // ⚠ نداء تاني صغير للنوع — `fn_yalla_feed` ما اتلمستش (متفحوصة بـ٤٤
+      //   صف، وتغيير أعمدتها محتاج `drop` فتتعارك مع `0143`). شوف `0147` §٨.
+      //   ولو فشل، كله بيفضل `post` وده الافتراضي الصح لكل نداء جديد.
+      const { data: kinds } = await supabase().rpc('fn_yalla_kinds')
+      if (Array.isArray(kinds)) {
+        const map = new Map<string, string>(
+          (kinds as { call_id?: string; kind?: string }[]).map((k) => [
+            String(k.call_id),
+            String(k.kind ?? 'post'),
+          ])
+        )
+        for (const p of list) {
+          if (map.get(p.callId) === 'choice') p.kind = 'choice'
+        }
+      }
+      return list
     },
     [] as YallaPost[]
   )
@@ -2884,6 +2927,78 @@ export async function chooseYalla(
     area: d.area ? String(d.area) : null,
     locked: d.locked === true,
   }
+}
+
+/**
+ * «أنا جاي» في بوست — **دوسة واحدة، من غير اختيار**.
+ *
+ * الميعاد والمنطقة مخفيين في النداء، و`fn_yalla_im_in` بتاخدهم لوحدها
+ * وبتنادي `fn_yalla_choose` (الحارس والتحقّق مكانهم ما اتغيّرش).
+ */
+export async function imInYalla(
+  callId: string
+): Promise<{ n: number; locked: boolean } | null> {
+  if (!DB) return mock.imInYalla(callId)
+  const { data, error } = await supabase().rpc('fn_yalla_im_in', { p_call: callId })
+  if (error) return null
+  const d = (data ?? {}) as Record<string, unknown>
+  return { n: Number(d.n ?? 1), locked: d.locked === true }
+}
+
+/**
+ * الكلام على نداء — **للأعضاء المسجّلين بس** (قرار المالك).
+ *
+ * ⚠ الزائر بياخد **مصفوفة فاضية** مش خطأ: `fn_yalla_comments` بترجّع ولا
+ *   صف لو `auth.uid()` فاضية، فالقسم بيخفي نفسه والصفحة بتفضل شغّالة.
+ */
+export async function getYallaComments(callId: string): Promise<YallaComment[]> {
+  if (!DB) return mock.getYallaComments(callId)
+  return safeWork(
+    'getYallaComments',
+    async () => {
+      const { data, error } = await supabase().rpc('fn_yalla_comments', { p_call: callId })
+      if (error || !data) return []
+      return (data as Record<string, unknown>[]).map((r) => ({
+        id: String(r.id),
+        name: String(r.first_name ?? ''),
+        body: String(r.body_ar ?? ''),
+        createdAt: String(r.created_at ?? ''),
+        mine: r.mine === true,
+      }))
+    },
+    [] as YallaComment[]
+  )
+}
+
+/**
+ * اكتب كلام.
+ *
+ * بترجّع `'ok'` أو سبب الرفض — القاعدة هي اللي بتقرر (كلمة ممنوعة · الحد ·
+ * النداء قافل)، والواجهة بتعرض الرسالة المناسبة.
+ */
+export async function sayYalla(
+  callId: string,
+  body: string
+): Promise<'ok' | 'words' | 'max' | 'err'> {
+  if (!DB) return mock.sayYalla(callId, body)
+  const { error } = await supabase().rpc('fn_yalla_say', {
+    p_call: callId,
+    p_body: body.trim(),
+  })
+  if (!error) return 'ok'
+  const msg = String(error.message ?? '')
+  // ⚠ الرسايل من القاعدة (عربي) — بنطابق على كلمة مميزة مش على النص كله
+  //   (الدرس تلاتة وعشرين: المقارنة بنص متعدد الأسطر بتفشل بالصمت).
+  if (msg.includes('كلمة')) return 'words'
+  if (msg.includes('كتير')) return 'max'
+  return 'err'
+}
+
+/** امسح كلامي */
+export async function unsayYalla(id: string): Promise<boolean> {
+  if (!DB) return true
+  const { data, error } = await supabase().rpc('fn_yalla_unsay', { p_id: id })
+  return !error && data === true
 }
 
 /** «مش جاي» */

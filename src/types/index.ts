@@ -309,6 +309,7 @@ export type TrackEvent =
   | 'yalla_choose'
   | 'yalla_locked'
   | 'yalla_switch'
+  | 'yalla_say'
 
 /* ============================================================ الشغل */
 

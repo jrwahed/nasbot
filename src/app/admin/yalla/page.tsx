@@ -18,6 +18,7 @@ import {
   cairoToIso,
   todayCairo,
 } from '@/components/admin-ui'
+import { Inp } from '@/app/admin/_components/sbota-form'
 import { yallaLink } from '@/lib/yalla-link'
 
 /**
@@ -52,6 +53,8 @@ interface Call {
   cost_note_ar: string | null
   deadline: string
   status: 'open' | 'locked' | 'closed'
+  /** `post` = بوست الويك اند (دوسة واحدة + كلام) · `choice` = النداء القديم */
+  kind: 'post' | 'choice'
   won_slot_id: string | null
   won_area: string | null
   lock_reason: string | null
@@ -357,6 +360,14 @@ function CallCard({
   const [busy, setBusy] = useState(false)
   const [venue, setVenue] = useState(sb?.venue_name_ar ?? '')
   const [addr, setAddr] = useState(sb?.address_ar ?? '')
+  /** البوست: انت بتكتب الميعاد والمكان الحقيقيين وقت القفل */
+  const [lockDay, setLockDay] = useState('')
+  const [lockTime, setLockTime] = useState('20:00')
+  const [lockArea, setLockArea] = useState('')
+  /** كلام الأعضاء — ده اللي بتقرا منه إمتى فاضيين وفين */
+  const [talk, setTalk] = useState<
+    { id: string; first_name: string; body_ar: string; created_at: string }[]
+  >([])
 
   const label = (k: string) => areaList.find((a) => a.key === k)?.label_ar ?? k
   const slotAt = (id: string | null) => slots.find((s) => s.id === id)?.starts_at ?? null
@@ -364,12 +375,24 @@ function CallCard({
 
   const loadDetail = useCallback(async () => {
     const db = supabase()
-    const [c, p] = await Promise.all([
+    const [c, p, k] = await Promise.all([
       // ⚠ `fn_yalla_counts` مش `fn_yalla_top`: التانية **مقفولة على الكل**
       //   (داخلية)، ودي غلاف عليها بصلاحية `sbotat.view`.
       db.rpc('fn_yalla_counts', { p_call: call.id }),
       db.rpc('fn_yalla_admin', { p_call: call.id }),
+      // ⚠ نفس دالة الأعضاء — **الاسم الأول وبس**، مفيش `profile_id`.
+      //   اللوحة مش بتشوف أكتر من اللي العضو شايفه هنا، وده كفاية: ده
+      //   المكان اللي المالك بيقرا منه «أنا فاضي الجمعة بالليل».
+      db.rpc('fn_yalla_comments', { p_call: call.id }),
     ])
+    setTalk(
+      (k.data ?? []) as {
+        id: string
+        first_name: string
+        body_ar: string
+        created_at: string
+      }[]
+    )
     setCounts(
       (c.data ?? []) as {
         slot_id: string
@@ -394,6 +417,36 @@ function CallCard({
   const lockNow = async () => {
     setBusy(true)
     const { data, error } = await supabase().rpc('fn_yalla_lock_now', { p_call: call.id })
+    setBusy(false)
+    if (error) return say(error.message)
+    const d = (data ?? {}) as { locked?: boolean; seated?: number; wait?: number }
+    say(
+      d.locked
+        ? `اتقفل ✓ — قعدوا ${d.seated ?? 0} واستنوا ${d.wait ?? 0}`
+        : 'اتقفل من غير مجموعة — كل اللي شاركوا وصلهم الخبر ومعاهم أولوية'
+    )
+    reload()
+    loadDetail()
+  }
+
+  /**
+   * اقفل البوست على ميعاد ومكان **انت كاتبهم**.
+   *
+   * ⚠ مش `fn_yalla_lock_now`: دي بتقفل على «أكتر ميعاد»، وفي البوست مفيش
+   *   غير ميعاد واحد مخفي (الجمعة الجاية) — يعني كانت هتقفل على تخمين.
+   *   `fn_yalla_lock_post` بتعدّل الميعاد والمنطقة المخفيين الأول وبعدين
+   *   بتنادي **نفس** `fn_yalla_lock` (الدرس الستاشر — مفيش نسخة تانية من
+   *   القعدة والتوازن والانتظار).
+   */
+  const lockPost = async () => {
+    if (!lockDay) return say('اكتب اليوم')
+    if (!lockArea) return say('اختار المنطقة')
+    setBusy(true)
+    const { data, error } = await supabase().rpc('fn_yalla_lock_post', {
+      p_call: call.id,
+      p_when: cairoToIso(lockDay, lockTime),
+      p_area: lockArea,
+    })
     setBusy(false)
     if (error) return say(error.message)
     const d = (data ?? {}) as { locked?: boolean; seated?: number; wait?: number }
@@ -479,8 +532,99 @@ function CallCard({
         </div>
       )}
 
-      {/* ===== الاتجاه ===== */}
-      {call.status === 'open' && (
+      {/* ===== البوست: الكلام + القفل بإيدك ===== */}
+      {call.status === 'open' && call.kind === 'post' && (
+        <div className="mt-4 flex flex-col gap-4">
+          <div>
+            <div className="font-display text-16 font-black">
+              قالوا جايين: {people.length}
+            </div>
+            <div className="mt-1 font-body text-12" style={{ color: 'var(--muted)' }}>
+              الدوسة مجهولة للناس (رقم مش أسامي). والميعاد والمكان بيتكتبوا في
+              الكلام تحت — انت اللي بتقرر منهم.
+            </div>
+          </div>
+
+          {/* ⚠ **ده أهم قسم في الصفحة** — ده اللي المالك بيقرا منه إمتى
+              الناس فاضية وإيه المكان اللي يعجبها. من غيره النداء بوست
+              والرد بيروح في الهوا. */}
+          <div>
+            <div className="font-display text-16 font-black">الكلام ({talk.length})</div>
+            {talk.length === 0 ? (
+              <div className="mt-1 font-body text-14" style={{ color: 'var(--muted)' }}>
+                لسه محدش كتب.
+              </div>
+            ) : (
+              <div className="mt-2 flex flex-col gap-2">
+                {talk.map((c) => (
+                  <div
+                    key={c.id}
+                    className="border-b pb-2 font-body text-14"
+                    style={{ borderColor: 'var(--line)' }}
+                  >
+                    <div className="font-display text-14 font-black">
+                      {c.first_name}{' '}
+                      <span className="font-body text-12" style={{ color: 'var(--muted)' }}>
+                        · {when(c.created_at)}
+                      </span>
+                    </div>
+                    <div className="mt-1">{c.body_ar}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div>
+            <div className="font-display text-16 font-black">اقفل على ميعاد ومكان</div>
+            <div className="mt-1 font-body text-12" style={{ color: 'var(--muted)' }}>
+              اكتب الميعاد الحقيقي والمنطقة. أول ما تقفل: اللي قالوا جايين
+              بياخدوا مكانهم (ونص ولاد ونص بنات محترم)، والزيادة تروح الانتظار
+              ومعاها أولوية في النداء الجاي.
+            </div>
+            <div className="mt-2 flex flex-wrap items-end gap-2">
+              {/* ⚠ `Inp` المشترك من `sbota-form` — نفس خانة «خروجة جديدة»
+                  بالظبط. متعملش خانة تانية (§٧ «متعملش فورم تاني»). */}
+              <Inp label="اليوم" type="date" value={lockDay} onChange={setLockDay} />
+              <Inp label="الساعة" type="time" value={lockTime} onChange={setLockTime} />
+              <label className="flex flex-col gap-1">
+                <span className="font-body text-12" style={{ color: 'var(--muted)' }}>
+                  المنطقة
+                </span>
+                <select
+                  value={lockArea}
+                  onChange={(e) => setLockArea(e.target.value)}
+                  className="min-h-[40px] rounded-10 px-2 font-body text-14"
+                  style={{
+                    background: 'var(--bg)',
+                    color: 'var(--fg)',
+                    border: '1px solid var(--line)',
+                  }}
+                >
+                  <option value="">—</option>
+                  {areaList.map((a) => (
+                    <option key={a.key} value={a.key}>
+                      {a.label_ar}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <Btn kind="primary" onClick={lockPost} disabled={!canEdit || busy}>
+                اقفل عليه
+              </Btn>
+            </div>
+            <div className="mt-2 font-body text-12" style={{ color: 'var(--muted)' }}>
+              المهلة: {when(call.deadline)}
+              {overdue
+                ? ' — عدّت. المهمة المجدولة بتقفل لوحدها على الجمعة الجاية لو ما قفلتهاش بإيدك.'
+                : ''}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ===== النداء القديم: الاتجاه ===== */}
+      {call.status === 'open' && call.kind !== 'post' && (
         <div className="mt-4">
           <div className="font-display text-16 font-black">الأعداد — مين قال إيه</div>
           <div className="mt-1 font-body text-12" style={{ color: 'var(--muted)' }}>
