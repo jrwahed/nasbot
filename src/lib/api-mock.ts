@@ -501,6 +501,20 @@ export async function getComingSoon() {
     { templateId: 'soon-2', slug: 'fakhar', name: 'ورشة فخار', mood: 'إيدك في الطين', imgSrc: null, photoAlt: null },
   ].map((x) => ({ ...x, iWant: soonWanted.has(x.templateId) }))
 }
+/**
+ * كاتالوج القوالب — بيانات عرض (0145). واحد منهم **من غير صورة** عن قصد:
+ * دي الحالة الشائعة على الإنتاج (٩١ من ٩٤ مالهمش صور) ولازم تتجرّب في
+ * التطوير، وإلا الكارت النصي عمره ما يتشاف قبل ما ينزل.
+ */
+export async function getTemplates() {
+  await delay(160)
+  return [
+    { templateId: 'tpl-1', slug: 'padel', name: 'بادل', mood: 'نشيط ومزحوم', imgSrc: null, photoAlt: null },
+    { templateId: 'tpl-2', slug: 'darb-el-labbana', name: 'درب اللبانة', mood: 'مشي وكلام', imgSrc: null, photoAlt: null },
+    { templateId: 'tpl-3', slug: 'boardgames', name: 'لعب على ترابيزة', mood: 'هزار وتحدي', imgSrc: null, photoAlt: null },
+  ].map((x) => ({ ...x, iWant: soonWanted.has(x.templateId) }))
+}
+
 export async function wantSoon(templateId: string, on: boolean) {
   await delay(160)
   if (on) soonWanted.add(templateId)

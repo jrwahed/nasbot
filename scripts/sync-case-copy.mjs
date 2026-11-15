@@ -1,5 +1,5 @@
 /**
- * بيولّد مفاتيح `case.*` و`qadeya.*` و`yalla.*` في `src/data/copy-fallback.ts`
+ * بيولّد مفاتيح `case.*` و`qadeya.*` و`yalla.*` و`tpl.*` في `src/data/copy-fallback.ts`
  * من ملفات الهجرة.
  *
  * ليه سكريبت مش تعديل بالإيد: الدرس الخامس — الاحتياطي لازم يملا الناقص،
@@ -49,7 +49,7 @@ const BLOCK = /insert\s+into\s+copy_strings[\s\S]*?on\s+conflict/gi
  *   و`tsc` والبناء مالهمش دعوة. اتكشفت لما فتحنا الشاشة وصوّرناها ولقينا
  *   **اسم المفتاح نفسه معروض للزائر** (الدرس التلاتين بالحرف، والخمستاشر).
  */
-const PAIR = /\(\s*'((?:case|qadeya|yalla)\.[A-Za-z0-9._]+)'\s*,\s*'((?:[^']|'')*)'/g
+const PAIR = /\(\s*'((?:case|qadeya|yalla|tpl)\.[A-Za-z0-9._]+)'\s*,\s*'((?:[^']|'')*)'/g
 
 const found = new Map()
 for (const block of sql.match(BLOCK) ?? []) {
@@ -63,14 +63,14 @@ for (const block of sql.match(BLOCK) ?? []) {
  * أرخص من فاحص، وبيقع بدل ما يعدّي بالصمت.
  */
 for (const [k, v] of found) {
-  if (/^(case|qadeya|yalla)\.[A-Za-z0-9._]+$/.test(v)) {
+  if (/^(case|qadeya|yalla|tpl)\.[A-Za-z0-9._]+$/.test(v)) {
     console.error(`✗ ${k} قيمتها مفتاح تاني (${v}) — الregex مسك حاجة مش إدراج`)
     process.exit(1)
   }
 }
 
 if (!found.size) {
-  console.error('✗ مفيش مفاتيح case.*/qadeya.*/yalla.* في الهجرات')
+  console.error('✗ مفيش مفاتيح case.*/qadeya.*/yalla.*/tpl.* في الهجرات')
   process.exit(1)
 }
 
@@ -86,7 +86,7 @@ function usedKeys(dir, out = new Set()) {
       usedKeys(p, out)
     } else if (p.endsWith('.tsx') || p.endsWith('.ts')) {
       const src = readFileSync(p, 'utf8')
-      for (const m of src.matchAll(/\bt\(\s*['`]((?:case|qadeya|yalla)\.[A-Za-z0-9._]+)['`]/g)) {
+      for (const m of src.matchAll(/\bt\(\s*['`]((?:case|qadeya|yalla|tpl)\.[A-Za-z0-9._]+)['`]/g)) {
         out.add(m[1])
       }
     }

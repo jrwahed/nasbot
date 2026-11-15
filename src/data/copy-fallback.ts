@@ -1077,4 +1077,6 @@ export const copyFallback: Record<string, string> = {
   "yalla.sheet.errWhen": "اختار ميعاد واحد على الأقل",
   "yalla.sheet.errArea": "اختار المنطقة",
   "yalla.sheet.venuePh": "اكتب اسمه. ده لينا إحنا بس ومش بيظهر لحد.",
+  "tpl.home.title": "كل الخروجات",
+  "tpl.home.sub": "الجو اللي ممكن نعمله. دوس على اللي يعجبك وهنقولك أول ما يفتح.",
 }

@@ -10,6 +10,7 @@ import { MiniMap } from '@/components/MiniMap'
 import { CairoMap } from '@/components/CairoMap'
 import { OneButton } from '@/components/home/OneButton'
 import { ComingSoon } from '@/components/home/ComingSoon'
+import { Templates } from '@/components/home/Templates'
 import { YallaStrip } from '@/components/home/YallaStrip'
 import {
   Captains,
@@ -114,6 +115,16 @@ export default function Home() {
 
           {/* «جاية قريب» — قوالب المالك علّمها «قريب» (0117). بيختفي لو فاضي. */}
           <ComingSoon className="px-5 pt-9 lg:px-0" />
+
+          {/*
+            «كل الخروجات» — كاتالوج القوالب (0145، قرار المالك ٢٠٢٦-١١-١٥:
+            «يلا الصفحة الافتراضية وتحتها القوالب»). فالترتيب في الصفحة بقى:
+            **يلا → سبوطات الأسبوع ده → كل الخروجات**.
+
+            ⚠ والكاتالوج بيشيل اللي اتعرض فوق (اللي ليها سبوطة شغّالة واللي
+              معلّم «قريب») — فكل خروجة بتبان **مرة واحدة** في الصفحة.
+          */}
+          <Templates className="px-5 pt-9 lg:px-0" />
         </div>
 
         {/* ===== العمود اليمين على الكمبيوتر: الخريطة الثابتة ===== */}
