@@ -310,7 +310,11 @@ export function YallaPost({
           )}
         </div>
 
-        {!locked && !closed && (
+        {/* ⚠ سطر المهلة للنداء القديم بس. في البوست **مفيش اختيار أصلًا**،
+            فـ«الاختيار مفتوح لحد…» كلام فاضل من الفورم القديم — طلب المالك
+            إنه يتشال لما شافه على الموقع الحي (٢٠٢٦-١١-١٥). والمهلة لسه
+            شغّالة في القاعدة والمهمة المجدولة، وباينة في اللوحة. */}
+        {!locked && !closed && !isPost && (
           <div className="font-body text-13" style={{ color: 'var(--muted)' }}>
             {t('yalla.deadline', { when: yallaWhen(post.deadline) })}
           </div>
