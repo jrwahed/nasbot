@@ -1441,41 +1441,6 @@ export async function getComingSoon(): Promise<SoonItem[]> {
   )
 }
 
-/**
- * «كل الخروجات» — كاتالوج القوالب تحت السبوطات في الرئيسية (0145).
- *
- * طلب المالك (٢٠٢٦-١١-١٥): «يلا الصفحة الافتراضية وتحتها القوالب».
- *
- * ⚠ **نفس نوع `SoonItem` بالظبط** — نفس الكارت ونفس الزرار (`wantSoon`)
- *   ونفس الحقول. الفرق في **اللي بيترجّع** مش في الشكل: `fn_templates_all`
- *   بتشيل اللي معلّم «قريب» (بيبان في قسمه فوق) واللي ليها سبوطة شغّالة
- *   (بتبان ككارت حجز فوق) وقوالب الشغل. فكل خروجة بتظهر **مرة واحدة**
- *   في الصفحة.
- *
- * ⚠ ومفيش سعر ولا ميعاد في الراجع — الكاتالوج متعمّد إنه مفيهوش أرقام،
- *   و٨٧ من الـ٩٤ سعرهم صفر فكان هيقول «٠ جنيه» لمعظمهم.
- */
-export async function getTemplates(): Promise<SoonItem[]> {
-  if (!DB) return mock.getTemplates()
-  return safeWork(
-    'getTemplates',
-    async () => {
-      const { data, error } = await supabase().rpc('fn_templates_all')
-      if (error || !data) return []
-      return (data as Record<string, unknown>[]).map((r) => ({
-        templateId: String(r.template_id),
-        slug: String(r.slug ?? ''),
-        name: String(r.name_ar ?? ''),
-        mood: String(r.mood_ar ?? ''),
-        imgSrc: publicMediaUrl(r.photo ? String(r.photo) : null),
-        photoAlt: r.photo_alt_ar ? String(r.photo_alt_ar) : null,
-        iWant: r.i_want === true,
-      }))
-    },
-    [] as SoonItem[]
-  )
-}
-
 /** «قولّي لما تفتح» — بترجّع الحالة الجديدة، أو null لو فشلت */
 export async function wantSoon(templateId: string, on: boolean): Promise<boolean | null> {
   if (!DB) return mock.wantSoon(templateId, on)

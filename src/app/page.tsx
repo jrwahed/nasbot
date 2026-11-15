@@ -10,7 +10,6 @@ import { MiniMap } from '@/components/MiniMap'
 import { CairoMap } from '@/components/CairoMap'
 import { OneButton } from '@/components/home/OneButton'
 import { ComingSoon } from '@/components/home/ComingSoon'
-import { Templates } from '@/components/home/Templates'
 import { YallaStrip } from '@/components/home/YallaStrip'
 import {
   Captains,
@@ -117,14 +116,13 @@ export default function Home() {
           <ComingSoon className="px-5 pt-9 lg:px-0" />
 
           {/*
-            «كل الخروجات» — كاتالوج القوالب (0145، قرار المالك ٢٠٢٦-١١-١٥:
-            «يلا الصفحة الافتراضية وتحتها القوالب»). فالترتيب في الصفحة بقى:
-            **يلا → سبوطات الأسبوع ده → كل الخروجات**.
-
-            ⚠ والكاتالوج بيشيل اللي اتعرض فوق (اللي ليها سبوطة شغّالة واللي
-              معلّم «قريب») — فكل خروجة بتبان **مرة واحدة** في الصفحة.
+            ⚠ **«كل الخروجات» (كاتالوج الـ٨٨ قالب) اتشال من هنا** — قرار
+              المالك ٢٠٢٦-١١-١٥ بعد ما شافه: «دي كتير أوي تحت». ٨٨ صف كل
+              واحد عليه زرار = شريط طويل مالهوش آخر في آخر الصفحة.
+              `fn_templates_all()` (`0145`) **لسه موجودة على الإنتاج** ومحدش
+              بيناديها — فرجوعه سطر واحد لو اتقرر شكل أقصر (قايمة أسامي ·
+              تصنيفات · أو صفحة لوحدها بدل الرئيسية).
           */}
-          <Templates className="px-5 pt-9 lg:px-0" />
         </div>
 
         {/* ===== العمود اليمين على الكمبيوتر: الخريطة الثابتة ===== */}
