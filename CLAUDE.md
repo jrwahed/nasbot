@@ -130,7 +130,7 @@ scripts/         check-copy · فاحصات · بذور النصوص
 
 ## ٥. القاعدة — أهم الجداول والدوال
 
-**الجداول:** `profiles` · `sbotat`(+`sbotat_public`) · `sbota_templates` · `venues` · `bookings` · `payments` · `wallet_ledger` · `coupons` · `pair_affinity` · `matching_runs` · `chat_rooms`/`chat_members` · `notifications`/`notification_templates` · `admin_users`/`admin_roles`/`role_permissions` · `settings`(صف واحد) · `copy_strings` · `safety_links` · `audit_log` · `waitlist` · `template_interest` («قريب») · `sbota_interest` («أنا جاي» على المقترحة) · `admin_alerts` (طابور تليجرام) · `broadcasts` (الإيميل الجماعي) · `member_telegram`/`member_tg_outbox`/`member_tg_queue` (بوت الأعضاء). **«يلا»:** `yalla_calls` · `yalla_slots` · `yalla_call_areas` · `yalla_choices` · `yalla_choice_slots` · `yalla_priority`. **قضية الليلة:** `case_worlds` · `cases` · `case_questions`/`case_options` · `case_missions` · `case_titles` · `case_clue_templates` · `case_vault_riddles` · `case_sessions` · `case_players` · `case_answers` · `case_clues` · `case_votes` · `case_awards` · `case_points`. **طبقة الشغل:** `professions` · `work_venues` · `work_passes` · `pass_redemptions` · `recurring_bookings` · `work_affinity` · `venue_reports` · `leads` · `work_metrics`.
+**الجداول:** `profiles` · `sbotat`(+`sbotat_public`) · `sbota_templates` · `venues` · `bookings` · `payments` · `wallet_ledger` · `coupons` · `pair_affinity` · `matching_runs` · `chat_rooms`/`chat_members` · `notifications`/`notification_templates` · `admin_users`/`admin_roles`/`role_permissions` · `settings`(صف واحد) · `copy_strings` · `safety_links` · `audit_log` · `waitlist` · `template_interest` («قريب») · `sbota_interest` («أنا جاي» على المقترحة) · `admin_alerts` (طابور تليجرام) · `broadcasts` (الإيميل الجماعي) · `member_telegram`/`member_tg_outbox`/`member_tg_queue` (بوت الأعضاء). **«يلا»:** `yalla_calls` · `yalla_slots` · `yalla_call_areas` · `yalla_choices` · `yalla_choice_slots` · `yalla_priority` · `yalla_comments` (الكلام — **من غير أي سياسة**). **قضية الليلة:** `case_worlds` · `cases` · `case_questions`/`case_options` · `case_missions` · `case_titles` · `case_clue_templates` · `case_vault_riddles` · `case_sessions` · `case_players` · `case_answers` · `case_clues` · `case_votes` · `case_awards` · `case_points`. **طبقة الشغل:** `professions` · `work_venues` · `work_passes` · `pass_redemptions` · `recurring_bookings` · `work_affinity` · `venue_reports` · `leads` · `work_metrics`.
 
 **دوال مهمة:** `fn_can_book` · `fn_capacity_guard` (قفل السعة) · `fn_booking_paid` · `fn_cancel_booking` · `fn_approve_transfer` · `fn_redeem_pass`/`fn_revert_pass`/`fn_activate_pass` · `fn_build_matching`/`fn_build_work_matching` · `fn_reveal` · `fn_pair_want`/`fn_work_want` (الطريق الصح لكتابة التبادل) · `fn_is_admin`/`fn_has_permission` · `fn_can_see_place`/`fn_sbota_place` (الحارس والبيانات، كل واحد لوحده) · `fn_safety_link`/`fn_safety_my`/`fn_safety_view`/`fn_safety_mark`/`fn_safety_revoke` · `fn_sbota_arrival`/`fn_set_sbota_sign` · `fn_join_waitlist`/`fn_admit_waitlist` · `fn_book_free` (بعلم `nasbot.trusted_booking`) · `fn_want_soon`/`fn_want_sbota` · `fn_admin_alert` · `fn_send_broadcast` · `fn_tg_link_token`/`fn_tg_member_link` (بوت الأعضاء — الربط بالتوكن بس).
 
@@ -661,6 +661,11 @@ psql -h 127.0.0.1 -p 5433 -U postgres -d nasbot --single-transaction -f WORK_MIG
     `fn_yalla_join_winner` («تيجي معاهم؟») · `fn_yalla_bench` («بدّل») ·
     `fn_yalla_reveal` («اكشف») · `fn_yalla_seat`/`fn_yalla_wait`/
     `fn_yalla_tell`/`fn_yalla_top` (كلها داخلية ومقفولة على الكل).
+**والبوست (`0147`):** `fn_yalla_post` (ميعاد واحد مخفي = الجمعة الجاية) ·
+`fn_yalla_im_in` («أنا جاي» بدوسة) · `fn_yalla_say`/`fn_yalla_comments`/
+`fn_yalla_unsay` (الكلام — للأعضاء المسجّلين بس، **الاسم الأول من غير
+`profile_id` ولا صورة**) · `fn_yalla_lock_post` (القفل على ميعاد ومكان
+المالك كاتبهم) · `fn_yalla_kinds` (نوع النداء، مفتوحة للمجهول).
   - ⚠ **تسع تعديلات على حاجات موجودة، كل واحد سطر مشروط بـ`yalla_id`**:
     `sbotat_public` (مش بتبان في القايمة العامة — وإلا أي حد يحجز من غير ما
     يختار) · `fn_sbota_timings` (مفيش قفل ٣٦ ساعة ولا كشف تلقائي) ·
@@ -710,6 +715,8 @@ psql -h 127.0.0.1 -p 5433 -U postgres -d nasbot --single-transaction -f WORK_MIG
       بتعمل دالة تانية والنداء يبقى ambiguous). القالب → العام
       `nedaa-yalla` · المواعيد → أيام × ٣ فترات من `settings` · المناطق →
       كل كتل الخريطة · الأرقام → `settings`.
+      ⚠ **المواعيد والمناطق دي اتشالت في `0147` بعدها بساعات** — شوف
+      البند اللي تحت. الباقي زي ما هو.
     - ⚠ **٤ أرقام جديدة** في `settings`: `yalla_days_ahead` (٧) ·
       `yalla_hour_am` (١١) · `yalla_hour_pm` (١٦) · `yalla_hour_eve` (٢٠).
     - 🔴 **و`fn_yalla_lock` اتعادت بتلات تعديلات بس** (الدرس السادس):
@@ -726,6 +733,80 @@ psql -h 127.0.0.1 -p 5433 -U postgres -d nasbot --single-transaction -f WORK_MIG
       ما اتجرّبت وهي مليانة. اتصوّرت بجلسة عضو محاكاة — الشبكة عمودين،
       كل زرار «اليوم + الساعة»، مقروءة. ده بالظبط اللي كاتالوج القوالب
       فشل فيه (شكله تمام في الاستعلام وحيطة على الشاشة).
+      🔴 **واللقطة دي هي اللي خلّت `0147` يتعمل**: المالك شافها وقال «مش
+      عاوز الاقتراحات دي كلها». يعني الصورة اللي اتعملت علشان نتأكد إن
+      الشكل سليم هي اللي قالت إن القرار نفسه غلط. (الدرس التسعتاشر:
+      «اقفل المفتاح وصوّر» — والصورة بتقول أكتر من اللي اتسألت عنه.)
+
+  - 🟢 **«يلا» بقى بوست الويك اند + كلام الأعضاء (٢٠٢٦-١١-١٥) — `WORK_MIGRATION_65`
+    / `0147`، اتطبّق على الإنتاج. `test_yalla_social()` ١٩/١٩ هناك،
+    و`test_yalla_post()` ١٢/١٢، والفحص الشامل بعده ٨٠ دالة · ٣٧٧ صف ·
+    صفر فشل (غير الأربعة اللي محتاجين البذرة).** المالك شاف نافذة الاختيار
+    وفيها ٢١ ميعاد و١٦ منطقة: «مش عاوز الاقتراحات دي كلها. عاوز **الويك
+    اند**، وهو يكتب الميعاد أو الأوقات اللي فاضي فيها والمكان **من غير
+    اقتراحات**. وتفاعل زي السوشيال ميديا — كومنتات ولايكات، بس من غير ما
+    تبيّن: اسم بس، ومحدش يعرف يدوس عليهم يفتحهم».
+    - 🔴 **ده بيلغي تلات قرارات من المالك نفسه** («مفيش لايكات ولا كومنتات»
+      في «يلا» · «مش عايزه خالص: كومنتات · نص حر ظاهر للعامة · بروفايلات»
+      · §٣.٧). اتقال له صريح واتاخد القرار بعد تلات أسئلة عن **نطاق
+      الرؤية** — نفس ما حصل في ألبوم الصور بالظبط. **والنطاق اللي اختاره
+      هو الأضيق في التلاتة:**
+      1. **الاسم الأول بس — مفيش ولا صورة.** فقاعدة «مفيش صور قبل الكشف»
+         ما اتكسرتش، ونسبوط ما بقاش شكله تطبيق تعارف.
+      2. **الأعضاء المسجّلين بس** يشوفوا الكلام. الزائر يشوف البوست
+         والعدد، وتحت القسم سطر «سجّل الأول وتكلّم مع اللي جايين».
+      3. **«جايين: ٤» يفضل رقم — مش أسامي.** يعني 🔑 **الدوسة لوحدها
+         مجهولة، والكومنت هو اللي العضو بيختار يبان فيه.** ودي اللي بتخلي
+         «الاختيار سري» (§٣.٧) لسه صح: اللي عايز يفضل مستخبي يدوس وبس.
+    - **لايك = «أنا جاي».** مفيش زرار لايك منفصل عن قصد: زرارين متشابهين
+      جنب بعض (واحد بيعدّ وواحد بيحجز) بيتوّهوا، والعدد نفسه هو اللي
+      بيبان. فاللايك هنا **دوسة ليها معنى** مش رقم للزينة.
+    - **`yalla_comments`** — 🔴 **مفيهاش ولا سياسة قراية، ولا لصاحب الصف**
+      (نفس قاعدة §٥.٥). السبب هنا مش سر زي «قضية الليلة» — ده إن الجدول
+      فيه `profile_id`، ولو الواجهة قدرت تقراه مباشرة كان أي حد يجمّع كلام
+      العضو من كل النداءات ويعمل منه بروفايل. `fn_yalla_comments` بترجّع
+      **(الاسم الأول · الكلام · الوقت · ده بتاعي؟)** وبس، وفيه صف اختبار
+      **بنيوي** بيقع لو حد زوّد عمود.
+    - `fn_yalla_say`/`fn_yalla_unsay` — الطريق الوحيد للكتابة (§٥ قاعدة ٤).
+      حارس `auth.uid() is null` **صريح** (الدرس الخمسة وعشرين)، نفس جدول
+      `banned_words` بتاع `fn_guard_sbota_text` مش نسخة، وحد لكل عضو من
+      `settings.yalla_max_comments` (٥).
+    - **`fn_yalla_post` اتعادت: ميعاد واحد مخفي (الجمعة الجاية) ومنطقة
+      واحدة مخفية.** ⚠ **ليه مش اتشالوا خالص؟** `fn_yalla_lock` والقعدة
+      ونص ولاد ونص بنات وقايمة الانتظار والأولوية والإشعارات كلهم شغالين
+      على (ميعاد × منطقة) كسبانين — فشيلهم كان معناه نسخة تانية من كل ده
+      (الدرس الستاشر). فهما **سباكة** والواجهة ما بتعرضهمش خالص.
+    - `fn_yalla_im_in` — «أنا جاي» بدوسة واحدة، غلاف على `fn_yalla_choose`.
+    - `fn_yalla_lock_post` — المالك بيكتب **الميعاد والمكان الحقيقيين** وقت
+      القفل، والدالة بتعدّل المخفيين وبعدين بتنادي **نفس** `fn_yalla_lock`.
+    - `fn_yalla_kinds` — نوع كل نداء، مفتوحة للمجهول وبتحترم المفتاح.
+      ⚠ **دالة لوحدها مش عمود في `fn_yalla_feed`**: الأخيرة متفحوصة بـ٤٤
+      صف، و`create or replace` ما بتقدرش تغيّر عدد الأعمدة الراجعة (مصيدة
+      `fn_sbota_album`) — يعني كان لازم `drop`، وساعتها إعادة لزق `0143`
+      تقع أو ترجّع نسخة من غير النوع (الدرس التالت).
+    - 🔴 **والنداء القديم بيتعلّم بالشكل مش بالوقت.** أول نسخة كانت
+      `created_at < '2026-11-15 14:00:00+00'` — واتضح **وقت اللزق** إن
+      المالك نزّل **تلات نداءات الساعة ٦ مساءً** بفورم `0146`، يعني بعد
+      الحد. فكانوا هياخدوا `post` وهم فيهم ٢١ ميعاد، و«أنا جاي» كانت
+      هتحجز العضو على **أول ميعاد فيهم** — ميعاد عشوائي محدش اختاره.
+      بقى `slots > 1 or areas > 1` → `choice`، ومعاه صف اختبار صريح
+      اتجرّب بفخ. (الدرسين العاشر والتمانية وعشرين.)
+    - **الواجهة:** الكارت بقى شكلين (`YallaPost.tsx`) — البوست دوسة واحدة
+      من غير نافذة، والقديم بنافذته زي ما هو. و`YallaTalk.tsx` قسم الكلام:
+      الاسم **`<span>` مش `<Link>`** — مش «محدش يعرف يدوس» بالإخفاء، بل
+      **مفيش صفحة أصلًا**. وسطر الشرح بيختفي بعد ما العضو يدوس (اتشاف في
+      اللقطة). و`/admin/yalla` للبوست: **الكلام** (ده اللي المالك بيقرا
+      منه إمتى الناس فاضية) + فورم «اقفل على ميعاد ومكان» بـ`Inp` المشترك.
+    - **١٩ نص** في `copy_strings` + الاحتياطي.
+    - ⚠ **`0146` اتعدّل معاه**: صفّين اختبار كانوا بيفحصوا ٢١ ميعاد و١٦
+      منطقة — سلوك اتغيّر **عن قصد**، فبقوا يفحصوا الثابت اللي لسه صح
+      (فيه ميعاد ومنطقة، والمنطقة كتلة نشطة)، والعدد بقى شغل `0147`
+      (الدرس التالت). وحزمة `_64` اتجدّدت معاه (الدرس السادس).
+    - ⚠ **اللزق بالترتيب 64 ← 65.** وإعادة لزق `_64` بترجّع الاقتراحات
+      الـ٢١، و`test_yalla_social()` بيقع أحمر — فالزق `_65` وراه.
+    - ⚠ **التلات نداءات المفتوحين على الإنتاج فضلوا `choice`** — شغّالين
+      بنافذتهم زي ما هم، ومحصلّهمش حاجة. لو المالك عايزهم بالشكل الجديد،
+      يقفلهم من اللوحة وينزّل بدالهم بدوسة.
   - 🔴 **وانحدار اتكشف وقت اللزق:** `0141` سابت «الشروق» مرادف جوه «العبور»
     واعتمدت على ترتيب `sort`، و`test_map_blocks` (الموجود من `0099`) طلع
     **أحمر**: «الترتيب هو اللي بيقرر وده هش». السبب إن الفحص المحلي اتعمل
@@ -1552,7 +1633,7 @@ end if;
 
 **نقطة البداية: `START_HERE.md`** — الحالة والطريق واللي فاضل، في ملف واحد.
 
-**`AFTER_SBOTA.md`** + **`SBOTAT_LOG.md`** (دورة ما بعد الخروجة) · `CONTENT_BRIEF.md` (المحتوى الناقص) · `CHECK_DB.sql` (فاحص القاعدة الشامل) · `README.md` · `DB_PLAN.md` · `ADMIN_PLAN.md` · `WORK_PLAN.md` · `DESIGN_TOKENS.md` · `COPY.md` · `ADMIN_GUIDE.md` · `RUNBOOK.md` · `DEPLOY_CHECKLIST.md` · **`REVIEW*.md`** (المراجعة) · ملفات `WORK_MIGRATION_*.sql` (لحد `_64`) و`WORK_CRON.sql` — كلهم في **`db-bundles/`** (تتلزق في SQL Editor).
+**`AFTER_SBOTA.md`** + **`SBOTAT_LOG.md`** (دورة ما بعد الخروجة) · `CONTENT_BRIEF.md` (المحتوى الناقص) · `CHECK_DB.sql` (فاحص القاعدة الشامل) · `README.md` · `DB_PLAN.md` · `ADMIN_PLAN.md` · `WORK_PLAN.md` · `DESIGN_TOKENS.md` · `COPY.md` · `ADMIN_GUIDE.md` · `RUNBOOK.md` · `DEPLOY_CHECKLIST.md` · **`REVIEW*.md`** (المراجعة) · ملفات `WORK_MIGRATION_*.sql` (لحد `_65`) و`WORK_CRON.sql` — كلهم في **`db-bundles/`** (تتلزق في SQL Editor).
 
 ---
 
