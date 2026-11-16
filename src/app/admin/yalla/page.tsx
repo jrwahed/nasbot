@@ -538,11 +538,52 @@ function CallCard({
           <div>
             <div className="font-display text-16 font-black">
               قالوا جايين: {people.length}
+              {people.length > 0 && (
+                <span className="font-body text-13" style={{ color: 'var(--muted)' }}>
+                  {' '}
+                  · {people.filter((p) => p.gender === 'male').length} ولد و
+                  {people.filter((p) => p.gender === 'female').length} بنت
+                </span>
+              )}
             </div>
             <div className="mt-1 font-body text-12" style={{ color: 'var(--muted)' }}>
-              الدوسة مجهولة للناس (رقم مش أسامي). والميعاد والمكان بيتكتبوا في
-              الكلام تحت — انت اللي بتقرر منهم.
+              الدوسة مجهولة للناس — إنت بتشوفهم هنا. والميعاد والمكان
+              بيتكتبوا في الكلام تحت، إنت اللي بتقرر منهم.
             </div>
+
+            {/* ⚠ **الأسامي للوحة بس.** §٣.٧ «الاختيار سري» معناها إن
+                **الأعضاء** ما يشوفوش بعض قبل الكشف — مش إن المالك يشتغل
+                وهو أعمى. `fn_yalla_admin` بترجّع ده أصلًا بصلاحية
+                (`sbotat.view`)، وده نفس اللي بيتعرض للمجموعة بعد القفل
+                تحت بالظبط. والفيد العام لسه رقم بس — ما اتلمسش. */}
+            {people.length > 0 && (
+              <div className="mt-2 flex flex-col gap-1">
+                {people.map((p) => (
+                  <div
+                    key={p.profile_id}
+                    className="flex flex-wrap items-baseline justify-between gap-2 border-b py-1 font-body text-14"
+                    style={{ borderColor: 'var(--line)' }}
+                  >
+                    <span>
+                      {p.first_name ?? '—'}{' '}
+                      <span style={{ color: 'var(--muted)' }}>
+                        {p.gender === 'female' ? 'بنت' : p.gender === 'male' ? 'ولد' : '—'}
+                      </span>
+                      {/* اسم المكان اللي كتبه — مش ظاهر لحد غيرك */}
+                      {p.venue_note && (
+                        <span style={{ color: 'var(--accent-text)' }}>
+                          {' '}
+                          · اقترح: {p.venue_note}
+                        </span>
+                      )}
+                    </span>
+                    <span className="font-body text-12" style={{ color: 'var(--muted)' }}>
+                      {when(p.chose_at)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* ⚠ **ده أهم قسم في الصفحة** — ده اللي المالك بيقرا منه إمتى
