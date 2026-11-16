@@ -275,9 +275,15 @@ async function runMemberQueue(token: string): Promise<{ sent: number; failed: nu
     if (vars.when && /^\d{4}-\d{2}-\d{2}T/.test(vars.when)) vars.when = niceWhen(vars.when)
     const text = await copyOf(job.copy_key, vars)
     if (!text.trim()) {
+      // 🔴 **مش بنعلّمها «اتبعتت»** — النص ممكن يكون موجود في القاعدة
+      //    والكاش (`getCopy`) لسه قديم، وساعتها الرسالة بتضيع للأبد.
+      //    حصل فعلًا (٢٠٢٦-١١-١٦): مفتاح `tgbot.broadcast` اتحط وبعدها
+      //    بدقايق أول رسالتين في الطابور وقعوا بـ«مفيش نص» والتلاتة اللي
+      //    بعدهم عدّوا — نفس الدقيقة. فالصح إننا نسيبها للدورة الجاية،
+      //    و`tries` بيعدّ فلو المفتاح فعلًا مش موجود بتوقف لوحدها.
       await db
         .from('member_tg_queue')
-        .update({ sent_at: new Date().toISOString(), last_error: `مفيش نص للمفتاح ${job.copy_key}` })
+        .update({ claimed_at: null, last_error: `مفيش نص للمفتاح ${job.copy_key}` })
         .eq('id', job.id)
       continue
     }
