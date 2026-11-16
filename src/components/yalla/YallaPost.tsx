@@ -8,6 +8,7 @@ import { Sticker } from '@/components/Sticker'
 import { PrimaryButton, SecondaryButton } from '@/components/Buttons'
 import { YallaSheet } from '@/components/yalla/YallaSheet'
 import { YallaTalk } from '@/components/yalla/YallaTalk'
+import { YallaPoll } from '@/components/yalla/YallaPoll'
 import { useT } from '@/components/CopyProvider'
 import { isLoggedIn } from '@/lib/session'
 import { imInYalla, joinYallaWinner, type YallaPost as Post } from '@/lib/api'
@@ -325,6 +326,10 @@ export function YallaPost({
             {t('yalla.switch.err')}
           </div>
         )}
+        {/* ===== التصويت — فوق الكلام، لأنه الخلاصة واللي بيتعمل عليه القفل.
+            بيخفي نفسه لو مفيش اختيارات ولا العضو مسجّل. ===== */}
+        {isPost && !closed && <YallaPoll post={post} />}
+
         {/* ===== الكلام — في البوست بس، وللأعضاء بس ===== */}
         {isPost && !closed && <YallaTalk post={post} />}
       </div>

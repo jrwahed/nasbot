@@ -2748,11 +2748,34 @@ export interface YallaArea {
  */
 export interface YallaComment {
   id: string
-  /** الاسم الأول — مش قابل للدوس */
+  /** رقم الكلام اللي ده رد عليه — `null` يعني ده كلام أصلي */
+  parentId: string | null
+  /** الاسم الأول — مش قابل للدوس. ولو `asNasbot` بيبقى «نسبوط» */
   name: string
+  /** ده رد من الموقع؟ (اللوحة بتكتبه، والاسم الحقيقي مش بيوصل خالص) */
+  asNasbot: boolean
   body: string
+  /** رابط الصورة لو فيه — موقّع من `yalla-photos` */
+  photoUrl: string | null
   createdAt: string
   /** ده كلامي؟ (علشان زرار «امسح») */
+  mine: boolean
+}
+
+/**
+ * اختيار تصويت — **ميعاد ومنطقة**، مش نص حر.
+ *
+ * ⚠ ده مش شكل: القفل (`fn_yalla_lock_post`) محتاج ميعاد ومنطقة حقيقيين
+ *   علشان يعمل سبوطة. لو الاختيار نص حر، «اللي الناس تختاره يقفل عليه»
+ *   مستحيل — حد هيترجمه بإيده، وده يبقى استطلاع مش تصويت.
+ */
+export interface YallaOption {
+  optionId: string
+  at: string
+  areaLabel: string
+  note: string | null
+  votes: number
+  /** أنا صوّت لده؟ */
   mine: boolean
 }
 
@@ -2958,16 +2981,55 @@ export async function getYallaComments(callId: string): Promise<YallaComment[]> 
     async () => {
       const { data, error } = await supabase().rpc('fn_yalla_comments', { p_call: callId })
       if (error || !data) return []
-      return (data as Record<string, unknown>[]).map((r) => ({
+      const rows = data as Record<string, unknown>[]
+
+      // ⚠ الصور في دلو **خاص** — فالرابط لازم يتوقّع. بناخدهم دفعة واحدة
+      //   بدل نداء لكل صورة. ٦٠ دقيقة كفاية لقعدة في الصفحة.
+      const paths = rows
+        .map((r) => (r.photo_path ? String(r.photo_path) : ''))
+        .filter(Boolean)
+      const signed = new Map<string, string>()
+      if (paths.length > 0) {
+        const { data: urls } = await supabase()
+          .storage.from('yalla-photos')
+          .createSignedUrls(paths, 3600)
+        for (const u of urls ?? []) {
+          if (u.path && u.signedUrl) signed.set(u.path, u.signedUrl)
+        }
+      }
+
+      return rows.map((r) => ({
         id: String(r.id),
+        parentId: r.parent_id ? String(r.parent_id) : null,
         name: String(r.first_name ?? ''),
+        asNasbot: r.as_nasbot === true,
         body: String(r.body_ar ?? ''),
+        photoUrl: r.photo_path ? (signed.get(String(r.photo_path)) ?? null) : null,
         createdAt: String(r.created_at ?? ''),
         mine: r.mine === true,
       }))
     },
     [] as YallaComment[]
   )
+}
+
+/**
+ * ارفع صورة مع الكلام — بترجّع المسار اللي بيتبعت لـ`sayYalla`.
+ *
+ * ⚠ المسار `<call_id>/<...>` **مش صدفة**: سياسة الرفع في القاعدة بتقرا
+ *   أول جزء منه وبتتأكد إن النداء ده **مفتوح**. فأي مسار بشكل تاني بيترفض.
+ */
+export async function uploadYallaPhoto(
+  callId: string,
+  file: File
+): Promise<string | null> {
+  if (!DB) return `${callId}/mock.jpg`
+  const ext = (file.name.split('.').pop() || 'jpg').toLowerCase().slice(0, 4)
+  const path = `${callId}/${crypto.randomUUID()}.${ext}`
+  const { error } = await supabase()
+    .storage.from('yalla-photos')
+    .upload(path, file, { contentType: file.type, upsert: false })
+  return error ? null : path
 }
 
 /**
@@ -2978,12 +3040,16 @@ export async function getYallaComments(callId: string): Promise<YallaComment[]> 
  */
 export async function sayYalla(
   callId: string,
-  body: string
+  body: string,
+  opts: { parentId?: string | null; photoPath?: string | null; asNasbot?: boolean } = {}
 ): Promise<'ok' | 'words' | 'max' | 'err'> {
-  if (!DB) return mock.sayYalla(callId, body)
+  if (!DB) return mock.sayYalla(callId, body, opts)
   const { error } = await supabase().rpc('fn_yalla_say', {
     p_call: callId,
     p_body: body.trim(),
+    p_parent: opts.parentId ?? null,
+    p_photo: opts.photoPath ?? null,
+    p_as_nasbot: opts.asNasbot === true,
   })
   if (!error) return 'ok'
   const msg = String(error.message ?? '')
@@ -2999,6 +3065,45 @@ export async function unsayYalla(id: string): Promise<boolean> {
   if (!DB) return true
   const { data, error } = await supabase().rpc('fn_yalla_unsay', { p_id: id })
   return !error && data === true
+}
+
+/**
+ * اختيارات التصويت — **للأعضاء المسجّلين بس**.
+ *
+ * ⚠ الزائر بياخد مصفوفة فاضية مش خطأ: الدالة بترجّع ولا صف لو `auth.uid()`
+ *   فاضية، فالقسم بيخفي نفسه والصفحة بتفضل شغّالة (نفس نمط الكلام).
+ */
+export async function getYallaPoll(callId: string): Promise<YallaOption[]> {
+  if (!DB) return mock.getYallaPoll(callId)
+  return safeWork(
+    'getYallaPoll',
+    async () => {
+      const { data, error } = await supabase().rpc('fn_yalla_poll', { p_call: callId })
+      if (error || !data) return []
+      return (data as Record<string, unknown>[]).map((r) => ({
+        optionId: String(r.option_id),
+        at: String(r.starts_at ?? ''),
+        areaLabel: String(r.area_label ?? ''),
+        note: r.note_ar ? String(r.note_ar) : null,
+        votes: Number(r.votes ?? 0),
+        mine: r.mine === true,
+      }))
+    },
+    [] as YallaOption[]
+  )
+}
+
+/**
+ * صوّت لاختيار.
+ *
+ * ⚠ **الصوت معناه «أنا جاي»** — القاعدة بتدخّلك المجموعة لوحدها. من غير
+ *   كده القفل بيقول «قليلين» والتصويت يبقى ديكور (`0151`). والواجهة
+ *   بتقول ده صريح تحت العنوان.
+ */
+export async function voteYalla(optionId: string): Promise<boolean> {
+  if (!DB) return mock.voteYalla(optionId)
+  const { error } = await supabase().rpc('fn_yalla_vote', { p_option: optionId })
+  return !error
 }
 
 /** «مش جاي» */

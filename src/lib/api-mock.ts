@@ -670,19 +670,61 @@ const demoYalla = [
  * كلام المحاكاة — **الاسم الأول وبس**، زي اللي بيرجع من القاعدة بالظبط.
  * مفيش `profileId` ومفيش صورة، علشان المحاكاة ما تورّيش شكل مش موجود.
  */
-const demoTalk: Record<string, { id: string; name: string; body: string; createdAt: string; mine: boolean }[]> = {
+type MockComment = {
+  id: string
+  parentId: string | null
+  name: string
+  asNasbot: boolean
+  body: string
+  photoUrl: string | null
+  createdAt: string
+  mine: boolean
+}
+
+/**
+ * ⚠ **المحاكاة فيها رد ورد-باسم-نسبوط** عن قصد — مش كلام مسطّح.
+ *   الدرس: الشكل اللي ما اتجرّبش وهو مليان بيطلع غلط على الشاشة بس
+ *   (نافذة الـ٢١ ميعاد). فلازم يكون فيه خيط حقيقي في اللقطة.
+ */
+const demoTalk: Record<string, MockComment[]> = {
   '11111111-1111-1111-1111-111111111111': [
     {
       id: 'c1',
+      parentId: null,
       name: 'نور',
+      asNasbot: false,
       body: 'أنا فاضية الجمعة بالليل والسبت الصبح. التجمع أقرب ليا.',
-      createdAt: hoursFromNow(-1),
+      photoUrl: null,
+      createdAt: hoursFromNow(-2),
       mine: false,
     },
     {
       id: 'c2',
+      parentId: 'c1',
+      name: 'نسبوط',
+      asNasbot: true,
+      body: 'تمام يا نور. حطينا الجمعة بالليل في التصويت تحت.',
+      photoUrl: null,
+      createdAt: hoursFromNow(-1.5),
+      mine: false,
+    },
+    {
+      id: 'c3',
+      parentId: 'c1',
       name: 'كريم',
-      body: 'الجمعة بالليل تمام. فيه ملعب حلو في المعادي لو حد يعرفه.',
+      asNasbot: false,
+      body: 'وأنا كمان الجمعة. بس المعادي أقرب ليا من التجمع.',
+      photoUrl: null,
+      createdAt: hoursFromNow(-1),
+      mine: false,
+    },
+    {
+      id: 'c4',
+      parentId: null,
+      name: 'كريم',
+      asNasbot: false,
+      body: 'فيه ملعب حلو هنا، ده شكله.',
+      photoUrl: null,
       createdAt: hoursFromNow(-0.5),
       mine: false,
     },
@@ -693,16 +735,54 @@ export async function getYallaComments(callId: string) {
   return demoTalk[callId] ?? []
 }
 
-export async function sayYalla(callId: string, body: string): Promise<'ok'> {
+export async function sayYalla(
+  callId: string,
+  body: string,
+  opts: { parentId?: string | null; photoPath?: string | null; asNasbot?: boolean } = {}
+): Promise<'ok'> {
   const list = demoTalk[callId] ?? (demoTalk[callId] = [])
   list.push({
     id: `c${list.length + 1}`,
-    name: 'إنت',
+    parentId: opts.parentId ?? null,
+    name: opts.asNasbot ? 'نسبوط' : 'إنت',
+    asNasbot: opts.asNasbot === true,
     body,
+    photoUrl: opts.photoPath ? '/placeholder.svg' : null,
     createdAt: new Date().toISOString(),
-    mine: true,
+    mine: !opts.asNasbot,
   })
   return 'ok'
+}
+
+/** اختيارات التصويت — ميعاد ومنطقة، زي الحقيقي بالظبط */
+const demoPoll: Record<
+  string,
+  { optionId: string; at: string; areaLabel: string; note: string | null; votes: number; mine: boolean }[]
+> = {
+  '11111111-1111-1111-1111-111111111111': [
+    // ⚠ الملاحظة لازم تطابق الميعاد — لقطة بتناقض نفسها أسوأ من لقطة مفيش.
+    { optionId: 'o1', at: hoursFromNow(80), areaLabel: 'التجمع', note: null, votes: 3, mine: false },
+    { optionId: 'o2', at: hoursFromNow(104), areaLabel: 'المعادي', note: null, votes: 1, mine: false },
+  ],
+}
+
+export async function getYallaPoll(callId: string) {
+  return demoPoll[callId] ?? []
+}
+
+export async function voteYalla(optionId: string) {
+  for (const list of Object.values(demoPoll)) {
+    const picked = list.find((o) => o.optionId === optionId)
+    if (!picked) continue
+    // صوت واحد بس — زي القاعدة
+    for (const o of list) {
+      if (o.mine) o.votes = Math.max(0, o.votes - 1)
+      o.mine = false
+    }
+    picked.mine = true
+    picked.votes += 1
+  }
+  return true
 }
 
 export async function imInYalla(callId: string) {

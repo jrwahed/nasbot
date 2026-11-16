@@ -366,8 +366,26 @@ function CallCard({
   const [lockArea, setLockArea] = useState('')
   /** كلام الأعضاء — ده اللي بتقرا منه إمتى فاضيين وفين */
   const [talk, setTalk] = useState<
-    { id: string; first_name: string; body_ar: string; created_at: string }[]
+    {
+      id: string
+      parent_id: string | null
+      first_name: string
+      as_nasbot: boolean
+      body_ar: string
+      created_at: string
+    }[]
   >([])
+  /** الرد باسم نسبوط: على مين، وبإيه */
+  const [replyTo, setReplyTo] = useState<string | null>(null)
+  const [replyBody, setReplyBody] = useState('')
+  /** التصويت */
+  const [poll, setPoll] = useState<
+    { option_id: string; starts_at: string; area_label: string; note_ar: string | null; votes: number }[]
+  >([])
+  const [optDay, setOptDay] = useState('')
+  const [optTime, setOptTime] = useState('20:00')
+  const [optArea, setOptArea] = useState('')
+  const [optNote, setOptNote] = useState('')
 
   const label = (k: string) => areaList.find((a) => a.key === k)?.label_ar ?? k
   const slotAt = (id: string | null) => slots.find((s) => s.id === id)?.starts_at ?? null
@@ -375,7 +393,7 @@ function CallCard({
 
   const loadDetail = useCallback(async () => {
     const db = supabase()
-    const [c, p, k] = await Promise.all([
+    const [c, p, k, pl] = await Promise.all([
       // ⚠ `fn_yalla_counts` مش `fn_yalla_top`: التانية **مقفولة على الكل**
       //   (داخلية)، ودي غلاف عليها بصلاحية `sbotat.view`.
       db.rpc('fn_yalla_counts', { p_call: call.id }),
@@ -384,13 +402,25 @@ function CallCard({
       //   اللوحة مش بتشوف أكتر من اللي العضو شايفه هنا، وده كفاية: ده
       //   المكان اللي المالك بيقرا منه «أنا فاضي الجمعة بالليل».
       db.rpc('fn_yalla_comments', { p_call: call.id }),
+      db.rpc('fn_yalla_poll', { p_call: call.id }),
     ])
     setTalk(
       (k.data ?? []) as {
         id: string
+        parent_id: string | null
         first_name: string
+        as_nasbot: boolean
         body_ar: string
         created_at: string
+      }[]
+    )
+    setPoll(
+      (pl.data ?? []) as {
+        option_id: string
+        starts_at: string
+        area_label: string
+        note_ar: string | null
+        votes: number
       }[]
     )
     setCounts(
@@ -438,6 +468,89 @@ function CallCard({
    *   بتنادي **نفس** `fn_yalla_lock` (الدرس الستاشر — مفيش نسخة تانية من
    *   القعدة والتوازن والانتظار).
    */
+  /**
+   * رد باسم نسبوط على كلام عضو.
+   *
+   * ⚠ الحارس في القاعدة (`fn_yalla_say` بترفض `p_as_nasbot` من غير
+   *   `sbotat.edit`) — ده مجرد الزرار. ولو حد شال الزرار من المتصفح
+   *   القاعدة لسه بترفض.
+   */
+  const sayAsNasbot = async (parent: string) => {
+    const text = replyBody.trim()
+    if (!text) return
+    setBusy(true)
+    const { error } = await supabase().rpc('fn_yalla_say', {
+      p_call: call.id,
+      p_body: text,
+      p_parent: parent,
+      p_photo: null,
+      p_as_nasbot: true,
+    })
+    setBusy(false)
+    if (error) return say(error.message)
+    setReplyBody('')
+    setReplyTo(null)
+    say('الرد اتنشر باسم نسبوط ✓')
+    loadDetail()
+  }
+
+  /** امسح أي كلام (بصلاحية `sbotat.edit` — الحارس في القاعدة) */
+  const delSaid = async (id: string) => {
+    setBusy(true)
+    const { error } = await supabase().rpc('fn_yalla_unsay', { p_id: id })
+    setBusy(false)
+    if (error) return say(error.message)
+    loadDetail()
+  }
+
+  /** ضيف اختيار للتصويت — من اللي اتقال في النقاش */
+  const addOption = async () => {
+    if (!optDay) return say('اكتب اليوم')
+    if (!optArea) return say('اختار المنطقة')
+    setBusy(true)
+    const { error } = await supabase().rpc('fn_yalla_poll_add', {
+      p_call: call.id,
+      p_when: cairoToIso(optDay, optTime),
+      p_area: optArea,
+      p_note: optNote.trim() || null,
+    })
+    setBusy(false)
+    if (error) return say(error.message)
+    setOptNote('')
+    say('الاختيار اتضاف ✓')
+    loadDetail()
+  }
+
+  const removeOption = async (id: string) => {
+    setBusy(true)
+    const { error } = await supabase().rpc('fn_yalla_poll_remove', { p_option: id })
+    setBusy(false)
+    if (error) return say(error.message)
+    loadDetail()
+  }
+
+  /**
+   * اقفل على اللي كسب التصويت.
+   *
+   * ⚠ بتنادي `fn_yalla_lock_winner` اللي بتنادي `fn_yalla_lock_post` —
+   *   **مش منسوخة** (الدرس الستاشر). فالقعدة ونص ولاد ونص بنات وقايمة
+   *   الانتظار والإشعارات كلهم زي ما هم بالحرف.
+   */
+  const lockWinner = async () => {
+    setBusy(true)
+    const { data, error } = await supabase().rpc('fn_yalla_lock_winner', { p_call: call.id })
+    setBusy(false)
+    if (error) return say(error.message)
+    const d = (data ?? {}) as { locked?: boolean; seated?: number; wait?: number; votes?: number }
+    say(
+      d.locked
+        ? `اتقفل على الكسبان (${d.votes ?? 0} صوت) — قعدوا ${d.seated ?? 0} واستنوا ${d.wait ?? 0}`
+        : 'اتقفل من غير مجموعة — كل اللي شاركوا وصلهم الخبر ومعاهم أولوية'
+    )
+    reload()
+    loadDetail()
+  }
+
   const lockPost = async () => {
     if (!lockDay) return say('اكتب اليوم')
     if (!lockArea) return say('اختار المنطقة')
@@ -591,28 +704,172 @@ function CallCard({
               والرد بيروح في الهوا. */}
           <div>
             <div className="font-display text-16 font-black">الكلام ({talk.length})</div>
+            <div className="mt-1 font-body text-12" style={{ color: 'var(--muted)' }}>
+              دوس «رد باسم نسبوط» تحت أي كلام علشان ترد عليه من حساب الموقع.
+            </div>
             {talk.length === 0 ? (
               <div className="mt-1 font-body text-14" style={{ color: 'var(--muted)' }}>
                 لسه محدش كتب.
               </div>
             ) : (
-              <div className="mt-2 flex flex-col gap-2">
-                {talk.map((c) => (
+              <div className="mt-2 flex flex-col gap-3">
+                {talk
+                  .filter((c) => !c.parent_id)
+                  .map((root) => (
+                    <div
+                      key={root.id}
+                      className="border-b pb-3 font-body text-14"
+                      style={{ borderColor: 'var(--line)' }}
+                    >
+                      <SaidRow c={root} onDel={delSaid} canEdit={canEdit} busy={busy} />
+
+                      {/* الردود — مستوى واحد، زي الواجهة العامة بالظبط */}
+                      {talk.filter((r) => r.parent_id === root.id).length > 0 && (
+                        <div
+                          className="mt-2 flex flex-col gap-2 ps-3"
+                          style={{ borderInlineStart: '2px solid var(--line)' }}
+                        >
+                          {talk
+                            .filter((r) => r.parent_id === root.id)
+                            .map((r) => (
+                              <SaidRow
+                                key={r.id}
+                                c={r}
+                                onDel={delSaid}
+                                canEdit={canEdit}
+                                busy={busy}
+                              />
+                            ))}
+                        </div>
+                      )}
+
+                      {call.status === 'open' &&
+                        (replyTo === root.id ? (
+                          <div className="mt-2 flex flex-col gap-2">
+                            <textarea
+                              value={replyBody}
+                              onChange={(e) => setReplyBody(e.target.value)}
+                              rows={2}
+                              maxLength={400}
+                              placeholder="رد نسبوط…"
+                              className="w-full rounded-10 p-2 font-body text-14"
+                              style={{
+                                background: 'var(--bg)',
+                                color: 'var(--fg)',
+                                border: '1px solid var(--line)',
+                                resize: 'none',
+                              }}
+                            />
+                            <div className="flex flex-wrap gap-2">
+                              <Btn
+                                kind="primary"
+                                onClick={() => sayAsNasbot(root.id)}
+                                disabled={!canEdit || busy || !replyBody.trim()}
+                              >
+                                انشر باسم نسبوط
+                              </Btn>
+                              <Btn onClick={() => { setReplyTo(null); setReplyBody('') }}>
+                                بطّل
+                              </Btn>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="mt-2">
+                            <Btn
+                              onClick={() => { setReplyTo(root.id); setReplyBody('') }}
+                              disabled={!canEdit}
+                            >
+                              رد باسم نسبوط
+                            </Btn>
+                          </div>
+                        ))}
+                    </div>
+                  ))}
+              </div>
+            )}
+          </div>
+
+          {/* ===== التصويت ===== */}
+          <div>
+            <div className="font-display text-16 font-black">
+              التصويت ({poll.length} اختيار · {poll.reduce((n, o) => n + o.votes, 0)} صوت)
+            </div>
+            <div className="mt-1 font-body text-12" style={{ color: 'var(--muted)' }}>
+              اقرا الكلام فوق، وحوّل اللي اتقال لاختيارات هنا. الناس تصوّت،
+              وانت تقفل على اللي كسب. ⚠ <strong>صوت العضو معناه إنه جاي</strong> —
+              فاللي بيصوّت بيدخل المجموعة لوحده.
+            </div>
+
+            {poll.length > 0 && (
+              <div className="mt-2 flex flex-col gap-1">
+                {poll.map((o) => (
                   <div
-                    key={c.id}
-                    className="border-b pb-2 font-body text-14"
+                    key={o.option_id}
+                    className="flex flex-wrap items-center justify-between gap-2 border-b py-1 font-body text-14"
                     style={{ borderColor: 'var(--line)' }}
                   >
-                    <div className="font-display text-14 font-black">
-                      {c.first_name}{' '}
-                      <span className="font-body text-12" style={{ color: 'var(--muted)' }}>
-                        · {when(c.created_at)}
-                      </span>
-                    </div>
-                    <div className="mt-1">{c.body_ar}</div>
+                    <span>
+                      {when(o.starts_at)} · {o.area_label}
+                      {o.note_ar && (
+                        <span style={{ color: 'var(--muted)' }}> · {o.note_ar}</span>
+                      )}
+                    </span>
+                    <span className="flex items-center gap-2">
+                      <strong className="font-display text-16">{o.votes}</strong>
+                      <Btn
+                        kind="danger"
+                        onClick={() => removeOption(o.option_id)}
+                        disabled={!canEdit || busy}
+                      >
+                        شيل
+                      </Btn>
+                    </span>
                   </div>
                 ))}
               </div>
+            )}
+
+            {call.status === 'open' && (
+              <>
+                <div className="mt-2 flex flex-wrap items-end gap-2">
+                  <Inp label="اليوم" type="date" value={optDay} onChange={setOptDay} />
+                  <Inp label="الساعة" type="time" value={optTime} onChange={setOptTime} />
+                  <label className="flex flex-col gap-1">
+                    <span className="font-body text-12" style={{ color: 'var(--muted)' }}>
+                      المنطقة
+                    </span>
+                    <select
+                      value={optArea}
+                      onChange={(e) => setOptArea(e.target.value)}
+                      className="min-h-[40px] rounded-10 px-2 font-body text-14"
+                      style={{
+                        background: 'var(--bg)',
+                        color: 'var(--fg)',
+                        border: '1px solid var(--line)',
+                      }}
+                    >
+                      <option value="">—</option>
+                      {areaList.map((a) => (
+                        <option key={a.key} value={a.key}>
+                          {a.label_ar}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <Inp label="ملاحظة (اختياري)" value={optNote} onChange={setOptNote} />
+                  <Btn onClick={addOption} disabled={!canEdit || busy}>
+                    ضيف اختيار
+                  </Btn>
+                </div>
+
+                {poll.length > 0 && (
+                  <div className="mt-3">
+                    <Btn kind="primary" onClick={lockWinner} disabled={!canEdit || busy}>
+                      اقفل على اللي كسب
+                    </Btn>
+                  </div>
+                )}
+              </>
             )}
           </div>
 
@@ -854,5 +1111,51 @@ function CallCard({
         </div>
       )}
     </Card>
+  )
+}
+
+/**
+ * سطر كلام في اللوحة — جذر أو رد، نفس الشكل.
+ *
+ * ⚠ وسم «نسبوط» هنا علشان تفرّق بين ردك ورد عضو اسمه نسبوط. والمسح
+ *   بصلاحية `sbotat.edit` — الحارس في القاعدة (`fn_yalla_unsay`).
+ */
+function SaidRow({
+  c,
+  onDel,
+  canEdit,
+  busy,
+}: {
+  c: {
+    id: string
+    first_name: string
+    as_nasbot: boolean
+    body_ar: string
+    created_at: string
+  }
+  onDel: (id: string) => void
+  canEdit: boolean
+  busy: boolean
+}) {
+  return (
+    <div>
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="font-display text-14 font-black">{c.first_name}</span>
+        {c.as_nasbot && <Tag color="#F4632A">نسبوط</Tag>}
+        <span className="font-body text-12" style={{ color: 'var(--muted)' }}>
+          {when(c.created_at)}
+        </span>
+        <button
+          type="button"
+          onClick={() => onDel(c.id)}
+          disabled={!canEdit || busy}
+          className="cursor-pointer border-0 bg-transparent p-0 font-body text-12 underline"
+          style={{ color: 'var(--muted)' }}
+        >
+          امسح
+        </button>
+      </div>
+      <div className="mt-1 font-body text-14">{c.body_ar}</div>
+    </div>
   )
 }
