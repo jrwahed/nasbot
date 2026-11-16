@@ -142,8 +142,37 @@ comment on function fn_yalla_say(uuid, text) is
 revoke execute on function fn_yalla_say(uuid, text) from public, anon;
 grant execute on function fn_yalla_say(uuid, text) to authenticated;
 
+-- 🔴 **تحصين (الدرس التالت).** `0150` عمل توقيع أوسع بـ`default`s، والتوقيع
+--    اللي فوق بيبقى **تاني** جنبه — والنداء بـparameterين يبقى ambiguous.
+--    فلو الجديد موجود، القديم بيتشال فورًا. من غير السطور دي إعادة لزق
+--    `WORK_MIGRATION_65` كانت بتكسر الكتابة كلها.
+do $guard$
+begin
+  if to_regprocedure('fn_yalla_say(uuid,text,uuid,text,boolean)') is not null then
+    execute 'drop function if exists fn_yalla_say(uuid, text)';
+  end if;
+end $guard$;
+
 
 -- ===== 4) القراية =====
+-- 🔴 **تحصين (الدرس التالت).** `0150` زوّد أعمدة في اللي بيرجع، و
+--    `create or replace` **ما بتقدرش تغيّر عدد الأعمدة** — يعني إعادة لزق
+--    الملف ده كانت هتقع بـ«cannot change return type» وتوقف الحزمة كلها.
+--    فلو نسخة `0150` موجودة، القسم ده بيتخطّى نفسه.
+do $guard$
+begin
+  if exists (
+    select 1 from pg_proc p
+      join pg_namespace n on n.oid = p.pronamespace
+      cross join lateral unnest(coalesce(p.proargnames, '{}')) as col
+     where n.nspname = 'public' and p.proname = 'fn_yalla_comments'
+       and col = 'parent_id')
+  then
+    raise notice 'fn_yalla_comments نسخة 0150 موجودة — القسم ده اتخطّى';
+    return;
+  end if;
+
+  execute $f$
 create or replace function fn_yalla_comments(p_call uuid)
 returns table (
   id         uuid,
@@ -156,7 +185,7 @@ language sql
 stable
 security definer
 set search_path = public
-as $$
+as $inner$
   -- 🔴 **للأعضاء المسجّلين بس** (قرار المالك). المجهول بياخد **ولا صف**،
   --    مش استثناء — عشان الصفحة تفضل تفتح للزائر والقسم يختفي بس.
   -- 🔴 **ومفيش `profile_id` في اللي بيرجع** — الاسم الأول وبس. من غير كده
@@ -172,12 +201,14 @@ as $$
      and auth.uid() is not null
      and p.deleted_at is null
    order by c.created_at;
-$$;
+$inner$;
 
 comment on function fn_yalla_comments(uuid) is
   '0147 — كلام نداء «يلا»: الاسم الأول والنص بس، وللأعضاء المسجّلين بس. مفيش profile_id ولا صورة.';
 revoke execute on function fn_yalla_comments(uuid) from public, anon;
 grant execute on function fn_yalla_comments(uuid) to authenticated;
+  $f$;
+end $guard$;
 
 
 -- ===== 5) امسح كلامك =====
